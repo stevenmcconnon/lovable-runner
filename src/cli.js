@@ -74,6 +74,16 @@ const extractProjectId = (createResponse) => {
   return null;
 };
 
+const slugify = (input) => {
+  if (!input) return '';
+  return input
+    .toLowerCase()
+    .replace(/https?:\/\//g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-+/g, '-');
+};
+
 const fetchWithRetry = async (client, projectId, attempts, waitMs) => {
   let lastError;
   for (let i = 1; i <= attempts; i += 1) {
@@ -146,6 +156,79 @@ const handleBootstrap = async (flags) => {
   return projectData;
 };
 
+const handleOneShot = async (flags) => {
+  const {
+    url,
+    token,
+    base,
+    'create-path': createPathFlag,
+    workspace,
+    wait = '10',
+    attempts = '60',
+    bucket,
+    prefix,
+    slug,
+    profile,
+    'skip-install': skipInstall,
+  } = flags;
+
+  if (!url) throw new Error('Missing --url.');
+
+  const resolvedBucket = bucket || process.env.LOVABLE_DEPLOY_BUCKET;
+  if (!resolvedBucket) {
+    throw new Error('Missing bucket. Set LOVABLE_DEPLOY_BUCKET or pass --bucket.');
+  }
+
+  const waitMs = Number(wait) * 1000 || 10000;
+  const maxAttempts = Number(attempts) || 60;
+
+  const client = buildClient(token, base, workspace);
+  const createResponse = await client.createProjectFromUrl(url, {
+    createPath: createPathFlag || process.env.LOVABLE_CREATE_PATH,
+    workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
+  });
+  const projectId = extractProjectId(createResponse);
+
+  if (!projectId) {
+    throw new Error(
+      'Could not determine project id from create response. See output above.'
+    );
+  }
+
+  console.log(`Created project ${projectId}. Waiting for generation...`);
+
+  await fetchWithRetry(client, projectId, maxAttempts, waitMs);
+  console.log(`Project ${projectId} ready. Downloading files...`);
+
+  const { outputDir } = await downloadProjectFiles(client, projectId, {
+    outputDir: path.join(process.cwd(), 'downloads', String(projectId)),
+    zip: false,
+  });
+
+  const slugFromUrl = slugify(url);
+  const finalSlug = slug || slugFromUrl || projectId;
+  const basePrefix = prefix || process.env.LOVABLE_DEPLOY_PREFIX || '';
+  const resolvedPrefix = basePrefix
+    ? `${basePrefix.replace(/\\/$/, '')}/${finalSlug}`
+    : finalSlug;
+
+  const { distPath, target } = await buildAndUpload(outputDir, {
+    bucket: resolvedBucket,
+    prefix: resolvedPrefix,
+    profile,
+    skipInstall: Boolean(skipInstall),
+  });
+
+  const publicUrl = `https://${resolvedBucket}.s3.amazonaws.com/${resolvedPrefix}/`;
+
+  console.log('--- One-shot complete ---');
+  console.log(`Project ID: ${projectId}`);
+  console.log(`Local path: ${outputDir}`);
+  console.log(`Built from: ${distPath}`);
+  console.log(`Uploaded to: ${target}`);
+  console.log(`URL: ${publicUrl}`);
+};
+
 const handleFetch = async (flags) => {
   const { project, out, zip, token, base } = flags;
   if (!project) throw new Error('Missing --project for fetch.');
@@ -211,6 +294,7 @@ const showHelp = () => {
 Commands:
   create --url <sourceUrl> [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>]
   bootstrap --url <sourceUrl> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>] [--wait <seconds>] [--attempts <n>]
+  launch --url <sourceUrl> [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>] [--wait <seconds>] [--attempts <n>] [--bucket <name>] [--prefix <base-prefix>] [--slug <slug>] [--profile <aws-profile>] [--skip-install]
   fetch  --project <projectId> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>]
   publish --project <projectId> [--token <idToken>] [--base <apiBase>] [--publish-path <path>]
   deploy-s3 --bucket <name> [--project-dir <path> | --project-id <id>] [--prefix <path>] [--profile <aws-profile>] [--skip-install]
@@ -221,6 +305,8 @@ Environment:
   LOVABLE_WORKSPACE_ID   workspace id used for create path templating
   LOVABLE_CREATE_PATH    defaults to /workspaces/{workspaceId}/projects
   LOVABLE_PUBLISH_PATH   defaults to /projects/{id}/publish
+  LOVABLE_DEPLOY_BUCKET  default S3 bucket for launch/deploy-s3
+  LOVABLE_DEPLOY_PREFIX  optional base prefix; slug is appended (e.g., "lovable")
 `);
 };
 
@@ -239,6 +325,8 @@ const main = async () => {
       await handleCreate(flags);
     } else if (command === 'bootstrap') {
       await handleBootstrap(flags);
+    } else if (command === 'launch') {
+      await handleOneShot(flags);
     } else if (command === 'fetch') {
       await handleFetch(flags);
     } else if (command === 'publish') {
