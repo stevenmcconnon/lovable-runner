@@ -42,7 +42,7 @@ const parseArgs = (argv) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const buildClient = (tokenOverride, apiBaseOverride) => {
+const buildClient = (tokenOverride, apiBaseOverride, workspaceIdOverride) => {
   const idToken = tokenOverride || process.env.LOVABLE_ID_TOKEN;
   if (!idToken) {
     throw new Error('idToken is required. Set LOVABLE_ID_TOKEN or pass --token.');
@@ -50,15 +50,17 @@ const buildClient = (tokenOverride, apiBaseOverride) => {
   return new LovableClient({
     idToken,
     apiBase: apiBaseOverride || process.env.LOVABLE_API_BASE,
+    workspaceId: workspaceIdOverride || process.env.LOVABLE_WORKSPACE_ID,
   });
 };
 
 const handleCreate = async (flags) => {
-  const { url, token, base, 'create-path': createPathFlag } = flags;
+  const { url, token, base, 'create-path': createPathFlag, workspace } = flags;
   if (!url) throw new Error('Missing --url for create.');
-  const client = buildClient(token, base);
+  const client = buildClient(token, base, workspace);
   const response = await client.createProjectFromUrl(url, {
     createPath: createPathFlag || process.env.LOVABLE_CREATE_PATH,
+    workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
   });
   console.log('Create response:', response);
 };
@@ -92,6 +94,7 @@ const handleBootstrap = async (flags) => {
     token,
     base,
     'create-path': createPathFlag,
+    workspace,
     out,
     zip,
     wait = '5',
@@ -101,9 +104,10 @@ const handleBootstrap = async (flags) => {
   const waitMs = Number(wait) * 1000 || 5000;
   const maxAttempts = Number(attempts) || 10;
 
-  const client = buildClient(token, base);
+  const client = buildClient(token, base, workspace);
   const createResponse = await client.createProjectFromUrl(url, {
     createPath: createPathFlag || process.env.LOVABLE_CREATE_PATH,
+    workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
   });
   const projectId = extractProjectId(createResponse);
 
@@ -160,15 +164,16 @@ const showHelp = () => {
   node src/cli.js <command> [options]
 
 Commands:
-  create --url <sourceUrl> [--token <idToken>] [--base <apiBase>] [--create-path <path>]
-  bootstrap --url <sourceUrl> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--wait <seconds>] [--attempts <n>]
+  create --url <sourceUrl> [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>]
+  bootstrap --url <sourceUrl> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>] [--wait <seconds>] [--attempts <n>]
   fetch  --project <projectId> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>]
   publish --project <projectId> [--token <idToken>] [--base <apiBase>] [--publish-path <path>]
 
 Environment:
   LOVABLE_ID_TOKEN       bearer token (from lovable.dev session)
-  LOVABLE_API_BASE       defaults to https://lovable-api.com
-  LOVABLE_CREATE_PATH    defaults to /projects
+  LOVABLE_API_BASE       defaults to https://api.lovable.dev
+  LOVABLE_WORKSPACE_ID   workspace id used for create path templating
+  LOVABLE_CREATE_PATH    defaults to /workspaces/{workspaceId}/projects
   LOVABLE_PUBLISH_PATH   defaults to /projects/{id}/publish
 `);
 };

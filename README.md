@@ -24,17 +24,20 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 ```
 
 ### Commands (CLI)
-- `bootstrap` – create from a URL (default `https://example.com`), poll until the project is ready, then download the files (supports `--zip`, `--wait`, `--attempts`, `--base`, `--create-path`).
+- `bootstrap` – create from a URL (default `https://example.com`), poll until the project is ready, then download the files (supports `--zip`, `--wait`, `--attempts`, `--base`, `--create-path`, `--workspace`).
 - `fetch` – downloads source code for a project id, writes files to `--out` (default `./downloads/<id>`) and zips if `--zip` is passed (supports `--base`).
-- `create` – posts a source URL to the configured create endpoint to kick off a new/improved project. Returns the Lovable project id (supports `--base`, `--create-path`).
+- `create` – posts a source URL to the configured create endpoint to kick off a new/improved project. Returns the Lovable project id (supports `--base`, `--create-path`, `--workspace`).
 - `publish` – hits the configured publish endpoint for a project id (supports `--base`, `--publish-path`).
 
 Examples:
 ```bash
 # One-shot create + download (default source URL is https://example.com)
 node src/cli.js bootstrap --url https://example.com --zip
-# Explicitly override base/path if your endpoints differ:
-node src/cli.js bootstrap --url https://example.com --zip --base https://lovable-api.com --create-path /v1/projects
+# Explicitly override base/path/workspace (matches what you saw in Network tab):
+node src/cli.js bootstrap --url https://example.com --zip \
+  --base https://api.lovable.dev \
+  --create-path /workspaces/{workspaceId}/projects \
+  --workspace <your-workspace-id>
 
 # Create a project only
 node src/cli.js create --url https://example.com
@@ -47,9 +50,10 @@ node src/cli.js publish --project 1234-abcd
 ```
 
 ### Environment
-- `LOVABLE_API_BASE` – e.g. `https://lovable-api.com`
+- `LOVABLE_API_BASE` – e.g. `https://api.lovable.dev`
 - `LOVABLE_ID_TOKEN` – bearer token (grab from lovable.dev session for now)
-- `LOVABLE_CREATE_PATH` – path for create (default `/projects` – adjust to the real create endpoint)
+- `LOVABLE_WORKSPACE_ID` – workspace id to fill `{workspaceId}` in the create path
+- `LOVABLE_CREATE_PATH` – path for create (default `/workspaces/{workspaceId}/projects` – adjust to the real create endpoint)
 - `LOVABLE_PUBLISH_PATH` – path for publish; supports placeholders like `/projects/{id}/publish`
 
 You can also pass `--token` on the CLI to override `LOVABLE_ID_TOKEN`.

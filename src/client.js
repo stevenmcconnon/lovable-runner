@@ -1,9 +1,11 @@
 const path = require('node:path');
 
 const DEFAULT_API_BASE = process.env.LOVABLE_API_BASE || 'https://lovable-api.com';
-const DEFAULT_CREATE_PATH = process.env.LOVABLE_CREATE_PATH || '/projects';
+const DEFAULT_CREATE_PATH =
+  process.env.LOVABLE_CREATE_PATH || '/workspaces/{workspaceId}/projects';
 const DEFAULT_PUBLISH_PATH =
   process.env.LOVABLE_PUBLISH_PATH || '/projects/{id}/publish';
+const DEFAULT_WORKSPACE_ID = process.env.LOVABLE_WORKSPACE_ID;
 
 const joinUrl = (base, suffix) => {
   const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
@@ -19,13 +21,15 @@ class LovableClient {
    * @param {Object} options
    * @param {string} options.apiBase
    * @param {string} options.idToken
+   * @param {string} [options.workspaceId]
    */
-  constructor({ apiBase = DEFAULT_API_BASE, idToken } = {}) {
+  constructor({ apiBase = DEFAULT_API_BASE, idToken, workspaceId } = {}) {
     if (!idToken) {
       throw new Error('LovableClient requires an idToken (bearer token).');
     }
     this.apiBase = apiBase;
     this.idToken = idToken;
+    this.workspaceId = workspaceId || DEFAULT_WORKSPACE_ID;
   }
 
   async request(pathname, { method = 'GET', body, headers = {} } = {}) {
@@ -63,9 +67,12 @@ class LovableClient {
    * @param {Object} options
    * @param {string} [options.createPath]
    */
-  async createProjectFromUrl(sourceUrl, { createPath } = {}) {
+  async createProjectFromUrl(sourceUrl, { createPath, workspaceId } = {}) {
     if (!sourceUrl) throw new Error('sourceUrl is required.');
-    const endpoint = createPath || DEFAULT_CREATE_PATH;
+    const endpointTemplate = createPath || DEFAULT_CREATE_PATH;
+    const endpoint = replacePathVariables(endpointTemplate, {
+      workspaceId: workspaceId || this.workspaceId || '',
+    });
     const payload = { url: sourceUrl };
     return this.request(endpoint, { method: 'POST', body: payload });
   }
