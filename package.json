@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/cli.js",
+    "serve": "node src/server.js",
     "fetch": "node src/cli.js fetch",
     "create": "node src/cli.js create",
     "publish": "node src/cli.js publish"
