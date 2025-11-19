@@ -5,18 +5,32 @@ const { spawn } = require('node:child_process');
 const ensureDir = (dir) => fs.mkdir(dir, { recursive: true });
 
 const decodeFileContents = (file) => {
+  if (file.contents === undefined || file.contents === null) {
+    return null;
+  }
   if (file.binary) {
     return Buffer.from(file.contents, 'base64');
   }
-  return file.contents ?? '';
+  return file.contents;
 };
 
 const writeFilesToDisk = async (files, outputDir) => {
   await ensureDir(outputDir);
   for (const file of files) {
+    if (file.contents === undefined || file.contents === null) {
+      // Skip entries (likely folders or placeholders) that have no content.
+      // eslint-disable-next-line no-console
+      console.warn(`Skipping empty file entry: ${file.name}`);
+      continue;
+    }
     const target = path.join(outputDir, file.name);
     await ensureDir(path.dirname(target));
     const data = decodeFileContents(file);
+    if (data === null) {
+      // eslint-disable-next-line no-console
+      console.warn(`Skipping file with null data: ${file.name}`);
+      continue;
+    }
     await fs.writeFile(target, data);
   }
 };
