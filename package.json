@@ -1,0 +1,20 @@
+{
+  "name": "lovable-runner",
+  "version": "0.1.0",
+  "description": "Local helper to create/fetch/publish Lovable projects via the REST API.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/cli.js",
+    "fetch": "node src/cli.js fetch",
+    "create": "node src/cli.js create",
+    "publish": "node src/cli.js publish"
+  },
+  "keywords": [
+    "lovable",
+    "cli",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT"
+}
