@@ -18,17 +18,23 @@ cp .env.example .env
 # npm install
 
 # 3) Run
+node src/cli.js bootstrap --url https://example.com --zip
+# or, if you already have a project id:
 node src/cli.js fetch --project <project-id> --out ./output --zip
 ```
 
 ### Commands (CLI)
+- `bootstrap` – create from a URL (default `https://example.com`), poll until the project is ready, then download the files (supports `--zip`, `--wait`, `--attempts`).
 - `fetch` – downloads source code for a project id, writes files to `--out` (default `./downloads/<id>`) and zips if `--zip` is passed.
 - `create` – posts a source URL to the configured create endpoint to kick off a new/improved project. Returns the Lovable project id.
 - `publish` – hits the configured publish endpoint for a project id.
 
 Examples:
 ```bash
-# Create a project from an existing site URL
+# One-shot create + download (default source URL is https://example.com)
+node src/cli.js bootstrap --url https://example.com --zip
+
+# Create a project only
 node src/cli.js create --url https://example.com
 
 # Fetch and zip a project
