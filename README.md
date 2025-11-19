@@ -30,6 +30,7 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `publish` – hits the configured publish endpoint for a project id (supports `--base`, `--publish-path`).
 - `deploy-s3` – runs `npm install`, `npm run build`, then `aws s3 sync` from dist/build to `s3://bucket/prefix` (supports `--project-id` or `--project-dir`, `--bucket`, `--prefix`, `--profile`, `--skip-install`).
 - `launch` – one-shot: create from URL, wait, download, build, and upload to S3. Requires a bucket (via `LOVABLE_DEPLOY_BUCKET` or `--bucket`), optional prefix/slug/profile/skip-install.
+- **REST API** – run `npm run serve`, then POST `/launch` with JSON `{ "url": "...", "bucket": "...", "prefix": "...", "slug": "...", "wait": 10, "attempts": 60 }`. Uses the same defaults/env as `launch`.
 
 Examples:
 ```bash
@@ -49,6 +50,12 @@ node src/cli.js deploy-s3 --project-id <project-id> --bucket <bucket-name> --pre
 
 # One-shot create + build + deploy (uses LOVABLE_DEPLOY_BUCKET)
 node src/cli.js launch --url https://example.com --bucket <bucket-name>
+
+# REST API (one-shot via HTTP)
+npm run serve
+curl -X POST http://localhost:3000/launch \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com","bucket":"<bucket>","prefix":"lovable"}'
 
 # Create a project only
 node src/cli.js create --url https://example.com
