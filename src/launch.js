@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
 const { buildAndUpload } = require('./deploy');
@@ -109,8 +110,10 @@ const runLaunch = async ({
   console.log(`Created project ${projectId}. Waiting for generation...`);
   await fetchWithRetry(client, projectId, maxAttempts, waitMs);
 
+  const baseDownloadDir =
+    process.env.LOVABLE_DOWNLOAD_BASE || path.join(os.tmpdir(), 'downloads');
   const { outputDir } = await downloadProjectFiles(client, projectId, {
-    outputDir: path.join(process.cwd(), 'downloads', String(projectId)),
+    outputDir: path.join(baseDownloadDir, String(projectId)),
     zip: false,
   });
 
