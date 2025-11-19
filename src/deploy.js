@@ -1,6 +1,8 @@
 const fs = require('node:fs');
+const fsp = require('node:fs/promises');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const AWS = require('aws-sdk');
 
 const run = (cmd, args, cwd, opts = {}) =>
   new Promise((resolve, reject) => {
@@ -42,14 +44,39 @@ const buildProject = async (projectDir, { skipInstall } = {}) => {
   return distPath;
 };
 
-const uploadToS3 = async (distPath, { bucket, prefix, profile }) => {
+const listFilesRecursive = async (dir, baseDir = dir) => {
+  const entries = await fsp.readdir(dir, { withFileTypes: true });
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        return listFilesRecursive(fullPath, baseDir);
+      }
+      return [{ fullPath, relativePath: path.relative(baseDir, fullPath) }];
+    })
+  );
+  return files.flat();
+};
+
+const uploadToS3 = async (distPath, { bucket, prefix }) => {
   if (!bucket) throw new Error('S3 bucket is required.');
-  const target = prefix ? `s3://${bucket}/${prefix}` : `s3://${bucket}`;
-  const args = ['s3', 'sync', distPath, target];
-  if (profile) {
-    args.push('--profile', profile);
+  const s3 = new AWS.S3();
+  const files = await listFilesRecursive(distPath, distPath);
+  const targetPrefix = prefix ? prefix.replace(/\/$/, '') : '';
+
+  for (const file of files) {
+    const key = targetPrefix ? `${targetPrefix}/${file.relativePath}` : file.relativePath;
+    const body = await fsp.readFile(file.fullPath);
+    await s3
+      .putObject({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+      })
+      .promise();
   }
-  await run('aws', args, distPath);
+
+  const target = targetPrefix ? `s3://${bucket}/${targetPrefix}` : `s3://${bucket}`;
   return target;
 };
 
