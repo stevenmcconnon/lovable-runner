@@ -42,20 +42,23 @@ const parseArgs = (argv) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const buildClient = (tokenOverride) => {
+const buildClient = (tokenOverride, apiBaseOverride) => {
   const idToken = tokenOverride || process.env.LOVABLE_ID_TOKEN;
   if (!idToken) {
     throw new Error('idToken is required. Set LOVABLE_ID_TOKEN or pass --token.');
   }
-  return new LovableClient({ idToken });
+  return new LovableClient({
+    idToken,
+    apiBase: apiBaseOverride || process.env.LOVABLE_API_BASE,
+  });
 };
 
 const handleCreate = async (flags) => {
-  const { url, token } = flags;
+  const { url, token, base, 'create-path': createPathFlag } = flags;
   if (!url) throw new Error('Missing --url for create.');
-  const client = buildClient(token);
+  const client = buildClient(token, base);
   const response = await client.createProjectFromUrl(url, {
-    createPath: process.env.LOVABLE_CREATE_PATH,
+    createPath: createPathFlag || process.env.LOVABLE_CREATE_PATH,
   });
   console.log('Create response:', response);
 };
@@ -87,6 +90,8 @@ const handleBootstrap = async (flags) => {
   const {
     url = 'https://example.com',
     token,
+    base,
+    'create-path': createPathFlag,
     out,
     zip,
     wait = '5',
@@ -96,9 +101,9 @@ const handleBootstrap = async (flags) => {
   const waitMs = Number(wait) * 1000 || 5000;
   const maxAttempts = Number(attempts) || 10;
 
-  const client = buildClient(token);
+  const client = buildClient(token, base);
   const createResponse = await client.createProjectFromUrl(url, {
-    createPath: process.env.LOVABLE_CREATE_PATH,
+    createPath: createPathFlag || process.env.LOVABLE_CREATE_PATH,
   });
   const projectId = extractProjectId(createResponse);
 
@@ -129,9 +134,9 @@ const handleBootstrap = async (flags) => {
 };
 
 const handleFetch = async (flags) => {
-  const { project, out, zip, token } = flags;
+  const { project, out, zip, token, base } = flags;
   if (!project) throw new Error('Missing --project for fetch.');
-  const client = buildClient(token);
+  const client = buildClient(token, base);
   const { outputDir, zipPath } = await downloadProjectFiles(client, project, {
     outputDir: out,
     zip: Boolean(zip),
@@ -141,11 +146,11 @@ const handleFetch = async (flags) => {
 };
 
 const handlePublish = async (flags) => {
-  const { project, token } = flags;
+  const { project, token, base, 'publish-path': publishPathFlag } = flags;
   if (!project) throw new Error('Missing --project for publish.');
-  const client = buildClient(token);
+  const client = buildClient(token, base);
   const response = await client.publishProject(project, {}, {
-    publishPath: process.env.LOVABLE_PUBLISH_PATH,
+    publishPath: publishPathFlag || process.env.LOVABLE_PUBLISH_PATH,
   });
   console.log('Publish response:', response);
 };
@@ -155,10 +160,10 @@ const showHelp = () => {
   node src/cli.js <command> [options]
 
 Commands:
-  create --url <sourceUrl> [--token <idToken>]
-  bootstrap --url <sourceUrl> [--out <dir>] [--zip] [--token <idToken>] [--wait <seconds>] [--attempts <n>]
-  fetch  --project <projectId> [--out <dir>] [--zip] [--token <idToken>]
-  publish --project <projectId> [--token <idToken>]
+  create --url <sourceUrl> [--token <idToken>] [--base <apiBase>] [--create-path <path>]
+  bootstrap --url <sourceUrl> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--wait <seconds>] [--attempts <n>]
+  fetch  --project <projectId> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>]
+  publish --project <projectId> [--token <idToken>] [--base <apiBase>] [--publish-path <path>]
 
 Environment:
   LOVABLE_ID_TOKEN       bearer token (from lovable.dev session)

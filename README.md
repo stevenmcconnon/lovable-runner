@@ -24,15 +24,17 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 ```
 
 ### Commands (CLI)
-- `bootstrap` – create from a URL (default `https://example.com`), poll until the project is ready, then download the files (supports `--zip`, `--wait`, `--attempts`).
-- `fetch` – downloads source code for a project id, writes files to `--out` (default `./downloads/<id>`) and zips if `--zip` is passed.
-- `create` – posts a source URL to the configured create endpoint to kick off a new/improved project. Returns the Lovable project id.
-- `publish` – hits the configured publish endpoint for a project id.
+- `bootstrap` – create from a URL (default `https://example.com`), poll until the project is ready, then download the files (supports `--zip`, `--wait`, `--attempts`, `--base`, `--create-path`).
+- `fetch` – downloads source code for a project id, writes files to `--out` (default `./downloads/<id>`) and zips if `--zip` is passed (supports `--base`).
+- `create` – posts a source URL to the configured create endpoint to kick off a new/improved project. Returns the Lovable project id (supports `--base`, `--create-path`).
+- `publish` – hits the configured publish endpoint for a project id (supports `--base`, `--publish-path`).
 
 Examples:
 ```bash
 # One-shot create + download (default source URL is https://example.com)
 node src/cli.js bootstrap --url https://example.com --zip
+# Explicitly override base/path if your endpoints differ:
+node src/cli.js bootstrap --url https://example.com --zip --base https://lovable-api.com --create-path /v1/projects
 
 # Create a project only
 node src/cli.js create --url https://example.com
