@@ -209,7 +209,7 @@ const handleOneShot = async (flags) => {
   const finalSlug = slug || slugFromUrl || projectId;
   const basePrefix = prefix || process.env.LOVABLE_DEPLOY_PREFIX || '';
   const resolvedPrefix = basePrefix
-    ? `${basePrefix.replace(/\\/$/, '')}/${finalSlug}`
+    ? `${basePrefix.replace(/\/$/, '')}/${finalSlug}`
     : finalSlug;
 
   const { distPath, target } = await buildAndUpload(outputDir, {
