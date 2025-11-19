@@ -2,9 +2,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 
-const run = (cmd, args, cwd) =>
+const run = (cmd, args, cwd, opts = {}) =>
   new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, stdio: 'inherit' });
+    const child = spawn(cmd, args, {
+      cwd,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        HOME: '/tmp',
+        npm_config_cache: '/tmp/.npm-cache',
+        npm_config_tmp: '/tmp/.npm-tmp',
+        ...opts.env,
+      },
+    });
     child.on('exit', (code) => {
       if (code === 0) resolve();
       else reject(new Error(`${cmd} ${args.join(' ')} failed with code ${code}`));
