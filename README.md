@@ -33,6 +33,8 @@ Examples:
 ```bash
 # One-shot create + download (default source URL is https://example.com)
 node src/cli.js bootstrap --url https://example.com --zip
+# Increase polling window if generation is slow:
+node src/cli.js bootstrap --url https://example.com --zip --wait 10 --attempts 30
 # Explicitly override base/path/workspace (matches what you saw in Network tab):
 node src/cli.js bootstrap --url https://example.com --zip \
   --base https://api.lovable.dev \

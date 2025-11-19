@@ -80,8 +80,16 @@ const fetchWithRetry = async (client, projectId, attempts, waitMs) => {
       return await client.fetchSourceCode(projectId);
     } catch (error) {
       lastError = error;
-      const retryable = error?.status === 404 || error?.status === 400;
+      const retryable =
+        error?.status === 404 ||
+        error?.status === 400 ||
+        error?.status === 500;
       if (!retryable || i === attempts) throw error;
+      console.log(
+        `Source not ready (attempt ${i}/${attempts}, status ${error?.status}). Retrying in ${
+          waitMs / 1000
+        }s...`
+      );
       await sleep(waitMs);
     }
   }
