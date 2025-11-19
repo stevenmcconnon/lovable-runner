@@ -28,6 +28,7 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `fetch` – downloads source code for a project id, writes files to `--out` (default `./downloads/<id>`) and zips if `--zip` is passed (supports `--base`).
 - `create` – posts a source URL to the configured create endpoint to kick off a new/improved project. Returns the Lovable project id (supports `--base`, `--create-path`, `--workspace`).
 - `publish` – hits the configured publish endpoint for a project id (supports `--base`, `--publish-path`).
+- `deploy-s3` – runs `npm install`, `npm run build`, then `aws s3 sync` from dist/build to `s3://bucket/prefix` (supports `--project-id` or `--project-dir`, `--bucket`, `--prefix`, `--profile`, `--skip-install`).
 
 Examples:
 ```bash
@@ -40,6 +41,10 @@ node src/cli.js bootstrap --url https://example.com --zip \
   --base https://api.lovable.dev \
   --create-path /workspaces/{workspaceId}/projects \
   --workspace <your-workspace-id>
+
+# Build and deploy the generated project to S3
+# (requires aws cli configured; defaults to downloads/<project-id>)
+node src/cli.js deploy-s3 --project-id <project-id> --bucket <bucket-name> --prefix lovable/<project-id>
 
 # Create a project only
 node src/cli.js create --url https://example.com

@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
+const { buildAndUpload } = require('./deploy');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -167,6 +168,42 @@ const handlePublish = async (flags) => {
   console.log('Publish response:', response);
 };
 
+const handleDeployS3 = async (flags) => {
+  const {
+    bucket,
+    prefix,
+    profile,
+    'project-dir': projectDirFlag,
+    'project-id': projectIdFlag,
+    'skip-install': skipInstall,
+  } = flags;
+
+  if (!bucket) throw new Error('Missing --bucket for S3 deploy.');
+
+  const projectDir =
+    projectDirFlag ||
+    (projectIdFlag
+      ? path.join(process.cwd(), 'downloads', projectIdFlag)
+      : null);
+
+  if (!projectDir) {
+    throw new Error('Provide --project-dir or --project-id (uses downloads/<id>).');
+  }
+
+  const resolvedPrefix = prefix || path.basename(projectDir);
+
+  const { distPath, target } = await buildAndUpload(projectDir, {
+    bucket,
+    prefix: resolvedPrefix,
+    profile,
+    skipInstall: Boolean(skipInstall),
+  });
+
+  console.log(`Built from: ${projectDir}`);
+  console.log(`Dist folder: ${distPath}`);
+  console.log(`Uploaded to: ${target}`);
+};
+
 const showHelp = () => {
   console.log(`Usage:
   node src/cli.js <command> [options]
@@ -176,6 +213,7 @@ Commands:
   bootstrap --url <sourceUrl> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>] [--wait <seconds>] [--attempts <n>]
   fetch  --project <projectId> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>]
   publish --project <projectId> [--token <idToken>] [--base <apiBase>] [--publish-path <path>]
+  deploy-s3 --bucket <name> [--project-dir <path> | --project-id <id>] [--prefix <path>] [--profile <aws-profile>] [--skip-install]
 
 Environment:
   LOVABLE_ID_TOKEN       bearer token (from lovable.dev session)
@@ -205,6 +243,8 @@ const main = async () => {
       await handleFetch(flags);
     } else if (command === 'publish') {
       await handlePublish(flags);
+    } else if (command === 'deploy-s3') {
+      await handleDeployS3(flags);
     } else {
       showHelp();
       process.exitCode = 1;
