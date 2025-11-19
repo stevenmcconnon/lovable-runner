@@ -1,6 +1,27 @@
 #!/usr/bin/env node
+const fs = require('node:fs');
+const path = require('node:path');
 const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
+
+const loadDotEnvIfPresent = () => {
+  const envPath = path.join(process.cwd(), '.env');
+  if (!fs.existsSync(envPath)) return;
+  const text = fs.readFileSync(envPath, 'utf8');
+  text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .forEach((line) => {
+      const idx = line.indexOf('=');
+      if (idx === -1) return;
+      const key = line.slice(0, idx).trim();
+      const value = line.slice(idx + 1).trim();
+      if (key && !(key in process.env)) {
+        process.env[key] = value;
+      }
+    });
+};
 
 const parseArgs = (argv) => {
   const args = {};
@@ -148,6 +169,7 @@ Environment:
 };
 
 const main = async () => {
+  loadDotEnvIfPresent();
   const [, , command, ...rest] = process.argv;
   const flags = parseArgs(rest);
 

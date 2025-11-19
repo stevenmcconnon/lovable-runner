@@ -17,7 +17,7 @@ cp .env.example .env
 # 2) (optional) install deps if you add any later; none are required now
 # npm install
 
-# 3) Run
+# 3) Run (the CLI auto-loads `.env` from the project root)
 node src/cli.js bootstrap --url https://example.com --zip
 # or, if you already have a project id:
 node src/cli.js fetch --project <project-id> --out ./output --zip
