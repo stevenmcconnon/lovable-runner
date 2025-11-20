@@ -74,16 +74,6 @@ const extractProjectId = (createResponse) => {
   return null;
 };
 
-const slugify = (input) => {
-  if (!input) return '';
-  return input
-    .toLowerCase()
-    .replace(/https?:\/\//g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-+/g, '-');
-};
-
 const fetchWithRetry = async (client, projectId, attempts, waitMs) => {
   let lastError;
   for (let i = 1; i <= attempts; i += 1) {
@@ -149,6 +139,7 @@ const handleBootstrap = async (flags) => {
   const { outputDir, zipPath } = await downloadProjectFiles(client, projectId, {
     outputDir: out,
     zip: Boolean(zip),
+    projectData,
   });
   console.log(`Files written to: ${outputDir}`);
   if (zipPath) console.log(`Zip created at: ${zipPath}`);

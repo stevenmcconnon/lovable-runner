@@ -1,4 +1,22 @@
 const path = require('node:path');
+const crypto = require('node:crypto');
+
+const randomId = (prefix) => {
+  const suffix = crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Date.now().toString(36);
+  return `${prefix}_${suffix}`;
+};
+
+const buildPromptFromUrl = (sourceUrl) => {
+  try {
+    const parsed = new URL(sourceUrl);
+    const host = parsed.hostname.replace(/^www\./i, '');
+    const root = host.split('.').slice(0, -1).join(' ');
+    const businessName = root ? root.replace(/[-_]/g, ' ').replace(/\s+/g, ' ') : host;
+    return `Rebuild the website for ${businessName || host} using ${sourceUrl} as the reference. Produce a modern, responsive landing page with clear hero messaging, services, testimonials, and a strong call-to-action.`;
+  } catch {
+    return `Rebuild the referenced website at ${sourceUrl} with a modern responsive design, refreshed copy, and fast performance.`;
+  }
+};
 
 const DEFAULT_API_BASE = process.env.LOVABLE_API_BASE || 'https://lovable-api.com';
 const DEFAULT_CREATE_PATH =
@@ -67,13 +85,27 @@ class LovableClient {
    * @param {Object} options
    * @param {string} [options.createPath]
    */
-  async createProjectFromUrl(sourceUrl, { createPath, workspaceId } = {}) {
+  async createProjectFromUrl(sourceUrl, { createPath, workspaceId, prompt } = {}) {
     if (!sourceUrl) throw new Error('sourceUrl is required.');
     const endpointTemplate = createPath || DEFAULT_CREATE_PATH;
     const endpoint = replacePathVariables(endpointTemplate, {
       workspaceId: workspaceId || this.workspaceId || '',
     });
-    const payload = { url: sourceUrl };
+    const promptText = prompt || buildPromptFromUrl(sourceUrl);
+    const initialMessage = {
+      id: randomId('umsg'),
+      message: `${promptText}\nReference: ${sourceUrl}`,
+      files: [],
+      optimisticImageUrls: [],
+      chat_only: false,
+      agent_mode_enabled: false,
+      ai_message_id: randomId('aimsg'),
+    };
+    const payload = {
+      description: promptText,
+      visibility: 'private',
+      initial_message: initialMessage,
+    };
     return this.request(endpoint, { method: 'POST', body: payload });
   }
 
