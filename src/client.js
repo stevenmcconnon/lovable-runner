@@ -102,6 +102,7 @@ class LovableClient {
       ai_message_id: randomId('aimsg'),
     };
     const payload = {
+      url: sourceUrl,
       description: promptText,
       visibility: 'private',
       initial_message: initialMessage,

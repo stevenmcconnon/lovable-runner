@@ -59,11 +59,17 @@ const handleCreate = async (flags) => {
   const { url, token, base, 'create-path': createPathFlag, workspace } = flags;
   if (!url) throw new Error('Missing --url for create.');
   const client = buildClient(token, base, workspace);
-  const response = await client.createProjectFromUrl(url, {
-    createPath: createPathFlag || process.env.LOVABLE_CREATE_PATH,
-    workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
-  });
-  console.log('Create response:', response);
+  try {
+    const response = await client.createProjectFromUrl(url, {
+      createPath: createPathFlag || process.env.LOVABLE_CREATE_PATH,
+      workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
+    });
+    console.log('Create response:', response);
+  } catch (error) {
+    console.error(error.message);
+    if (error.body) console.error('Response body:', error.body);
+    throw error;
+  }
 };
 
 const extractProjectId = (createResponse) => {

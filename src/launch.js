@@ -154,10 +154,17 @@ const runLaunch = async ({
     workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
   });
 
-  const createResponse = await client.createProjectFromUrl(url, {
-    createPath: createPath || process.env.LOVABLE_CREATE_PATH,
-    workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
-  });
+  let createResponse;
+  try {
+    createResponse = await client.createProjectFromUrl(url, {
+      createPath: createPath || process.env.LOVABLE_CREATE_PATH,
+      workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
+    });
+  } catch (error) {
+    console.error('Lovable create failed:', error.message);
+    if (error.body) console.error('Response body:', error.body);
+    throw error;
+  }
 
   const projectId = extractProjectId(createResponse);
   if (!projectId) {
