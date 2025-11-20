@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const AWS = require('aws-sdk');
 const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
 const { buildAndUpload } = require('./deploy');
@@ -29,9 +30,22 @@ const slugify = (input) => {
   return input
     .toLowerCase()
     .replace(/https?:\/\//g, '')
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^a-z0-9-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .replace(/-+/g, '-');
+};
+
+const PLACEHOLDER_PATTERNS = [
+  /Welcome to Your Blank App/i,
+  /Start building your amazing project here/i,
+];
+
+const containsPlaceholderContent = (projectData) => {
+  if (!projectData?.files || !projectData.files.length) return true;
+  return projectData.files.some((file) => {
+    if (!file || typeof file.contents !== 'string') return false;
+    return PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(file.contents));
+  });
 };
 
 const extractProjectId = (createResponse) => {
@@ -48,7 +62,19 @@ const fetchWithRetry = async (client, projectId, attempts, waitMs) => {
   let lastError;
   for (let i = 1; i <= attempts; i += 1) {
     try {
-      return await client.fetchSourceCode(projectId);
+      const data = await client.fetchSourceCode(projectId);
+      if (containsPlaceholderContent(data)) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `Project content placeholder detected (attempt ${i}/${attempts}). Waiting ${waitMs / 1000}s...`
+        );
+        if (i === attempts) {
+          return data;
+        }
+        await sleep(waitMs);
+        continue;
+      }
+      return data;
     } catch (error) {
       lastError = error;
       const retryable =
@@ -64,6 +90,38 @@ const fetchWithRetry = async (client, projectId, attempts, waitMs) => {
     }
   }
   throw lastError;
+};
+
+const ensureUniqueSlug = async ({ bucket, basePrefix, slugCandidate }) => {
+  const s3 = new AWS.S3();
+  const sanitizedBase = slugCandidate && slugCandidate.length ? slugCandidate : 'site';
+  let attempt = 0;
+
+  const buildPrefixPath = (slugValue) => {
+    if (!slugValue) return '';
+    return basePrefix
+      ? `${basePrefix.replace(/\/$/, '')}/${slugValue}`
+      : slugValue;
+  };
+
+  while (attempt < 20) {
+    const candidate = attempt === 0 ? sanitizedBase : `${sanitizedBase}-${attempt}`;
+    const prefixPath = buildPrefixPath(candidate);
+    const existing = await s3
+      .listObjectsV2({
+        Bucket: bucket,
+        Prefix: `${prefixPath}/`,
+        MaxKeys: 1,
+      })
+      .promise();
+    if (!existing.Contents || existing.Contents.length === 0) {
+      return { slug: candidate, prefixPath };
+    }
+    attempt += 1;
+  }
+
+  const fallback = `${sanitizedBase}-${Date.now()}`;
+  return { slug: fallback, prefixPath: buildPrefixPath(fallback) };
 };
 
 const runLaunch = async ({
@@ -108,21 +166,24 @@ const runLaunch = async ({
 
   // eslint-disable-next-line no-console
   console.log(`Created project ${projectId}. Waiting for generation...`);
-  await fetchWithRetry(client, projectId, maxAttempts, waitMs);
+  const projectData = await fetchWithRetry(client, projectId, maxAttempts, waitMs);
 
   const baseDownloadDir =
     process.env.LOVABLE_DOWNLOAD_BASE || path.join(os.tmpdir(), 'downloads');
   const { outputDir } = await downloadProjectFiles(client, projectId, {
     outputDir: path.join(baseDownloadDir, String(projectId)),
     zip: false,
+    projectData,
   });
 
   const slugFromUrl = slugify(url);
-  const finalSlug = slug || slugFromUrl || projectId;
   const basePrefix = prefix || process.env.LOVABLE_DEPLOY_PREFIX || '';
-  const resolvedPrefix = basePrefix
-    ? `${basePrefix.replace(/\/$/, '')}/${finalSlug}`
-    : finalSlug;
+  const desiredSlug = slugify(slug || slugFromUrl) || slugify(projectId) || projectId;
+  const { slug: finalSlug, prefixPath: resolvedPrefix } = await ensureUniqueSlug({
+    bucket: resolvedBucket,
+    basePrefix,
+    slugCandidate: desiredSlug,
+  });
 
   const { distPath, target } = await buildAndUpload(outputDir, {
     bucket: resolvedBucket,
@@ -139,6 +200,7 @@ const runLaunch = async ({
     distPath,
     target,
     publicUrl,
+    slug: finalSlug,
   };
 };
 

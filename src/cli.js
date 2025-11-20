@@ -174,59 +174,31 @@ const handleOneShot = async (flags) => {
 
   if (!url) throw new Error('Missing --url.');
 
-  const resolvedBucket = bucket || process.env.LOVABLE_DEPLOY_BUCKET;
-  if (!resolvedBucket) {
+  if (!bucket && !process.env.LOVABLE_DEPLOY_BUCKET) {
     throw new Error('Missing bucket. Set LOVABLE_DEPLOY_BUCKET or pass --bucket.');
   }
 
-  const waitMs = Number(wait) * 1000 || 10000;
-  const maxAttempts = Number(attempts) || 60;
-
-  const client = buildClient(token, base, workspace);
-  const createResponse = await client.createProjectFromUrl(url, {
-    createPath: createPathFlag || process.env.LOVABLE_CREATE_PATH,
-    workspaceId: workspace || process.env.LOVABLE_WORKSPACE_ID,
-  });
-  const projectId = extractProjectId(createResponse);
-
-  if (!projectId) {
-    throw new Error(
-      'Could not determine project id from create response. See output above.'
-    );
-  }
-
-  console.log(`Created project ${projectId}. Waiting for generation...`);
-
-  await fetchWithRetry(client, projectId, maxAttempts, waitMs);
-  console.log(`Project ${projectId} ready. Downloading files...`);
-
-  const { outputDir } = await downloadProjectFiles(client, projectId, {
-    outputDir: path.join(process.cwd(), 'downloads', String(projectId)),
-    zip: false,
-  });
-
-  const slugFromUrl = slugify(url);
-  const finalSlug = slug || slugFromUrl || projectId;
-  const basePrefix = prefix || process.env.LOVABLE_DEPLOY_PREFIX || '';
-  const resolvedPrefix = basePrefix
-    ? `${basePrefix.replace(/\/$/, '')}/${finalSlug}`
-    : finalSlug;
-
-  const { distPath, target } = await buildAndUpload(outputDir, {
-    bucket: resolvedBucket,
-    prefix: resolvedPrefix,
+  const result = await runLaunch({
+    url,
+    token,
+    base,
+    createPath: createPathFlag,
+    workspace,
+    waitSeconds: wait,
+    attempts,
+    bucket,
+    prefix,
+    slug,
     profile,
-    skipInstall: Boolean(skipInstall),
+    skipInstall,
   });
-
-  const publicUrl = `https://${resolvedBucket}.s3.amazonaws.com/${resolvedPrefix}/`;
 
   console.log('--- One-shot complete ---');
-  console.log(`Project ID: ${projectId}`);
-  console.log(`Local path: ${outputDir}`);
-  console.log(`Built from: ${distPath}`);
-  console.log(`Uploaded to: ${target}`);
-  console.log(`URL: ${publicUrl}`);
+  console.log(`Project ID: ${result.projectId}`);
+  console.log(`Local path: ${result.outputDir}`);
+  console.log(`Built from: ${result.distPath}`);
+  console.log(`Uploaded to: ${result.target}`);
+  console.log(`URL: ${result.publicUrl}`);
 };
 
 const handleFetch = async (flags) => {

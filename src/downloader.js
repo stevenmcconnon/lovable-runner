@@ -44,8 +44,12 @@ const zipDirectory = (dir, zipPath) =>
     });
   });
 
-const downloadProjectFiles = async (client, projectId, { outputDir, zip } = {}) => {
-  const projectData = await client.fetchSourceCode(projectId);
+const downloadProjectFiles = async (
+  client,
+  projectId,
+  { outputDir, zip, projectData: prefetchedData } = {}
+) => {
+  const projectData = prefetchedData || (await client.fetchSourceCode(projectId));
   const files = projectData?.files || [];
   if (!files.length) {
     throw new Error(`No files returned for project ${projectId}`);
