@@ -44,6 +44,10 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 - Request an ACM certificate in `us-east-1` that covers your API host (e.g., `api.ai-sitemaker.com`). Validate it in Route 53.
 - Deploy the SAM stack with `ApiCustomDomainName` and `ApiCertificateArn` parameters filled in. API Gateway will attach the custom domain to the HTTP API.
 - Point `api.ai-sitemaker.com` (or whichever host you chose) to the API Gateway domain using an ALIAS/CNAME record. After propagation, all requests use `https://api.ai-sitemaker.com/...`.
+- Helper scripts (no more than one parameter each):
+  - `scripts/request-cert.sh <domain>` – requests/validates an ACM certificate in `us-east-1`.
+  - `scripts/deploy-sam.sh` – deploys the SAM stack (configure env vars inside the script).
+  - `scripts/create-api-alias.sh <hosted-zone-id>` – creates/updates the Route 53 alias once `API_DOMAIN_NAME` is exported.
 
 #### Admin UI at `/admin`
 - Let Lovable host your customer-facing site and add an `/admin` route (or create a separate project). The admin app should authenticate via the Cognito Hosted UI belonging to the user pool created by the SAM stack.
