@@ -39,6 +39,16 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `GET /updates?projectId=<id>` – list stored drafts for a given project.
 
 Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, DynamoDB table, and the Lambda function wired to all routes.
+
+#### Custom domain & DNS
+- Request an ACM certificate in `us-east-1` that covers your API host (e.g., `api.ai-sitemaker.com`). Validate it in Route 53.
+- Deploy the SAM stack with `ApiCustomDomainName` and `ApiCertificateArn` parameters filled in. API Gateway will attach the custom domain to the HTTP API.
+- Point `api.ai-sitemaker.com` (or whichever host you chose) to the API Gateway domain using an ALIAS/CNAME record. After propagation, all requests use `https://api.ai-sitemaker.com/...`.
+
+#### Admin UI at `/admin`
+- Let Lovable host your customer-facing site and add an `/admin` route (or create a separate project). The admin app should authenticate via the Cognito Hosted UI belonging to the user pool created by the SAM stack.
+- After login, send the Cognito ID token in the `Authorization: Bearer <token>` header to `https://api.ai-sitemaker.com`. Users in the `admin` or `super-admin` groups can call `/update` and `/approve-update`; regular `user` group members can be limited to read-only endpoints (e.g., `GET /updates`).
+- Because the backend holds the Lovable credentials, no token ever needs to be exposed to the frontend.
 - **REST API** – run `npm run serve`, then POST `/launch` with JSON `{ "url": "...", "bucket": "...", "prefix": "...", "slug": "...", "wait": 10, "attempts": 60 }`. Uses the same defaults/env as `launch`.
 
 Examples:

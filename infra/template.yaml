@@ -18,12 +18,31 @@ Parameters:
     Type: String
     Default: lovable
     Description: Base prefix for live sites (each slug is appended)
+  ApiCustomDomainName:
+    Type: String
+    Default: ''
+    Description: Optional custom domain (e.g., api.ai-sitemaker.com). Leave blank to skip.
+  ApiCertificateArn:
+    Type: String
+    Default: ''
+    Description: ACM certificate ARN for the custom domain (us-east-1). Required when ApiCustomDomainName is set.
+
+Conditions:
+  HasCustomDomain: !And
+    - !Not [!Equals [!Ref ApiCustomDomainName, '']]
+    - !Not [!Equals [!Ref ApiCertificateArn, '']]
 
 Resources:
   RunnerApi:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: prod
+      Domain: !If
+        - HasCustomDomain
+        - DomainName: !Ref ApiCustomDomainName
+          CertificateArn: !Ref ApiCertificateArn
+          EndpointConfiguration: REGIONAL
+        - !Ref AWS::NoValue
       Auth:
         Authorizers:
           CognitoAuthorizer:
@@ -149,6 +168,10 @@ Outputs:
   ApiEndpoint:
     Description: HTTP API endpoint
     Value: !Sub https://${RunnerApi}.execute-api.${AWS::Region}.amazonaws.com
+  ApiCustomDomain:
+    Condition: HasCustomDomain
+    Description: Custom API domain (if configured)
+    Value: !Ref ApiCustomDomainName
   UserPoolId:
     Description: Cognito user pool id
     Value: !Ref UserPool
