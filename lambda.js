@@ -20,6 +20,7 @@ exports.handler = async (event) => {
       slug: parsedBody.slug,
       profile: parsedBody.profile,
       skipInstall: parsedBody.skipInstall,
+      placeholderLimit: parsedBody.placeholderLimit || process.env.LOVABLE_PLACEHOLDER_LIMIT,
     });
 
     return {

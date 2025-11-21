@@ -82,6 +82,7 @@ node src/cli.js publish --project 1234-abcd
 - `LOVABLE_PUBLISH_PATH` – path for publish; supports placeholders like `/projects/{id}/publish`
 - `LOVABLE_DEPLOY_BUCKET` – default bucket for `launch`/`deploy-s3`
 - `LOVABLE_DEPLOY_PREFIX` – optional base prefix appended before slug (e.g., `lovable`)
+- `LOVABLE_PLACEHOLDER_LIMIT` – max placeholder polling attempts before continuing anyway (defaults to 30; set to `0` to disable the limit)
 
 You can also pass `--token` on the CLI to override `LOVABLE_ID_TOKEN`.
 

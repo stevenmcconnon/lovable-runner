@@ -5,6 +5,7 @@ const AWS = require('aws-sdk');
 const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
 const { buildAndUpload } = require('./deploy');
+const { waitForProjectReady } = require('./project-readiness');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -35,61 +36,12 @@ const slugify = (input) => {
     .replace(/-+/g, '-');
 };
 
-const PLACEHOLDER_PATTERNS = [
-  /Welcome to Your Blank App/i,
-  /Start building your amazing project here/i,
-];
-
-const containsPlaceholderContent = (projectData) => {
-  if (!projectData?.files || !projectData.files.length) return true;
-  return projectData.files.some((file) => {
-    if (!file || typeof file.contents !== 'string') return false;
-    return PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(file.contents));
-  });
-};
-
 const extractProjectId = (createResponse) => {
   if (!createResponse) return null;
   if (createResponse.id) return createResponse.id;
   if (createResponse.projectId) return createResponse.projectId;
   if (createResponse.project?.id) return createResponse.project.id;
   return null;
-};
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const fetchWithRetry = async (client, projectId, attempts, waitMs) => {
-  let lastError;
-  for (let i = 1; i <= attempts; i += 1) {
-    try {
-      const data = await client.fetchSourceCode(projectId);
-      if (containsPlaceholderContent(data)) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `Project content placeholder detected (attempt ${i}/${attempts}). Waiting ${waitMs / 1000}s...`
-        );
-        if (i === attempts) {
-          return data;
-        }
-        await sleep(waitMs);
-        continue;
-      }
-      return data;
-    } catch (error) {
-      lastError = error;
-      const retryable =
-        error?.status === 404 || error?.status === 400 || error?.status === 500;
-      if (!retryable || i === attempts) throw error;
-      // eslint-disable-next-line no-console
-      console.log(
-        `Source not ready (attempt ${i}/${attempts}, status ${error?.status}). Retrying in ${
-          waitMs / 1000
-        }s...`
-      );
-      await sleep(waitMs);
-    }
-  }
-  throw lastError;
 };
 
 const ensureUniqueSlug = async ({ bucket, basePrefix, slugCandidate }) => {
@@ -124,6 +76,27 @@ const ensureUniqueSlug = async ({ bucket, basePrefix, slugCandidate }) => {
   return { slug: fallback, prefixPath: buildPrefixPath(fallback) };
 };
 
+const normalizePlaceholderLimitInput = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || Number.isNaN(value) || value <= 0) return null;
+    return value;
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num) || Number.isNaN(num) || num <= 0) return null;
+  return num;
+};
+
+const resolvePlaceholderLimit = (input) => {
+  const direct = normalizePlaceholderLimitInput(input);
+  if (direct !== undefined) return direct;
+  const envValue = normalizePlaceholderLimitInput(process.env.LOVABLE_PLACEHOLDER_LIMIT);
+  if (envValue !== undefined) return envValue;
+  const legacy = normalizePlaceholderLimitInput(process.env.LOVABLE_PLACEHOLDER_ATTEMPTS);
+  if (legacy !== undefined) return legacy;
+  return undefined;
+};
+
 const runLaunch = async ({
   url,
   token,
@@ -137,6 +110,7 @@ const runLaunch = async ({
   slug,
   profile,
   skipInstall,
+  placeholderLimit,
 }) => {
   if (!url) throw new Error('url is required');
   const resolvedBucket = bucket || process.env.LOVABLE_DEPLOY_BUCKET;
@@ -144,6 +118,7 @@ const runLaunch = async ({
 
   const waitMs = Number(waitSeconds) * 1000 || 10000;
   const maxAttempts = Number(attempts) || 60;
+  const placeholderLimitOption = resolvePlaceholderLimit(placeholderLimit);
 
   const idToken = token || process.env.LOVABLE_ID_TOKEN;
   if (!idToken) throw new Error('idToken is required (env or token).');
@@ -173,7 +148,31 @@ const runLaunch = async ({
 
   // eslint-disable-next-line no-console
   console.log(`Created project ${projectId}. Waiting for generation...`);
-  const projectData = await fetchWithRetry(client, projectId, maxAttempts, waitMs);
+  const projectData = await waitForProjectReady({
+    client,
+    projectId,
+    attempts: maxAttempts,
+    waitMs,
+    placeholderAttemptsBeforeAccept: placeholderLimitOption,
+    onRetry: ({ type, attempt, attempts: total, waitSeconds, error }) => {
+      if (type === 'placeholder') {
+        // eslint-disable-next-line no-console
+        console.log(
+          `Project content placeholder detected (attempt ${attempt}/${total}). Waiting ${waitSeconds}s...`
+        );
+      } else if (type === 'placeholder-limit') {
+        // eslint-disable-next-line no-console
+        console.log(
+          `Placeholder limit reached after ${attempt} attempts. Proceeding with current source.`
+        );
+      } else {
+        // eslint-disable-next-line no-console
+        console.log(
+          `Source not ready (attempt ${attempt}/${total}, status ${error?.status}). Retrying in ${waitSeconds}s...`
+        );
+      }
+    },
+  });
 
   const baseDownloadDir =
     process.env.LOVABLE_DOWNLOAD_BASE || path.join(os.tmpdir(), 'downloads');

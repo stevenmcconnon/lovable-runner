@@ -4,6 +4,7 @@ const path = require('node:path');
 const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
 const { buildAndUpload } = require('./deploy');
+const { waitForProjectReady } = require('./project-readiness');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -40,8 +41,6 @@ const parseArgs = (argv) => {
   }
   return args;
 };
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const buildClient = (tokenOverride, apiBaseOverride, workspaceIdOverride) => {
   const idToken = tokenOverride || process.env.LOVABLE_ID_TOKEN;
@@ -80,27 +79,23 @@ const extractProjectId = (createResponse) => {
   return null;
 };
 
-const fetchWithRetry = async (client, projectId, attempts, waitMs) => {
-  let lastError;
-  for (let i = 1; i <= attempts; i += 1) {
-    try {
-      return await client.fetchSourceCode(projectId);
-    } catch (error) {
-      lastError = error;
-      const retryable =
-        error?.status === 404 ||
-        error?.status === 400 ||
-        error?.status === 500;
-      if (!retryable || i === attempts) throw error;
-      console.log(
-        `Source not ready (attempt ${i}/${attempts}, status ${error?.status}). Retrying in ${
-          waitMs / 1000
-        }s...`
-      );
-      await sleep(waitMs);
-    }
-  }
-  throw lastError;
+const normalizePlaceholderLimitInput = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const num = Number(value);
+  if (!Number.isFinite(num) || Number.isNaN(num) || num <= 0) return null;
+  return num;
+};
+
+const resolvePlaceholderLimit = (flagValue) => {
+  const direct = normalizePlaceholderLimitInput(flagValue);
+  if (direct !== undefined) return direct;
+  const envValue = normalizePlaceholderLimitInput(process.env.LOVABLE_PLACEHOLDER_LIMIT);
+  if (envValue !== undefined) return envValue;
+  const legacyValue = normalizePlaceholderLimitInput(
+    process.env.LOVABLE_PLACEHOLDER_ATTEMPTS
+  );
+  if (legacyValue !== undefined) return legacyValue;
+  return undefined;
 };
 
 const handleBootstrap = async (flags) => {
@@ -114,10 +109,12 @@ const handleBootstrap = async (flags) => {
     zip,
     wait = '5',
     attempts = '10',
+    'placeholder-limit': placeholderLimitFlag,
   } = flags;
 
   const waitMs = Number(wait) * 1000 || 5000;
   const maxAttempts = Number(attempts) || 10;
+  const placeholderLimitValue = resolvePlaceholderLimit(placeholderLimitFlag);
 
   const client = buildClient(token, base, workspace);
   const createResponse = await client.createProjectFromUrl(url, {
@@ -134,12 +131,28 @@ const handleBootstrap = async (flags) => {
 
   console.log(`Created project ${projectId}. Waiting for generation...`);
 
-  const projectData = await fetchWithRetry(
+  const projectData = await waitForProjectReady({
     client,
     projectId,
-    maxAttempts,
-    waitMs
-  );
+    attempts: maxAttempts,
+    waitMs,
+    placeholderAttemptsBeforeAccept: placeholderLimitValue,
+    onRetry: ({ type, attempt, attempts: total, waitSeconds, error }) => {
+      if (type === 'placeholder') {
+        console.log(
+          `Project content placeholder detected (attempt ${attempt}/${total}). Waiting ${waitSeconds}s...`
+        );
+      } else if (type === 'placeholder-limit') {
+        console.log(
+          `Placeholder limit reached after ${attempt} attempts. Proceeding with current source.`
+        );
+      } else {
+        console.log(
+          `Source not ready (attempt ${attempt}/${total}, status ${error?.status}). Retrying in ${waitSeconds}s...`
+        );
+      }
+    },
+  });
   console.log(`Project ${projectId} ready. Downloading files...`);
 
   const { outputDir, zipPath } = await downloadProjectFiles(client, projectId, {
@@ -167,6 +180,7 @@ const handleOneShot = async (flags) => {
     slug,
     profile,
     'skip-install': skipInstall,
+    'placeholder-limit': placeholderLimitFlag,
   } = flags;
 
   if (!url) throw new Error('Missing --url.');
@@ -188,6 +202,7 @@ const handleOneShot = async (flags) => {
     slug,
     profile,
     skipInstall,
+    placeholderLimit: resolvePlaceholderLimit(placeholderLimitFlag),
   });
 
   console.log('--- One-shot complete ---');
@@ -262,8 +277,8 @@ const showHelp = () => {
 
 Commands:
   create --url <sourceUrl> [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>]
-  bootstrap --url <sourceUrl> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>] [--wait <seconds>] [--attempts <n>]
-  launch --url <sourceUrl> [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>] [--wait <seconds>] [--attempts <n>] [--bucket <name>] [--prefix <base-prefix>] [--slug <slug>] [--profile <aws-profile>] [--skip-install]
+  bootstrap --url <sourceUrl> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>] [--wait <seconds>] [--attempts <n>] [--placeholder-limit <n>]
+  launch --url <sourceUrl> [--token <idToken>] [--base <apiBase>] [--create-path <path>] [--workspace <id>] [--wait <seconds>] [--attempts <n>] [--placeholder-limit <n>] [--bucket <name>] [--prefix <base-prefix>] [--slug <slug>] [--profile <aws-profile>] [--skip-install]
   fetch  --project <projectId> [--out <dir>] [--zip] [--token <idToken>] [--base <apiBase>]
   publish --project <projectId> [--token <idToken>] [--base <apiBase>] [--publish-path <path>]
   deploy-s3 --bucket <name> [--project-dir <path> | --project-id <id>] [--prefix <path>] [--profile <aws-profile>] [--skip-install]

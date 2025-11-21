@@ -1,9 +1,38 @@
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const randomId = (prefix) => {
-  const suffix = crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : Date.now().toString(36);
-  return `${prefix}_${suffix}`;
+const TYPEID_ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
+const TYPEID_RADIX = TYPEID_ALPHABET.length;
+const TYPEID_TIME_LENGTH = 10;
+const TYPEID_RANDOM_LENGTH = 16;
+
+const encodeTime = (time, length) => {
+  let value = Math.floor(time);
+  const chars = new Array(length);
+  for (let i = length - 1; i >= 0; i -= 1) {
+    chars[i] = TYPEID_ALPHABET[value % TYPEID_RADIX];
+    value = Math.floor(value / TYPEID_RADIX);
+  }
+  if (value !== 0) {
+    throw new Error('Timestamp overflow while encoding TypeID.');
+  }
+  return chars.join('');
+};
+
+const encodeRandom = (length) => {
+  let output = '';
+  for (let i = 0; i < length; i += 1) {
+    const idx = crypto.randomInt(0, TYPEID_RADIX);
+    output += TYPEID_ALPHABET[idx];
+  }
+  return output;
+};
+
+const randomTypeId = (prefix) => {
+  const ulid = `${encodeTime(Date.now(), TYPEID_TIME_LENGTH)}${encodeRandom(
+    TYPEID_RANDOM_LENGTH
+  )}`;
+  return prefix ? `${prefix}_${ulid}` : ulid;
 };
 
 const buildPromptFromUrl = (sourceUrl) => {
@@ -93,13 +122,13 @@ class LovableClient {
     });
     const promptText = prompt || buildPromptFromUrl(sourceUrl);
     const initialMessage = {
-      id: randomId('umsg'),
+      id: randomTypeId('umsg'),
       message: `${promptText}\nReference: ${sourceUrl}`,
       files: [],
       optimisticImageUrls: [],
       chat_only: false,
       agent_mode_enabled: false,
-      ai_message_id: randomId('aimsg'),
+      ai_message_id: randomTypeId('aimsg'),
     };
     const payload = {
       url: sourceUrl,

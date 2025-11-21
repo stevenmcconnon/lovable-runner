@@ -53,6 +53,7 @@ const server = http.createServer(async (req, res) => {
         slug: body.slug,
         profile: body.profile,
         skipInstall: body.skipInstall,
+        placeholderLimit: body.placeholderLimit,
       });
       send(res, 200, {
         projectId: result.projectId,
