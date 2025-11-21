@@ -30,6 +30,15 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `publish` – hits the configured publish endpoint for a project id (supports `--base`, `--publish-path`).
 - `deploy-s3` – runs `npm install`, `npm run build`, then `aws s3 sync` from dist/build to `s3://bucket/prefix` (supports `--project-id` or `--project-dir`, `--bucket`, `--prefix`, `--profile`, `--skip-install`).
 - `launch` – one-shot: create from URL, wait, download, build, and upload to S3. Requires a bucket (via `LOVABLE_DEPLOY_BUCKET` or `--bucket`), optional prefix/slug/profile/skip-install.
+- `launch --placeholder-limit <n>` – cap placeholder polling attempts before continuing anyway.
+
+### HTTP / Lambda endpoints
+- `POST /launch` – the same one-shot flow as the CLI (requires authentication).
+- `POST /update` – create a draft update stored under `drafts/<draftId>` in S3 and tracked in DynamoDB (admins/super-admins only).
+- `POST /approve-update` – promote a draft to the live prefix (admins/super-admins only).
+- `GET /updates?projectId=<id>` – list stored drafts for a given project.
+
+Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, DynamoDB table, and the Lambda function wired to all routes.
 - **REST API** – run `npm run serve`, then POST `/launch` with JSON `{ "url": "...", "bucket": "...", "prefix": "...", "slug": "...", "wait": 10, "attempts": 60 }`. Uses the same defaults/env as `launch`.
 
 Examples:
@@ -83,6 +92,7 @@ node src/cli.js publish --project 1234-abcd
 - `LOVABLE_DEPLOY_BUCKET` – default bucket for `launch`/`deploy-s3`
 - `LOVABLE_DEPLOY_PREFIX` – optional base prefix appended before slug (e.g., `lovable`)
 - `LOVABLE_PLACEHOLDER_LIMIT` – max placeholder polling attempts before continuing anyway (defaults to 30; set to `0` to disable the limit)
+- `LOVABLE_DRAFTS_TABLE` – DynamoDB table storing draft metadata for `/update` and `/approve-update`
 
 You can also pass `--token` on the CLI to override `LOVABLE_ID_TOKEN`.
 
@@ -96,3 +106,4 @@ You can also pass `--token` on the CLI to override `LOVABLE_ID_TOKEN`.
 - The exact create/publish endpoints may differ; set `LOVABLE_CREATE_PATH`/`LOVABLE_PUBLISH_PATH` accordingly.
 - No external dependencies yet; add `npm install` as needed (e.g., Playwright later for headless flows).
 - Publishing may require additional headers/body—wire those up once confirmed.
+- `/update` and `/approve-update` rely on DynamoDB + Cognito. Deploy via the SAM template under `infra/template.yaml` or integrate the resources into your existing IaC.

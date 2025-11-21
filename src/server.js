@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 const http = require('node:http');
 const { runLaunch, loadDotEnvIfPresent } = require('./launch');
+const { runUpdate, approveUpdate, listUpdates } = require('./update');
+
 
 loadDotEnvIfPresent();
 
@@ -37,8 +39,8 @@ const parseBody = (req) =>
   });
 
 const server = http.createServer(async (req, res) => {
-  if (req.method === 'POST' && req.url === '/launch') {
-    try {
+  try {
+    if (req.method === 'POST' && req.url === '/launch') {
       const body = await parseBody(req);
       const result = await runLaunch({
         url: body.url,
@@ -55,22 +57,64 @@ const server = http.createServer(async (req, res) => {
         skipInstall: body.skipInstall,
         placeholderLimit: body.placeholderLimit,
       });
-      send(res, 200, {
-        projectId: result.projectId,
-        outputDir: result.outputDir,
-        distPath: result.distPath,
-        target: result.target,
-        url: result.publicUrl,
-      });
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(error);
-      send(res, 400, { error: error.message || 'Launch failed' });
+      send(res, 200, result);
+      return;
     }
-    return;
-  }
 
-  send(res, 404, { error: 'Not found' });
+    if (req.method === 'POST' && req.url === '/update') {
+      const body = await parseBody(req);
+      const result = await runUpdate({
+        projectId: body.projectId,
+        url: body.url,
+        instructions: body.instructions,
+        token: body.token,
+        base: body.base,
+        createPath: body.createPath,
+        workspace: body.workspace,
+        waitSeconds: body.wait,
+        attempts: body.attempts,
+        bucket: body.bucket,
+        prefix: body.prefix,
+        profile: body.profile,
+        skipInstall: body.skipInstall,
+        placeholderLimit: body.placeholderLimit,
+        requestedBy: body.requestedBy,
+      });
+      send(res, 200, result);
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/approve-update') {
+      const body = await parseBody(req);
+      const result = await approveUpdate({
+        projectId: body.projectId,
+        draftId: body.draftId,
+        bucket: body.bucket,
+        livePrefix: body.livePrefix || body.prefix,
+        approvedBy: body.approvedBy,
+      });
+      send(res, 200, result);
+      return;
+    }
+
+    if (req.method === 'GET' && req.url.startsWith('/updates')) {
+      const urlObj = new URL(req.url, `http://localhost:${PORT}`);
+      const projectId = urlObj.searchParams.get('projectId');
+      const limitParam = urlObj.searchParams.get('limit');
+      const drafts = await listUpdates({
+        projectId,
+        limit: limitParam ? Number(limitParam) : undefined,
+      });
+      send(res, 200, { items: drafts });
+      return;
+    }
+
+    send(res, 404, { error: 'Not found' });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    send(res, error.statusCode || 500, { error: error.message || 'Request failed' });
+  }
 });
 
 server.listen(PORT, () => {

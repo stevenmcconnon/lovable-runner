@@ -1,44 +1,34 @@
 const { runLaunch } = require('./src/launch');
+const { parseJsonBody, json } = require('./src/http');
+const { handleHttpEvent, isApiGatewayEvent } = require('./src/api');
+
+const handleLegacyLaunch = async (event = {}) => {
+  const body = parseJsonBody(event);
+  const result = await runLaunch({
+    url: body.url,
+    token: body.token,
+    base: body.base,
+    createPath: body.createPath,
+    workspace: body.workspace,
+    waitSeconds: body.wait,
+    attempts: body.attempts,
+    bucket: body.bucket || process.env.LOVABLE_DEPLOY_BUCKET,
+    prefix: body.prefix || process.env.LOVABLE_DEPLOY_PREFIX,
+    slug: body.slug,
+    profile: body.profile,
+    skipInstall: body.skipInstall,
+    placeholderLimit: body.placeholderLimit || process.env.LOVABLE_PLACEHOLDER_LIMIT,
+  });
+  return json(200, result);
+};
 
 exports.handler = async (event) => {
   try {
-    const parsedBody =
-      typeof event.body === 'string'
-        ? JSON.parse(event.body || '{}')
-        : event.body || {};
-
-    const result = await runLaunch({
-      url: parsedBody.url,
-      token: parsedBody.token,
-      base: parsedBody.base,
-      createPath: parsedBody.createPath,
-      workspace: parsedBody.workspace,
-      waitSeconds: parsedBody.wait,
-      attempts: parsedBody.attempts,
-      bucket: parsedBody.bucket || process.env.LOVABLE_DEPLOY_BUCKET,
-      prefix: parsedBody.prefix || process.env.LOVABLE_DEPLOY_PREFIX,
-      slug: parsedBody.slug,
-      profile: parsedBody.profile,
-      skipInstall: parsedBody.skipInstall,
-      placeholderLimit: parsedBody.placeholderLimit || process.env.LOVABLE_PLACEHOLDER_LIMIT,
-    });
-
-    return {
-      statusCode: 200,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        projectId: result.projectId,
-        outputDir: result.outputDir,
-        distPath: result.distPath,
-        target: result.target,
-        url: result.publicUrl,
-      }),
-    };
+    if (isApiGatewayEvent(event)) {
+      return await handleHttpEvent(event);
+    }
+    return await handleLegacyLaunch(event);
   } catch (error) {
-    return {
-      statusCode: 400,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ error: error.message || 'Launch failed' }),
-    };
+    return json(error.statusCode || 400, { error: error.message || 'Launch failed' });
   }
 };
