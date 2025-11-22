@@ -1,0 +1,8 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "lovable-runner-api"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "DeployBucket=n8n-lovable DeployPrefix=lovable ApiCustomDomainName=api.ai-sitemaker.com ApiCertificateArn=arn:aws:acm:us-east-1:084375583701:certificate/bbd74cdf-e940-4fd5-9dc5-a8593016be97"

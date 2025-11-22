@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lovable Runner API (launch + update workflow)
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 900
+    MemorySize: 2048
+    Architectures:
+    - x86_64
+Parameters:
+  DeployBucket:
+    Type: String
+    Description: S3 bucket that stores generated sites
+  DeployPrefix:
+    Type: String
+    Default: lovable
+    Description: Base prefix for live sites (each slug is appended)
+  ApiCustomDomainName:
+    Type: String
+    Default: ''
+    Description: Optional custom domain (e.g., api.ai-sitemaker.com). Leave blank
+      to skip.
+  ApiCertificateArn:
+    Type: String
+    Default: ''
+    Description: ACM certificate ARN for the custom domain (us-east-1). Required when
+      ApiCustomDomainName is set.
+Conditions:
+  HasCustomDomain:
+    Fn::And:
+    - Fn::Not:
+      - Fn::Equals:
+        - Ref: ApiCustomDomainName
+        - ''
+    - Fn::Not:
+      - Fn::Equals:
+        - Ref: ApiCertificateArn
+        - ''
+Resources:
+  RunnerApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: prod
+      Domain:
+        Fn::If:
+        - HasCustomDomain
+        - DomainName:
+            Ref: ApiCustomDomainName
+          CertificateArn:
+            Ref: ApiCertificateArn
+          EndpointConfiguration: REGIONAL
+        - Ref: AWS::NoValue
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              audience:
+              - Ref: UserPoolClient
+              issuer:
+                Fn::Sub: https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+        DefaultAuthorizer: CognitoAuthorizer
+      CorsConfiguration:
+        AllowOrigins:
+        - '*'
+        AllowHeaders:
+        - '*'
+        AllowMethods:
+        - GET
+        - POST
+    Metadata:
+      SamResourceId: RunnerApi
+  RunnerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://n8n-lovable/a0f575a9eb2c6c09ae9df12b66baa38f
+      Handler: lambda.handler
+      Description: Launch and update sites via Lovable
+      Environment:
+        Variables:
+          LOVABLE_DEPLOY_BUCKET:
+            Ref: DeployBucket
+          LOVABLE_DEPLOY_PREFIX:
+            Ref: DeployPrefix
+          LOVABLE_PLACEHOLDER_LIMIT: '30'
+          LOVABLE_DRAFTS_TABLE:
+            Ref: DraftsTable
+      Events:
+        LaunchRoute:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: RunnerApi
+            Path: /launch
+            Method: POST
+        UpdateRoute:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: RunnerApi
+            Path: /update
+            Method: POST
+        ApproveRoute:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: RunnerApi
+            Path: /approve-update
+            Method: POST
+        ListRoute:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: RunnerApi
+            Path: /updates
+            Method: GET
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - S3CrudPolicy:
+          BucketName:
+            Ref: DeployBucket
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: DraftsTable
+    Metadata:
+      SamResourceId: RunnerFunction
+  DraftsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      TableName:
+        Fn::Sub: ${AWS::StackName}-drafts
+      AttributeDefinitions:
+      - AttributeName: projectId
+        AttributeType: S
+      - AttributeName: draftId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: projectId
+        KeyType: HASH
+      - AttributeName: draftId
+        KeyType: RANGE
+    Metadata:
+      SamResourceId: DraftsTable
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName:
+        Fn::Sub: ${AWS::StackName}-users
+      AutoVerifiedAttributes:
+      - email
+    Metadata:
+      SamResourceId: UserPool
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: lovable-runner-client
+      GenerateSecret: false
+      UserPoolId:
+        Ref: UserPool
+      ExplicitAuthFlows:
+      - ALLOW_REFRESH_TOKEN_AUTH
+      - ALLOW_USER_PASSWORD_AUTH
+      - ALLOW_USER_SRP_AUTH
+      AllowedOAuthFlows:
+      - code
+      AllowedOAuthScopes:
+      - email
+      - openid
+      CallbackURLs:
+      - https://example.com/callback
+    Metadata:
+      SamResourceId: UserPoolClient
+  UserGroupSuperAdmin:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: super-admin
+      UserPoolId:
+        Ref: UserPool
+    Metadata:
+      SamResourceId: UserGroupSuperAdmin
+  UserGroupAdmin:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      UserPoolId:
+        Ref: UserPool
+    Metadata:
+      SamResourceId: UserGroupAdmin
+  UserGroupUser:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: user
+      UserPoolId:
+        Ref: UserPool
+    Metadata:
+      SamResourceId: UserGroupUser
+Outputs:
+  ApiEndpoint:
+    Description: HTTP API endpoint
+    Value:
+      Fn::Sub: https://${RunnerApi}.execute-api.${AWS::Region}.amazonaws.com
+  ApiCustomDomain:
+    Condition: HasCustomDomain
+    Description: Custom API domain (if configured)
+    Value:
+      Ref: ApiCustomDomainName
+  UserPoolId:
+    Description: Cognito user pool id
+    Value:
+      Ref: UserPool
+  UserPoolClientId:
+    Description: Cognito app client id
+    Value:
+      Ref: UserPoolClient
+  DraftsTableName:
+    Description: DynamoDB table for draft records
+    Value:
+      Ref: DraftsTable

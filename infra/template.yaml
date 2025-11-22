@@ -37,12 +37,6 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: prod
-      Domain: !If
-        - HasCustomDomain
-        - DomainName: !Ref ApiCustomDomainName
-          CertificateArn: !Ref ApiCertificateArn
-          EndpointConfiguration: REGIONAL
-        - !Ref AWS::NoValue
       Auth:
         Authorizers:
           CognitoAuthorizer:
