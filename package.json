@@ -9,7 +9,9 @@
     "serve": "node src/server.js",
     "fetch": "node src/cli.js fetch",
     "create": "node src/cli.js create",
-    "publish": "node src/cli.js publish"
+    "publish": "node src/cli.js publish",
+    "build": "tsc -p tsconfig.json",
+    "dev:api": "ts-node --transpile-only api/src/dev-server.ts"
   },
   "keywords": [
     "lovable",
@@ -18,9 +20,24 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.687.0",
+    "@aws-sdk/client-s3": "^3.687.0",
+    "@fastify/aws-lambda": "^4.1.0",
+    "@fastify/multipart": "^8.3.1",
+    "@fastify/raw-body": "^5.0.1",
+    "@supabase/supabase-js": "^2.44.4",
+    "aws-jwt-verify": "^4.0.1",
+    "aws-sdk": "^2.1692.0",
+    "fastify": "^4.28.1",
+    "stripe": "^16.10.0",
+    "zod": "^3.23.8"
+  },
   "devDependencies": {
-    "aws-sdk": "^2.1692.0"
+    "@types/aws-lambda": "^8.10.137",
+    "@types/node": "^20.14.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
   },
   "packageManager": "npm@11.6.3+sha512.4085a763162e0e3acd19a4e9d23ad3aa0978e501ccf947dd7233c12a689ae0bb0190763c4ef12366990056b34eec438903ffed38fde4fbd722a17c2a7407ee92"
 }

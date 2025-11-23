@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Lovable Runner API (launch + update workflow)
+Description: AI SiteMaker backend API
 
 Globals:
   Function:
@@ -14,10 +14,6 @@ Parameters:
   DeployBucket:
     Type: String
     Description: S3 bucket that stores generated sites
-  DeployPrefix:
-    Type: String
-    Default: lovable
-    Description: Base prefix for live sites (each slug is appended)
   ApiCustomDomainName:
     Type: String
     Default: ''
@@ -26,6 +22,31 @@ Parameters:
     Type: String
     Default: ''
     Description: ACM certificate ARN for the custom domain (us-east-1). Required when ApiCustomDomainName is set.
+  SupabaseUrl:
+    Type: String
+    Description: Supabase project URL (https://xyz.supabase.co)
+  SupabaseServiceRoleKey:
+    Type: String
+    NoEcho: true
+    Description: Supabase service role key (never share)
+  StripeSecretKey:
+    Type: String
+    NoEcho: true
+    Description: Stripe secret API key
+  StripeWebhookSecret:
+    Type: String
+    NoEcho: true
+    Description: Stripe webhook signing secret
+  RunnerLambdaName:
+    Type: String
+    Description: Name of the Lovable runner Lambda for job orchestration
+  TemplateUploadBucket:
+    Type: String
+    Description: S3 bucket used to store uploaded templates
+  DefaultTrialEditLimit:
+    Type: Number
+    Default: 1
+    Description: Number of trial edits allowed before subscription is required
 
 Conditions:
   HasCustomDomain: !And
@@ -37,15 +58,12 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: prod
-      Auth:
-        Authorizers:
-          CognitoAuthorizer:
-            IdentitySource: $request.header.Authorization
-            JwtConfiguration:
-              audience:
-                - !Ref UserPoolClient
-              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
-        DefaultAuthorizer: CognitoAuthorizer
+      Domain: !If
+        - HasCustomDomain
+        - DomainName: !Ref ApiCustomDomainName
+          CertificateArn: !Ref ApiCertificateArn
+          EndpointConfiguration: REGIONAL
+        - !Ref AWS::NoValue
       CorsConfiguration:
         AllowOrigins:
           - '*'
@@ -54,66 +72,53 @@ Resources:
         AllowMethods:
           - GET
           - POST
+          - PUT
+          - DELETE
+          - OPTIONS
 
   RunnerFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../
-      Handler: lambda.handler
-      Description: Launch and update sites via Lovable
+      Handler: dist/lambda.handler
+      Description: Backend API for AI SiteMaker
       Environment:
         Variables:
-          LOVABLE_DEPLOY_BUCKET: !Ref DeployBucket
-          LOVABLE_DEPLOY_PREFIX: !Ref DeployPrefix
-          LOVABLE_PLACEHOLDER_LIMIT: '30'
-          LOVABLE_DRAFTS_TABLE: !Ref DraftsTable
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SERVICE_ROLE_KEY: !Ref SupabaseServiceRoleKey
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          COGNITO_USER_POOL_ID: !Ref UserPool
+          COGNITO_USER_POOL_REGION: !Ref AWS::Region
+          COGNITO_APP_CLIENT_ID: !Ref UserPoolClient
+          COGNITO_M2M_CLIENT_ID: !Ref UserPoolMachineClient
+          RUNNER_FUNCTION_NAME: !Ref RunnerLambdaName
+          TEMPLATE_UPLOAD_BUCKET: !Ref TemplateUploadBucket
+          DEFAULT_TRIAL_EDIT_LIMIT: !Ref DefaultTrialEditLimit
       Events:
-        LaunchRoute:
+        RootProxy:
           Type: HttpApi
           Properties:
             ApiId: !Ref RunnerApi
-            Path: /launch
-            Method: POST
-        UpdateRoute:
+            Path: /
+            Method: ANY
+        CatchAllProxy:
           Type: HttpApi
           Properties:
             ApiId: !Ref RunnerApi
-            Path: /update
-            Method: POST
-        ApproveRoute:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref RunnerApi
-            Path: /approve-update
-            Method: POST
-        ListRoute:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref RunnerApi
-            Path: /updates
-            Method: GET
+            Path: /{proxy+}
+            Method: ANY
       Policies:
         - AWSLambdaBasicExecutionRole
         - S3CrudPolicy:
             BucketName: !Ref DeployBucket
-        - DynamoDBCrudPolicy:
-            TableName: !Ref DraftsTable
-
-  DraftsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      BillingMode: PAY_PER_REQUEST
-      TableName: !Sub '${AWS::StackName}-drafts'
-      AttributeDefinitions:
-        - AttributeName: projectId
-          AttributeType: S
-        - AttributeName: draftId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: projectId
-          KeyType: HASH
-        - AttributeName: draftId
-          KeyType: RANGE
+        - S3CrudPolicy:
+            BucketName: !Ref TemplateUploadBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${RunnerLambdaName}
 
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -137,8 +142,24 @@ Resources:
       AllowedOAuthScopes:
         - email
         - openid
+      AllowedOAuthFlowsUserPoolClient: true
       CallbackURLs:
         - https://example.com/callback
+
+  UserPoolMachineClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: lovable-runner-machine
+      GenerateSecret: true
+      UserPoolId: !Ref UserPool
+      AllowedOAuthFlows:
+        - client_credentials
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - email
+        - openid
+      SupportedIdentityProviders:
+        - COGNITO
 
   UserGroupSuperAdmin:
     Type: AWS::Cognito::UserPoolGroup
@@ -172,6 +193,6 @@ Outputs:
   UserPoolClientId:
     Description: Cognito app client id
     Value: !Ref UserPoolClient
-  DraftsTableName:
-    Description: DynamoDB table for draft records
-    Value: !Ref DraftsTable
+  UserPoolMachineClientId:
+    Description: Cognito machine-to-machine client id
+    Value: !Ref UserPoolMachineClient
