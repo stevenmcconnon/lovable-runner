@@ -38,7 +38,7 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `POST /approve-update` – promote a draft to the live prefix (admins/super-admins only).
 - `GET /updates?projectId=<id>` – list stored drafts for a given project.
 
-Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, DynamoDB table, and the Lambda function wired to all routes.
+Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, PostgreSQL database, and the Lambda function wired to all routes.
 
 #### Custom domain & DNS
 - Request an ACM certificate in `us-east-1` that covers your API host (e.g., `api.ai-sitemaker.com`). Validate it in Route 53.
@@ -48,6 +48,26 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
   - `scripts/request-cert.sh <domain>` – requests/validates an ACM certificate in `us-east-1`.
   - `scripts/deploy-sam.sh` – deploys the SAM stack (configure env vars inside the script).
   - `scripts/create-api-alias.sh <hosted-zone-id>` – creates/updates the Route 53 alias once `API_DOMAIN_NAME` is exported.
+
+### Database (Amazon RDS)
+- The SAM stack provisions a managed PostgreSQL instance (`RunnerDatabase`) plus a Secrets Manager entry storing the username/password. Lambda receives `DATABASE_URL` automatically; local tooling can either rely on the stack metadata or pass `TEST_DATABASE_URL`.
+- Required SAM parameters: `DBName`, `DBUsername`, `DBPassword`, `DBInstanceClass`, `DBAllocatedStorage`, `DbVpcId`, `DbSubnetIds`, and `DbAllowedCidr`. Defaults target the default VPC in `us-east-1` with subnets `subnet-04c228a7b5b68ff53`/`subnet-0b80e76ccd6b56ac6` and allow public access from `0.0.0.0/0` (tighten this CIDR for production).
+- After deployment, fetch credentials and the host with:
+  ```bash
+  STACK=lovable-runner-api
+  aws cloudformation describe-stacks --stack-name "$STACK" --profile lovable --query "Stacks[0].Outputs"
+  aws secretsmanager get-secret-value --secret-id "${STACK}-db-credentials" --profile lovable
+  ```
+- Apply schema updates (see `infra/db/schema.sql`) using `psql` or let `scripts/test-api.js` run them automatically before bootstrapping a test user.
+
+### Integration tests
+- `scripts/test-api.js` runs integration checks against a deployed API. It exercises `/health`, `/me`, `/customer/*`, `/admin/*`, and the internal job endpoint (when a machine token is available).
+- If `TEST_CUSTOMER_TOKEN` / `TEST_ADMIN_TOKEN` aren’t provided, set `TEST_BOOTSTRAP_USER=1`. The script now:
+  1. Create a temporary Cognito user (using the default AWS profile or `AWS_PROFILE`).
+  2. Inserts/updates the matching profile + roles in Postgres (fetching the RDS endpoint + secret automatically when `TEST_STACK_NAME` is left at the default `lovable-runner-api`).
+  3. Runs the HTTP checks (note: the customer edit-request test triggers the runner Lambda configured in `RUNNER_FUNCTION_NAME`).
+  4. Cleans up the throwaway user/profile after the suite finishes.
+- Provide `TEST_MACHINE_TOKEN` or `COGNITO_DOMAIN` + `COGNITO_M2M_CLIENT_ID` + `COGNITO_M2M_CLIENT_SECRET` to include the `/internal/jobs/...` test. Set `TEST_API_BASE` to point at a specific stage if you don’t want to use the production domain.
 
 #### Admin UI at `/admin`
 - Let Lovable host your customer-facing site and add an `/admin` route (or create a separate project). The admin app should authenticate via the Cognito Hosted UI belonging to the user pool created by the SAM stack.
@@ -106,7 +126,6 @@ node src/cli.js publish --project 1234-abcd
 - `LOVABLE_DEPLOY_BUCKET` – default bucket for `launch`/`deploy-s3`
 - `LOVABLE_DEPLOY_PREFIX` – optional base prefix appended before slug (e.g., `lovable`)
 - `LOVABLE_PLACEHOLDER_LIMIT` – max placeholder polling attempts before continuing anyway (defaults to 30; set to `0` to disable the limit)
-- `LOVABLE_DRAFTS_TABLE` – DynamoDB table storing draft metadata for `/update` and `/approve-update`
 
 You can also pass `--token` on the CLI to override `LOVABLE_ID_TOKEN`.
 

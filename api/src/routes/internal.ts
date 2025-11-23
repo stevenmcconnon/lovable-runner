@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { SupabaseService } from '../services/supabase';
+import { DatabaseService } from '../services/database';
 
 const completeJobSchema = z.object({
   s3Key: z.string().min(1),
@@ -14,9 +14,9 @@ const failJobSchema = z.object({
 
 export const registerInternalRoutes = (
   app: FastifyInstance,
-  deps: { supabase: SupabaseService }
+  deps: { db: DatabaseService }
 ) => {
-  const { supabase } = deps;
+  const { db } = deps;
 
   const machinePreHandler = async (request: any, reply: any) => {
     await app.authenticateMachine(request, reply);
@@ -31,13 +31,13 @@ export const registerInternalRoutes = (
       if (!parsed.success) {
         return reply.code(400).send({ message: 'Invalid payload', details: parsed.error.flatten() });
       }
-      const job = await supabase.updateJob(jobId, {
+      const job = await db.updateJob(jobId, {
         status: 'completed',
         s3Key: parsed.data.s3Key,
         previewUrl: parsed.data.previewUrl,
         lovableProjectId: parsed.data.lovableProjectId,
       });
-      await supabase.updateEditRequestStatus(job.editRequestId, 'completed', job.id);
+      await db.updateEditRequestStatus(job.editRequestId, 'completed', job.id);
       return job;
     }
   );
@@ -51,11 +51,11 @@ export const registerInternalRoutes = (
       if (!parsed.success) {
         return reply.code(400).send({ message: 'Invalid payload', details: parsed.error.flatten() });
       }
-      const job = await supabase.updateJob(jobId, {
+      const job = await db.updateJob(jobId, {
         status: 'failed',
         errorMessage: parsed.data.errorMessage,
       });
-      await supabase.updateEditRequestStatus(job.editRequestId, 'rejected', job.id);
+      await db.updateEditRequestStatus(job.editRequestId, 'rejected', job.id);
       return job;
     }
   );

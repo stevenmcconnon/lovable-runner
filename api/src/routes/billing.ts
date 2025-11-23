@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { StripeService } from '../services/stripe';
-import { SupabaseService } from '../services/supabase';
+import { DatabaseService } from '../services/database';
 import { UserRole } from '../types';
 
 const checkoutSchema = z.object({
@@ -17,9 +17,9 @@ const ensureCustomerAccess = (roles: UserRole[]) => {
 
 export const registerBillingRoutes = (
   app: FastifyInstance,
-  deps: { supabase: SupabaseService; stripe: StripeService }
+  deps: { db: DatabaseService; stripe: StripeService }
 ) => {
-  const { supabase, stripe } = deps;
+  const { db, stripe } = deps;
 
   app.post(
     '/billing/create-checkout-session',
@@ -33,14 +33,14 @@ export const registerBillingRoutes = (
       if (!parsed.success) {
         return reply.code(400).send({ message: 'Invalid request', details: parsed.error.flatten() });
       }
-      const plan = await supabase.getSubscriptionPlan(parsed.data.planKey);
+      const plan = await db.getSubscriptionPlan(parsed.data.planKey);
       if (!plan) {
         return reply.code(400).send({ message: 'Plan not found' });
       }
       if (!plan.stripePriceId) {
         return reply.code(400).send({ message: 'Plan missing Stripe price id' });
       }
-      const subscription = await supabase.getSubscription(request.auth.profile.accountId);
+      const subscription = await db.getSubscription(request.auth.profile.accountId);
       const checkout = await stripe.createCheckoutSession(
         request.auth.profile.accountId,
         plan,

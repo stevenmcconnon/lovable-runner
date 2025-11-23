@@ -22,13 +22,42 @@ Parameters:
     Type: String
     Default: ''
     Description: ACM certificate ARN for the custom domain (us-east-1). Required when ApiCustomDomainName is set.
-  SupabaseUrl:
+  DBName:
     Type: String
-    Description: Supabase project URL (https://xyz.supabase.co)
-  SupabaseServiceRoleKey:
+    Default: aisitemaker
+    Description: Name of the application database
+  DBUsername:
+    Type: String
+    Default: lovable_runner
+    MinLength: 1
+    Description: Master username for the RDS instance
+  DBPassword:
     Type: String
     NoEcho: true
-    Description: Supabase service role key (never share)
+    MinLength: 8
+    Description: Master user password for the RDS instance
+  DBInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+    Description: Instance class for the RDS instance
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 1000
+    Description: Allocated storage in GiB for the RDS instance
+  DbVpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-06707eddabf2dae24
+    Description: VPC where the RDS instance will live
+  DbSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: subnet-04c228a7b5b68ff53,subnet-0b80e76ccd6b56ac6
+    Description: Two or more subnets (different AZs) for the RDS subnet group
+  DbAllowedCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR block allowed to access the PostgreSQL port (adjust to your frontend's IP range)
   StripeSecretKey:
     Type: String
     NoEcho: true
@@ -58,12 +87,6 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: prod
-      Domain: !If
-        - HasCustomDomain
-        - DomainName: !Ref ApiCustomDomainName
-          CertificateArn: !Ref ApiCertificateArn
-          EndpointConfiguration: REGIONAL
-        - !Ref AWS::NoValue
       CorsConfiguration:
         AllowOrigins:
           - '*'
@@ -75,17 +98,88 @@ Resources:
           - PUT
           - DELETE
           - OPTIONS
+  RunnerApiCustomDomain:
+    Condition: HasCustomDomain
+    Type: AWS::ApiGatewayV2::DomainName
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      DomainName: !Ref ApiCustomDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ApiCertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
 
+  RunnerApiDomainMapping:
+    Condition: HasCustomDomain
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      ApiId: !Ref RunnerApi
+      DomainName: !Ref RunnerApiCustomDomain
+      Stage: prod
+
+  DatabaseCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}-db-credentials
+      Description: Credentials for the AI SiteMaker PostgreSQL database
+      SecretString: !Sub |
+        {
+          "username": "${DBUsername}",
+          "password": "${DBPassword}",
+          "database": "${DBName}"
+        }
+
+  RunnerDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: postgres
+      PubliclyAccessible: true
+      AllocatedStorage: !Ref DBAllocatedStorage
+      DBInstanceClass: !Ref DBInstanceClass
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBName: !Ref DBName
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+      MultiAZ: false
+      StorageEncrypted: true
+      VPCSecurityGroups:
+        - !Ref RunnerDbSecurityGroup
+      DBSubnetGroupName: !Ref RunnerDbSubnetGroup
+
+  RunnerDbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow PostgreSQL access to Lovable Runner DB
+      VpcId: !Ref DbVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref DbAllowedCidr
+
+  RunnerDbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for Lovable Runner database
+      SubnetIds: !Ref DbSubnetIds
   RunnerFunction:
     Type: AWS::Serverless::Function
+    DependsOn:
+      - RunnerDatabase
     Properties:
       CodeUri: ../
       Handler: dist/lambda.handler
       Description: Backend API for AI SiteMaker
       Environment:
         Variables:
-          SUPABASE_URL: !Ref SupabaseUrl
-          SUPABASE_SERVICE_ROLE_KEY: !Ref SupabaseServiceRoleKey
+          NODE_ENV: production
+          DB_HOST: !GetAtt RunnerDatabase.Endpoint.Address
+          DB_PORT: !GetAtt RunnerDatabase.Endpoint.Port
+          DB_NAME: !Ref DBName
+          DB_USERNAME: !Ref DBUsername
+          DB_PASSWORD: !Ref DBPassword
           STRIPE_SECRET_KEY: !Ref StripeSecretKey
           STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
           COGNITO_USER_POOL_ID: !Ref UserPool
@@ -156,8 +250,7 @@ Resources:
         - client_credentials
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthScopes:
-        - email
-        - openid
+        - lovable-backend/internal
       SupportedIdentityProviders:
         - COGNITO
 
@@ -196,3 +289,12 @@ Outputs:
   UserPoolMachineClientId:
     Description: Cognito machine-to-machine client id
     Value: !Ref UserPoolMachineClient
+  DatabaseEndpoint:
+    Description: PostgreSQL endpoint address
+    Value: !GetAtt RunnerDatabase.Endpoint.Address
+  DatabaseName:
+    Description: PostgreSQL database name
+    Value: !Ref DBName
+  DatabaseCredentialsSecretArn:
+    Description: Secret ARN containing database credentials
+    Value: !Ref DatabaseCredentialsSecret

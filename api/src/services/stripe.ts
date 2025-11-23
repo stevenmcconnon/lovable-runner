@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { config } from '../env';
 import { StripeCheckoutRequest, SubscriptionPlan } from '../types';
-import { SupabaseService } from './supabase';
+import { DatabaseService } from './database';
 
 const stripeClient = new Stripe(config.stripe.secretKey, {
   apiVersion: '2024-06-20',
@@ -53,7 +53,7 @@ export class StripeService {
     return this.stripe.webhooks.constructEvent(payload, signature, config.stripe.webhookSecret);
   }
 
-  async handleWebhook(event: Stripe.Event, supabase: SupabaseService) {
+  async handleWebhook(event: Stripe.Event, db: DatabaseService) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -61,7 +61,7 @@ export class StripeService {
           const subscription = await this.stripe.subscriptions.retrieve(
             typeof session.subscription === 'string' ? session.subscription : session.subscription.id
           );
-          await this.syncSubscription(subscription, supabase);
+          await this.syncSubscription(subscription, db);
         }
         break;
       }
@@ -69,7 +69,7 @@ export class StripeService {
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        await this.syncSubscription(subscription, supabase);
+        await this.syncSubscription(subscription, db);
         break;
       }
       default:
@@ -77,7 +77,7 @@ export class StripeService {
     }
   }
 
-  private async syncSubscription(subscription: Stripe.Subscription, supabase: SupabaseService) {
+  private async syncSubscription(subscription: Stripe.Subscription, db: DatabaseService) {
     const accountId =
       subscription.metadata?.accountId ||
       subscription.metadata?.account_id ||
@@ -93,7 +93,7 @@ export class StripeService {
       return;
     }
 
-    await supabase.upsertSubscriptionFromStripe({
+    await db.upsertSubscriptionFromStripe({
       accountId,
       planKey,
       status: subscription.status,

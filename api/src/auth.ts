@@ -1,7 +1,8 @@
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import fastifyPlugin from 'fastify-plugin';
 import { config } from './env';
-import { SupabaseService } from './services/supabase';
+import { DatabaseService } from './services/database';
 import { AuthContext, UserRole } from './types';
 
 const unauthorized = (message = 'Unauthorized') => {
@@ -41,11 +42,11 @@ const extractToken = (request: FastifyRequest) => {
   return token || null;
 };
 
-export const buildAuthPlugin = (supabase: SupabaseService): FastifyPluginAsync => {
-  const userVerifier = createUserVerifier();
-  const machineVerifier = createMachineVerifier();
+export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =>
+  fastifyPlugin(async function authPlugin(fastify: FastifyInstance) {
+    const userVerifier = createUserVerifier();
+    const machineVerifier = createMachineVerifier();
 
-  return async function authPlugin(fastify: FastifyInstance) {
     fastify.decorate('authenticateUser', async (request: FastifyRequest): Promise<void> => {
       const token = extractToken(request);
       if (!token) throw unauthorized();
@@ -55,9 +56,13 @@ export const buildAuthPlugin = (supabase: SupabaseService): FastifyPluginAsync =
       } catch (error) {
         throw unauthorized('Invalid or expired token');
       }
-      const profile = await supabase.getProfileByCognitoSub(payload.sub);
-      if (!profile) throw forbidden('Profile not found');
-      const roles = await supabase.getRolesForUser(profile.id);
+      const profile = await database.getProfileByCognitoSub(payload.sub);
+      if (!profile) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] profile not found for sub', payload.sub);
+        throw forbidden('Profile not found');
+      }
+      const roles = await database.getRolesForUser(profile.id);
       const email = typeof payload.email === 'string' ? payload.email : undefined;
       const context: AuthContext = {
         type: 'user',
@@ -100,5 +105,4 @@ export const buildAuthPlugin = (supabase: SupabaseService): FastifyPluginAsync =
         }
       }
     );
-  };
-};
+  });

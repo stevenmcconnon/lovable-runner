@@ -9,7 +9,7 @@ import { registerInternalRoutes } from './routes/internal';
 import { registerWebhookRoutes } from './routes/webhooks';
 import { RunnerService } from './services/runner';
 import { StripeService } from './services/stripe';
-import { SupabaseService } from './services/supabase';
+import { DatabaseService } from './services/database';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -23,17 +23,18 @@ export const buildServer = (): FastifyInstance => {
     routes: ['/webhooks/stripe'],
   });
 
-  const supabase = new SupabaseService();
+  const database = new DatabaseService();
   const stripe = new StripeService();
   const runner = new RunnerService();
 
-  app.register(buildAuthPlugin(supabase));
-
-  registerCustomerRoutes(app, { supabase, runner });
-  registerAdminRoutes(app, { supabase, runner });
-  registerBillingRoutes(app, { supabase, stripe });
-  registerWebhookRoutes(app, { supabase, stripe });
-  registerInternalRoutes(app, { supabase });
+  app.register(buildAuthPlugin(database));
+  app.register(async (instance) => {
+    registerCustomerRoutes(instance, { db: database, runner });
+    registerAdminRoutes(instance, { db: database, runner });
+    registerBillingRoutes(instance, { db: database, stripe });
+    registerWebhookRoutes(instance, { db: database, stripe });
+    registerInternalRoutes(instance, { db: database });
+  });
 
   app.get('/health', async () => ({ status: 'ok' }));
 

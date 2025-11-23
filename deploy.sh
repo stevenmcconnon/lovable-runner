@@ -5,23 +5,27 @@ usage() {
   cat <<'EOF'
 Usage: ./deploy.sh [options]
 
-Packages lovable-runner for Lambda and uploads it with aws cli.
+Builds the AI SiteMaker API (TypeScript -> dist), runs `sam build`, and deploys via `sam deploy`.
 
 Options:
-  --profile <name>   AWS CLI profile to use (default: $AWS_PROFILE or lovable)
+  --profile <name>   AWS CLI profile (default: $AWS_PROFILE or lovable)
   --region <name>    AWS region (default: $AWS_REGION or us-east-1)
-  --function <name>  Lambda function name (default: $LOVABLE_LAMBDA_FUNCTION or lovable-launch)
-  --zip <path>       Output zip path (default: lambda.zip)
-  --skip-install     Skip "npm install" (useful if deps already installed)
-  -h, --help         Show this help
+  --stack <name>     CloudFormation stack name (default: $STACK_NAME or lovable-runner-api)
+  --template <path>  SAM template path (default: infra/template.yaml)
+  --config-env <env> samconfig environment (default: default)
+  --skip-install     Skip npm install
+  --skip-build       Skip `npm run build`
+  -h, --help         Show this help and exit
 EOF
 }
 
 PROFILE="${AWS_PROFILE:-lovable}"
 REGION="${AWS_REGION:-us-east-1}"
-FUNCTION_NAME="${LOVABLE_LAMBDA_FUNCTION:-lovable-launch}"
-ZIP_PATH="${LAMBDA_ZIP_PATH:-lambda.zip}"
+STACK_NAME="${STACK_NAME:-lovable-runner-api}"
+SAM_TEMPLATE="${SAM_TEMPLATE:-infra/template.yaml}"
+SAM_CONFIG_ENV="${SAM_CONFIG_ENV:-default}"
 RUN_INSTALL=1
+RUN_TS_BUILD=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -33,16 +37,24 @@ while [[ $# -gt 0 ]]; do
       REGION="$2"
       shift 2
       ;;
-    --function)
-      FUNCTION_NAME="$2"
+    --stack)
+      STACK_NAME="$2"
       shift 2
       ;;
-    --zip)
-      ZIP_PATH="$2"
+    --template)
+      SAM_TEMPLATE="$2"
+      shift 2
+      ;;
+    --config-env)
+      SAM_CONFIG_ENV="$2"
       shift 2
       ;;
     --skip-install)
       RUN_INSTALL=0
+      shift
+      ;;
+    --skip-build)
+      RUN_TS_BUILD=0
       shift
       ;;
     -h|--help)
@@ -65,6 +77,11 @@ run_npm_install() {
   fi
 }
 
+if ! command -v sam >/dev/null 2>&1; then
+  echo "sam CLI is required. Install via https://docs.aws.amazon.com/serverless-application-model/index.html" >&2
+  exit 1
+fi
+
 if [[ $RUN_INSTALL -eq 1 ]]; then
   echo "Installing npm dependencies..."
   run_npm_install
@@ -72,15 +89,32 @@ else
   echo "Skipping npm install as requested."
 fi
 
-echo "Building archive ${ZIP_PATH} ..."
-rm -f "${ZIP_PATH}"
-zip -rq "${ZIP_PATH}" lambda.js src package.json package-lock.json node_modules
+if [[ $RUN_TS_BUILD -eq 1 ]]; then
+  echo "Building TypeScript sources..."
+  npm run build
+else
+  echo "Skipping TypeScript build as requested."
+fi
 
-echo "Updating Lambda function ${FUNCTION_NAME} in ${REGION} (profile: ${PROFILE})..."
-aws lambda update-function-code \
-  --function-name "${FUNCTION_NAME}" \
-  --zip-file "fileb://${ZIP_PATH}" \
+echo "Running sam build ($(basename "${SAM_TEMPLATE}"))..."
+TMP_NPM_CACHE="$(mktemp -d)"
+cleanup() {
+  rm -rf "${TMP_NPM_CACHE}"
+}
+trap cleanup EXIT
+NPM_CONFIG_CACHE="${TMP_NPM_CACHE}" sam build \
+  --template-file "${SAM_TEMPLATE}" \
+  --region "${REGION}" \
+  --no-cached
+
+echo "Deploying stack ${STACK_NAME} to ${REGION} (profile: ${PROFILE})..."
+sam deploy \
+  --stack-name "${STACK_NAME}" \
+  --config-env "${SAM_CONFIG_ENV}" \
+  --capabilities CAPABILITY_IAM \
   --profile "${PROFILE}" \
-  --region "${REGION}"
+  --region "${REGION}" \
+  --no-fail-on-empty-changeset \
+  --force-upload
 
-echo "Deploy complete."
+echo "Deployment finished."

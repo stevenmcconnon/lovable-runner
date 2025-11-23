@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { config } from '../env';
 import { RunnerService } from '../services/runner';
-import { SupabaseService } from '../services/supabase';
+import { DatabaseService } from '../services/database';
 import { UserRole } from '../types';
 
 const editRequestInput = z.object({
@@ -38,9 +38,9 @@ const ensureCustomerAccess = (request: FastifyRequest) => {
 
 export const registerCustomerRoutes = (
   app: FastifyInstance,
-  deps: { supabase: SupabaseService; runner: RunnerService }
+  deps: { db: DatabaseService; runner: RunnerService }
 ) => {
-  const { supabase, runner } = deps;
+  const { db, runner } = deps;
 
   app.get('/me', { preHandler: app.authenticateUser }, async (request, reply) => {
     if (!request.auth?.profile) {
@@ -61,7 +61,7 @@ export const registerCustomerRoutes = (
     { preHandler: app.authenticateUser },
     async (request, reply) => {
       const profile = ensureCustomerAccess(request);
-      const subscription = await supabase.getSubscription(profile.accountId);
+      const subscription = await db.getSubscription(profile.accountId);
       if (!subscription) {
         return { status: 'none' };
       }
@@ -71,9 +71,9 @@ export const registerCustomerRoutes = (
 
   app.get('/customer/usage', { preHandler: app.authenticateUser }, async (request, reply) => {
     const profile = ensureCustomerAccess(request);
-    const subscription = await supabase.getSubscription(profile.accountId);
+    const subscription = await db.getSubscription(profile.accountId);
     const limit = subscription?.monthlyEditLimit ?? config.limits.trialEditLimit;
-    const usage = await supabase.getUsage(profile.accountId, limit);
+    const usage = await db.getUsage(profile.accountId, limit);
     return usage;
   });
 
@@ -82,7 +82,7 @@ export const registerCustomerRoutes = (
     { preHandler: app.authenticateUser },
     async (request, reply) => {
       const profile = ensureCustomerAccess(request);
-      const requests = await supabase.listCustomerEditRequests(profile.accountId);
+      const requests = await db.listCustomerEditRequests(profile.accountId);
       return requests;
     }
   );
@@ -100,12 +100,12 @@ export const registerCustomerRoutes = (
         });
       }
       const body = parsed.data;
-      const subscription = await supabase.getSubscription(profile.accountId);
+      const subscription = await db.getSubscription(profile.accountId);
       const isActive = subscription && subscription.status === 'active';
       const limit = isActive
         ? subscription.monthlyEditLimit ?? config.limits.trialEditLimit
         : config.limits.trialEditLimit;
-      const usage = await supabase.getUsage(profile.accountId, limit);
+      const usage = await db.getUsage(profile.accountId, limit);
       const remaining = isActive
         ? usage.remainingEdits
         : profile.hasUsedTrial
@@ -118,14 +118,14 @@ export const registerCustomerRoutes = (
         });
       }
 
-      const editRequest = await supabase.createEditRequest({
+      const editRequest = await db.createEditRequest({
         accountId: profile.accountId,
         userId: profile.id,
         description: body.description,
         siteId: body.siteId,
         businessDetails: body.business,
       });
-      const job = await supabase.createJobForRequest(editRequest.id);
+      const job = await db.createJobForRequest(editRequest.id);
       await runner.enqueueEditJob({
         jobId: job.id,
         editRequestId: editRequest.id,
@@ -136,7 +136,7 @@ export const registerCustomerRoutes = (
       });
 
       if (!isActive && !profile.hasUsedTrial) {
-        await supabase.markTrialUsed(profile.id);
+        await db.markTrialUsed(profile.id);
         profile.hasUsedTrial = true;
       }
 

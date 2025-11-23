@@ -1,25 +1,50 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
-  NODE_ENV: z.string().optional(),
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
-  STRIPE_SECRET_KEY: z.string().min(1, 'STRIPE_SECRET_KEY is required'),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
-  COGNITO_USER_POOL_ID: z.string().min(1, 'COGNITO_USER_POOL_ID is required'),
-  COGNITO_USER_POOL_REGION: z.string().min(1, 'COGNITO_USER_POOL_REGION is required'),
-  COGNITO_APP_CLIENT_ID: z.string().min(1, 'COGNITO_APP_CLIENT_ID is required'),
-  COGNITO_M2M_CLIENT_ID: z.string().optional(),
-  RUNNER_FUNCTION_NAME: z.string().min(1, 'RUNNER_FUNCTION_NAME is required'),
-  TEMPLATE_UPLOAD_BUCKET: z.string().min(1, 'TEMPLATE_UPLOAD_BUCKET is required'),
-  DEFAULT_TRIAL_EDIT_LIMIT: z.coerce.number().default(1),
-  AWS_REGION: z.string().optional(),
-});
+const envSchema = z
+  .object({
+    NODE_ENV: z.string().optional(),
+    DATABASE_URL: z.string().min(1).optional(),
+    DB_HOST: z.string().min(1).optional(),
+    DB_PORT: z.string().min(1).optional(),
+    DB_NAME: z.string().min(1).optional(),
+    DB_USERNAME: z.string().min(1).optional(),
+    DB_PASSWORD: z.string().min(1).optional(),
+    STRIPE_SECRET_KEY: z.string().min(1, 'STRIPE_SECRET_KEY is required'),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    COGNITO_USER_POOL_ID: z.string().min(1, 'COGNITO_USER_POOL_ID is required'),
+    COGNITO_USER_POOL_REGION: z.string().min(1, 'COGNITO_USER_POOL_REGION is required'),
+    COGNITO_APP_CLIENT_ID: z.string().min(1, 'COGNITO_APP_CLIENT_ID is required'),
+    COGNITO_M2M_CLIENT_ID: z.string().optional(),
+    RUNNER_FUNCTION_NAME: z.string().min(1, 'RUNNER_FUNCTION_NAME is required'),
+    TEMPLATE_UPLOAD_BUCKET: z.string().min(1, 'TEMPLATE_UPLOAD_BUCKET is required'),
+    DEFAULT_TRIAL_EDIT_LIMIT: z.coerce.number().default(1),
+    AWS_REGION: z.string().optional(),
+  })
+  .refine(
+    (value) =>
+      Boolean(value.DATABASE_URL) ||
+      Boolean(
+        value.DB_HOST &&
+          value.DB_NAME &&
+          value.DB_USERNAME &&
+          value.DB_PASSWORD &&
+          (value.DB_PORT ?? true)
+      ),
+    {
+      message:
+        'DATABASE_URL or DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD must be provided to connect to PostgreSQL.',
+      path: ['DATABASE_URL'],
+    }
+  );
 
 const rawEnv = envSchema.parse({
   NODE_ENV: process.env.NODE_ENV,
-  SUPABASE_URL: process.env.SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  DATABASE_URL: process.env.DATABASE_URL,
+  DB_HOST: process.env.DB_HOST,
+  DB_PORT: process.env.DB_PORT,
+  DB_NAME: process.env.DB_NAME,
+  DB_USERNAME: process.env.DB_USERNAME,
+  DB_PASSWORD: process.env.DB_PASSWORD,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   COGNITO_USER_POOL_ID: process.env.COGNITO_USER_POOL_ID,
@@ -32,11 +57,26 @@ const rawEnv = envSchema.parse({
   AWS_REGION: process.env.AWS_REGION,
 });
 
+const buildDatabaseUrl = () => {
+  if (rawEnv.DATABASE_URL) return rawEnv.DATABASE_URL;
+  if (
+    rawEnv.DB_HOST &&
+    rawEnv.DB_NAME &&
+    rawEnv.DB_USERNAME &&
+    rawEnv.DB_PASSWORD
+  ) {
+    const port = rawEnv.DB_PORT || '5432';
+    const user = encodeURIComponent(rawEnv.DB_USERNAME);
+    const password = encodeURIComponent(rawEnv.DB_PASSWORD);
+    return `postgresql://${user}:${password}@${rawEnv.DB_HOST}:${port}/${rawEnv.DB_NAME}`;
+  }
+  throw new Error('Unable to determine database connection information');
+};
+
 export const config = {
   nodeEnv: rawEnv.NODE_ENV ?? 'development',
-  supabase: {
-    url: rawEnv.SUPABASE_URL,
-    serviceRoleKey: rawEnv.SUPABASE_SERVICE_ROLE_KEY,
+  database: {
+    url: buildDatabaseUrl(),
   },
   stripe: {
     secretKey: rawEnv.STRIPE_SECRET_KEY,

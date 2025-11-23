@@ -4,7 +4,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { config } from '../env';
 import { RunnerService } from '../services/runner';
-import { SupabaseService } from '../services/supabase';
+import { DatabaseService } from '../services/database';
 
 const adminEditRequestQuery = z.object({
   status: z.enum(['pending', 'in_progress', 'completed', 'rejected']).optional(),
@@ -21,9 +21,9 @@ const s3Client = new S3Client({ region: config.awsRegion });
 
 export const registerAdminRoutes = (
   app: FastifyInstance,
-  deps: { supabase: SupabaseService; runner: RunnerService }
+  deps: { db: DatabaseService; runner: RunnerService }
 ) => {
-  const { supabase, runner } = deps;
+  const { db, runner } = deps;
 
   const adminPreHandler = async (request: FastifyRequest, reply: FastifyReply) => {
     await app.authenticateUser(request, reply);
@@ -35,12 +35,12 @@ export const registerAdminRoutes = (
     if (!parsed.success) {
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
-    const items = await supabase.listAdminEditRequests(parsed.data);
+    const items = await db.listAdminEditRequests(parsed.data);
     return items;
   });
 
   app.get('/admin/edit-requests/:id', { preHandler: adminPreHandler }, async (request, reply) => {
-    const item = await supabase.getEditRequestById((request.params as any).id);
+    const item = await db.getEditRequestById((request.params as any).id);
     if (!item) return reply.code(404).send({ message: 'Edit request not found' });
     return item;
   });
@@ -50,7 +50,7 @@ export const registerAdminRoutes = (
     if (!parsed.success) {
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
-    const jobs = await supabase.listJobs(parsed.data);
+    const jobs = await db.listJobs(parsed.data);
     return jobs;
   });
 
@@ -59,8 +59,8 @@ export const registerAdminRoutes = (
     { preHandler: adminPreHandler },
     async (request, reply) => {
       const jobId = (request.params as any).jobId;
-      const newJob = await supabase.retryJob(jobId);
-      const editRequest = await supabase.getEditRequestById(newJob.editRequestId);
+      const newJob = await db.retryJob(jobId);
+      const editRequest = await db.getEditRequestById(newJob.editRequestId);
       if (editRequest) {
         await runner.enqueueEditJob({
           jobId: newJob.id,
@@ -91,7 +91,7 @@ export const registerAdminRoutes = (
         })
       );
       const templateId = randomUUID();
-      const record = await supabase.recordTemplateUpload({
+      const record = await db.recordTemplateUpload({
         templateId,
         fileName: file.filename,
         s3Key: key,
