@@ -260,6 +260,9 @@ export class SupabaseService {
       )
       .single();
     raise(error, 'Failed to create job');
+    if (!data) {
+      throw new Error('Failed to create job');
+    }
     await this.client.from('edit_requests').update({ latest_job_id: data.id }).eq('id', editRequestId);
     return mapJob(data);
   }
@@ -379,6 +382,9 @@ export class SupabaseService {
       )
       .single();
     raise(error, 'Failed to update job');
+    if (!data) {
+      throw new Error('Job not found');
+    }
     return mapJob(data);
   }
 
@@ -418,6 +424,9 @@ export class SupabaseService {
       .select('template_id, file_name, s3_key, uploaded_at, uploaded_by')
       .single();
     raise(error, 'Failed to record template upload');
+    if (!data) {
+      throw new Error('Failed to record template upload');
+    }
     return {
       templateId: data.template_id,
       fileName: data.file_name,

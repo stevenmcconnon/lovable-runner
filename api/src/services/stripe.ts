@@ -4,7 +4,7 @@ import { StripeCheckoutRequest, SubscriptionPlan } from '../types';
 import { SupabaseService } from './supabase';
 
 const stripeClient = new Stripe(config.stripe.secretKey, {
-  apiVersion: '2023-10-16',
+  apiVersion: '2024-06-20',
 });
 
 export class StripeService {

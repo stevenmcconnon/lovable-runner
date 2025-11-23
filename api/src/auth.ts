@@ -58,10 +58,11 @@ export const buildAuthPlugin = (supabase: SupabaseService): FastifyPluginAsync =
       const profile = await supabase.getProfileByCognitoSub(payload.sub);
       if (!profile) throw forbidden('Profile not found');
       const roles = await supabase.getRolesForUser(profile.id);
+      const email = typeof payload.email === 'string' ? payload.email : undefined;
       const context: AuthContext = {
         type: 'user',
         sub: payload.sub,
-        email: payload.email,
+        email,
         roles,
         profile,
       };

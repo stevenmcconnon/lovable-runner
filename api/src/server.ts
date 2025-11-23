@@ -1,6 +1,6 @@
 import fastify, { FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
-import rawBody from '@fastify/raw-body';
+import fastifyRawBody from 'fastify-raw-body';
 import { buildAuthPlugin } from './auth';
 import { registerAdminRoutes } from './routes/admin';
 import { registerBillingRoutes } from './routes/billing';
@@ -17,7 +17,7 @@ export const buildServer = (): FastifyInstance => {
   });
 
   app.register(multipart);
-  app.register(rawBody, {
+  app.register(fastifyRawBody, {
     field: 'rawBody',
     global: false,
     routes: ['/webhooks/stripe'],

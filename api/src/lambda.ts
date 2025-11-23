@@ -10,5 +10,5 @@ export const handler = async (event: APIGatewayProxyEventV2, context: Context) =
     await app.ready();
     proxy = awsLambdaFastify(app);
   }
-  return proxy(event, context);
+  return (proxy as any)(event, context);
 };
