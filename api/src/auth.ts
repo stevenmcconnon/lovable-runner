@@ -42,6 +42,33 @@ const extractToken = (request: FastifyRequest) => {
   return token || null;
 };
 
+const fetchCognitoUserInfo = async (accessToken: string, logger: FastifyRequest['log']) => {
+  const endpoint = `https://${config.cognito.domain}/oauth2/userInfo`;
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) {
+      logger?.warn(
+        { status: response.status, statusText: response.statusText },
+        'Failed to fetch Cognito userInfo'
+      );
+      return null;
+    }
+    const data = await response.json().catch(() => null);
+    if (!data || typeof data !== 'object') return null;
+    return {
+      email: typeof (data as any).email === 'string' ? (data as any).email : undefined,
+      name: typeof (data as any).name === 'string' ? (data as any).name : undefined,
+      username: typeof (data as any).username === 'string' ? (data as any).username : undefined,
+    };
+  } catch (error) {
+    logger?.warn({ err: error }, 'Error while calling Cognito userInfo endpoint');
+    return null;
+  }
+};
+
 export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =>
   fastifyPlugin(async function authPlugin(fastify: FastifyInstance) {
     const userVerifier = createUserVerifier();
@@ -50,20 +77,55 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
     fastify.decorate('authenticateUser', async (request: FastifyRequest): Promise<void> => {
       const token = extractToken(request);
       if (!token) throw unauthorized();
-      let payload;
+      let payload: any;
       try {
         payload = await userVerifier.verify(token);
       } catch (error) {
         throw unauthorized('Invalid or expired token');
       }
-      const profile = await database.getProfileByCognitoSub(payload.sub);
-      if (!profile) {
+      const usernameClaim =
+        typeof payload.username === 'string'
+          ? payload.username
+          : typeof payload['cognito:username'] === 'string'
+          ? payload['cognito:username']
+          : undefined;
+      let email =
+        typeof payload.email === 'string'
+          ? payload.email
+          : usernameClaim && usernameClaim.includes('@')
+          ? usernameClaim
+          : undefined;
+      let fullName = typeof payload.name === 'string' ? payload.name : undefined;
+      if (!email) {
+        const userInfo = await fetchCognitoUserInfo(token, request.log);
+        if (userInfo?.email) {
+          email = userInfo.email;
+        } else if (userInfo?.username && userInfo.username.includes('@')) {
+          email = userInfo.username;
+        }
+        if (!fullName && userInfo?.name) {
+          fullName = userInfo.name;
+        }
+      }
+      if (!email) {
         // eslint-disable-next-line no-console
-        console.warn('[auth] profile not found for sub', payload.sub);
+        console.warn('[auth] email missing from token payload', payload);
         throw forbidden('Profile not found');
       }
-      const roles = await database.getRolesForUser(profile.id);
-      const email = typeof payload.email === 'string' ? payload.email : undefined;
+      let profile = await database.getProfileByCognitoSub(payload.sub);
+      if (!profile) {
+        profile = await database.createProfileFromCognito({
+          cognitoSub: payload.sub,
+          email,
+          fullName,
+        });
+        await database.ensureRolesForUser(profile.id, ['customer']);
+      }
+      let roles = await database.getRolesForUser(profile.id);
+      if (!roles.length) {
+        await database.ensureRolesForUser(profile.id, ['customer']);
+        roles = await database.getRolesForUser(profile.id);
+      }
       const context: AuthContext = {
         type: 'user',
         sub: payload.sub,

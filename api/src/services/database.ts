@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Pool, PoolClient, QueryResultRow } from 'pg';
 import { config } from '../env';
 import {
@@ -99,6 +100,44 @@ export class DatabaseService {
       [userId]
     );
     return rows.map((row) => row.role);
+  }
+
+  async createProfileFromCognito(input: {
+    cognitoSub: string;
+    email: string;
+    fullName?: string;
+  }): Promise<ProfileRecord> {
+    const profileId = randomUUID();
+    const accountId = randomUUID();
+    const { rows } = await this.query(
+      `
+      INSERT INTO profiles (id, account_id, email, full_name, cognito_sub, has_used_trial)
+      VALUES ($1, $2, $3, $4, $5, false)
+      ON CONFLICT (cognito_sub) DO UPDATE
+        SET email = EXCLUDED.email,
+            full_name = COALESCE(EXCLUDED.full_name, profiles.full_name)
+      RETURNING id, account_id, email, full_name, cognito_sub, has_used_trial
+    `,
+      [profileId, accountId, input.email, input.fullName ?? null, input.cognitoSub]
+    );
+    if (!rows[0]) {
+      throw new Error('Failed to create or fetch profile');
+    }
+    return mapProfile(rows[0]);
+  }
+
+  async ensureRolesForUser(userId: string, roles: UserRole[]): Promise<void> {
+    if (!roles.length) return;
+    const valuePlaceholders = roles.map((_, index) => `($1, $${index + 2})`).join(', ');
+    const params = [userId, ...roles];
+    await this.query(
+      `
+      INSERT INTO user_roles (user_id, role)
+      VALUES ${valuePlaceholders}
+      ON CONFLICT (user_id, role) DO NOTHING
+    `,
+      params
+    );
   }
 
   async getSubscription(accountId: string): Promise<SubscriptionDetails | null> {

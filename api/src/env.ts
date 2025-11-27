@@ -14,11 +14,18 @@ const envSchema = z
     COGNITO_USER_POOL_ID: z.string().min(1, 'COGNITO_USER_POOL_ID is required'),
     COGNITO_USER_POOL_REGION: z.string().min(1, 'COGNITO_USER_POOL_REGION is required'),
     COGNITO_APP_CLIENT_ID: z.string().min(1, 'COGNITO_APP_CLIENT_ID is required'),
+    COGNITO_APP_CLIENT_SECRET: z.string().optional(),
+    COGNITO_DOMAIN: z.string().min(1, 'COGNITO_DOMAIN is required'),
+    COGNITO_CLIENT_ID: z.string().optional(),
+    COGNITO_CLIENT_SECRET: z.string().optional(),
+    COGNITO_USER_POOL_DOMAIN: z.string().optional(),
     COGNITO_M2M_CLIENT_ID: z.string().optional(),
     RUNNER_FUNCTION_NAME: z.string().min(1, 'RUNNER_FUNCTION_NAME is required'),
     TEMPLATE_UPLOAD_BUCKET: z.string().min(1, 'TEMPLATE_UPLOAD_BUCKET is required'),
     DEFAULT_TRIAL_EDIT_LIMIT: z.coerce.number().default(1),
     AWS_REGION: z.string().optional(),
+    FRONTEND_ORIGIN: z.string().optional(),
+    AUTH_CALLBACK_URL: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -50,12 +57,29 @@ const rawEnv = envSchema.parse({
   COGNITO_USER_POOL_ID: process.env.COGNITO_USER_POOL_ID,
   COGNITO_USER_POOL_REGION: process.env.COGNITO_USER_POOL_REGION,
   COGNITO_APP_CLIENT_ID: process.env.COGNITO_APP_CLIENT_ID,
+  COGNITO_APP_CLIENT_SECRET: process.env.COGNITO_APP_CLIENT_SECRET,
+  COGNITO_DOMAIN: process.env.COGNITO_DOMAIN,
+  COGNITO_CLIENT_ID: process.env.COGNITO_CLIENT_ID,
+  COGNITO_CLIENT_SECRET: process.env.COGNITO_CLIENT_SECRET,
+  COGNITO_USER_POOL_DOMAIN: process.env.COGNITO_USER_POOL_DOMAIN,
   COGNITO_M2M_CLIENT_ID: process.env.COGNITO_M2M_CLIENT_ID,
   RUNNER_FUNCTION_NAME: process.env.RUNNER_FUNCTION_NAME,
   TEMPLATE_UPLOAD_BUCKET: process.env.TEMPLATE_UPLOAD_BUCKET,
   DEFAULT_TRIAL_EDIT_LIMIT: process.env.DEFAULT_TRIAL_EDIT_LIMIT,
   AWS_REGION: process.env.AWS_REGION,
+  FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN,
+  AUTH_CALLBACK_URL: process.env.AUTH_CALLBACK_URL,
 });
+
+const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
+const fallbackCallbackUrl =
+  rawEnv.AUTH_CALLBACK_URL ?? `${fallbackOrigin.replace(/\/$/, '')}/auth/callback`;
+const cognitoDomain =
+  rawEnv.COGNITO_USER_POOL_DOMAIN ??
+  rawEnv.COGNITO_DOMAIN ??
+  `ai-sitemaker-auth.auth.${rawEnv.COGNITO_USER_POOL_REGION}.amazonaws.com`;
+const cognitoClientId = rawEnv.COGNITO_CLIENT_ID ?? rawEnv.COGNITO_APP_CLIENT_ID;
+const cognitoClientSecret = rawEnv.COGNITO_CLIENT_SECRET ?? rawEnv.COGNITO_APP_CLIENT_SECRET;
 
 const buildDatabaseUrl = () => {
   if (rawEnv.DATABASE_URL) return rawEnv.DATABASE_URL;
@@ -85,7 +109,9 @@ export const config = {
   cognito: {
     userPoolId: rawEnv.COGNITO_USER_POOL_ID,
     region: rawEnv.COGNITO_USER_POOL_REGION,
-    appClientId: rawEnv.COGNITO_APP_CLIENT_ID,
+    appClientId: cognitoClientId,
+    appClientSecret: cognitoClientSecret,
+    domain: cognitoDomain,
     machineClientId: rawEnv.COGNITO_M2M_CLIENT_ID,
   },
   runner: {
@@ -98,4 +124,8 @@ export const config = {
     trialEditLimit: rawEnv.DEFAULT_TRIAL_EDIT_LIMIT,
   },
   awsRegion: rawEnv.AWS_REGION ?? rawEnv.COGNITO_USER_POOL_REGION,
+  frontend: {
+    origin: fallbackOrigin,
+    authCallbackUrl: fallbackCallbackUrl,
+  },
 } as const;

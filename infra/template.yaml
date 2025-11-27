@@ -76,6 +76,18 @@ Parameters:
     Type: Number
     Default: 1
     Description: Number of trial edits allowed before subscription is required
+  CognitoDomain:
+    Type: String
+    Default: ai-sitemaker-auth.auth.us-east-1.amazoncognito.com
+    Description: Cognito hosted UI domain (e.g., yourdomain.auth.us-east-1.amazoncognito.com)
+  FrontendOrigin:
+    Type: String
+    Default: https://ai-sitemaker.com
+    Description: Allowed browser origin for API responses
+  AuthCallbackUrl:
+    Type: String
+    Default: https://ai-sitemaker.com/auth/callback
+    Description: Redirect URI used for OAuth exchanges
 
 Conditions:
   HasCustomDomain: !And
@@ -89,15 +101,18 @@ Resources:
       StageName: prod
       CorsConfiguration:
         AllowOrigins:
-          - '*'
+          - !Ref FrontendOrigin
         AllowHeaders:
-          - '*'
+          - Content-Type
+          - Authorization
+          - Stripe-Signature
         AllowMethods:
           - GET
           - POST
           - PUT
           - DELETE
           - OPTIONS
+        AllowCredentials: true
   RunnerApiCustomDomain:
     Condition: HasCustomDomain
     Type: AWS::ApiGatewayV2::DomainName
@@ -185,7 +200,10 @@ Resources:
           COGNITO_USER_POOL_ID: !Ref UserPool
           COGNITO_USER_POOL_REGION: !Ref AWS::Region
           COGNITO_APP_CLIENT_ID: !Ref UserPoolClient
+          COGNITO_DOMAIN: !Ref CognitoDomain
           COGNITO_M2M_CLIENT_ID: !Ref UserPoolMachineClient
+          FRONTEND_ORIGIN: !Ref FrontendOrigin
+          AUTH_CALLBACK_URL: !Ref AuthCallbackUrl
           RUNNER_FUNCTION_NAME: !Ref RunnerLambdaName
           TEMPLATE_UPLOAD_BUCKET: !Ref TemplateUploadBucket
           DEFAULT_TRIAL_EDIT_LIMIT: !Ref DefaultTrialEditLimit
