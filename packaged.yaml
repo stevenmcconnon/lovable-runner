@@ -3,7 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: Lovable Runner API (launch + update workflow)
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Timeout: 900
     MemorySize: 2048
     Architectures:

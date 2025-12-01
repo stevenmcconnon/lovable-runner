@@ -13,6 +13,10 @@ export class RunnerService {
     siteId?: string | null;
     businessDetails?: BusinessDetailsInput;
   }) {
+    const functionName = config.runner.functionName || process.env.AWS_LAMBDA_FUNCTION_NAME || '';
+    if (!functionName) {
+      throw new Error('Runner function name is not configured');
+    }
     const payload = {
       action: 'RUN_EDIT_REQUEST',
       jobId: params.jobId,
@@ -25,10 +29,45 @@ export class RunnerService {
 
     await this.lambda.send(
       new InvokeCommand({
-        FunctionName: config.runner.functionName,
+        FunctionName: functionName,
         InvocationType: 'Event',
         Payload: Buffer.from(JSON.stringify(payload)),
       })
     );
+  }
+
+  async runLaunchDirect(params: {
+    url?: string;
+    description?: string;
+    businessDetails?: BusinessDetailsInput;
+    requestId?: string;
+    testMode?: boolean;
+  }) {
+    const functionName =
+      config.runner.functionName || process.env.AWS_LAMBDA_FUNCTION_NAME || '';
+    if (!functionName) {
+      throw new Error('Runner function name is not configured');
+    }
+    const payload = {
+      action: 'RUN_SITE_LAUNCH',
+      url: params.url,
+      description: params.description,
+      businessDetails: params.businessDetails ?? null,
+      requestId: params.requestId,
+      testMode: params.testMode ?? false,
+    };
+
+    const response = await this.lambda.send(
+      new InvokeCommand({
+        FunctionName: functionName,
+        InvocationType: 'Event',
+        Payload: Buffer.from(JSON.stringify(payload)),
+      })
+    );
+
+    if (response.FunctionError) {
+      throw new Error(`Runner invocation failed: ${response.FunctionError}`);
+    }
+    return { status: 'queued' };
   }
 }

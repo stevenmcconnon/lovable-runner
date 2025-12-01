@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { config } from '../env';
 import { RunnerService } from '../services/runner';
 import { DatabaseService } from '../services/database';
+import { SiteGenerationStatus } from '../types';
 
 const adminEditRequestQuery = z.object({
   status: z.enum(['pending', 'in_progress', 'completed', 'rejected']).optional(),
@@ -17,6 +18,12 @@ const adminJobsQuery = z.object({
   editRequestId: z.string().optional(),
 });
 
+const adminSiteLaunchQuery = z.object({
+  accountId: z.string().uuid().optional(),
+  status: z.enum(['queued', 'running', 'completed', 'failed']).optional(),
+  limit: z.coerce.number().min(1).max(200).optional(),
+});
+
 const s3Client = new S3Client({ region: config.awsRegion });
 
 export const registerAdminRoutes = (
@@ -26,8 +33,19 @@ export const registerAdminRoutes = (
   const { db, runner } = deps;
 
   const adminPreHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    await app.authenticateUser(request, reply);
-    await app.requireRoles(request, reply, ['admin', 'super-admin']);
+    let userError: any = null;
+    try {
+      await app.authenticateUser(request, reply);
+      await app.requireRoles(request, reply, ['admin', 'super-admin']);
+      return;
+    } catch (error) {
+      userError = error;
+    }
+    try {
+      await app.authenticateMachine(request, reply);
+    } catch (machineError) {
+      throw userError || machineError;
+    }
   };
 
   app.get('/admin/edit-requests', { preHandler: adminPreHandler }, async (request, reply) => {
@@ -102,6 +120,25 @@ export const registerAdminRoutes = (
         fileName: record.fileName,
         uploadedAt: record.uploadedAt,
       });
+    }
+  );
+
+  app.get('/admin/site-launches', { preHandler: adminPreHandler }, async (request, reply) => {
+    const parsed = adminSiteLaunchQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
+    }
+    const items = await db.listSiteGenerationsAdmin(parsed.data);
+    return items;
+  });
+
+  app.get(
+    '/admin/site-launches/:requestId',
+    { preHandler: adminPreHandler },
+    async (request, reply) => {
+      const item = await db.getSiteGenerationByRequestId((request.params as any).requestId);
+      if (!item) return reply.code(404).send({ message: 'Site launch not found' });
+      return item;
     }
   );
 };

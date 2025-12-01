@@ -20,7 +20,7 @@ const envSchema = z
     COGNITO_CLIENT_SECRET: z.string().optional(),
     COGNITO_USER_POOL_DOMAIN: z.string().optional(),
     COGNITO_M2M_CLIENT_ID: z.string().optional(),
-    RUNNER_FUNCTION_NAME: z.string().min(1, 'RUNNER_FUNCTION_NAME is required'),
+    RUNNER_FUNCTION_NAME: z.string().optional(),
     TEMPLATE_UPLOAD_BUCKET: z.string().min(1, 'TEMPLATE_UPLOAD_BUCKET is required'),
     DEFAULT_TRIAL_EDIT_LIMIT: z.coerce.number().default(1),
     AWS_REGION: z.string().optional(),

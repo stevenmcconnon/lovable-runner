@@ -105,6 +105,34 @@ CREATE TABLE IF NOT EXISTS templates (
 
 CREATE UNIQUE INDEX IF NOT EXISTS templates_template_id_idx ON templates(template_id);
 
+CREATE TABLE IF NOT EXISTS site_generations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL UNIQUE,
+  account_id UUID,
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  source_url TEXT,
+  description TEXT,
+  slug TEXT,
+  prefix TEXT,
+  bucket TEXT,
+  business_name TEXT,
+  business_type TEXT,
+  business_phone TEXT,
+  business_address TEXT,
+  additional_details TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',
+  public_url TEXT,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS site_generations_account_idx ON site_generations(account_id);
+CREATE INDEX IF NOT EXISTS site_generations_request_idx ON site_generations(request_id);
+
+ALTER TABLE site_generations ALTER COLUMN account_id DROP NOT NULL;
+ALTER TABLE site_generations ALTER COLUMN user_id DROP NOT NULL;
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -140,5 +168,11 @@ CREATE TRIGGER set_edit_requests_updated_at
 DROP TRIGGER IF EXISTS set_edit_jobs_updated_at ON edit_jobs;
 CREATE TRIGGER set_edit_jobs_updated_at
   BEFORE UPDATE ON edit_jobs
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_site_generations_updated_at ON site_generations;
+CREATE TRIGGER set_site_generations_updated_at
+  BEFORE UPDATE ON site_generations
   FOR EACH ROW
   EXECUTE FUNCTION set_updated_at();

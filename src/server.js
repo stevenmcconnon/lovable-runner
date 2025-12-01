@@ -44,18 +44,10 @@ const server = http.createServer(async (req, res) => {
       const body = await parseBody(req);
       const result = await runLaunch({
         url: body.url,
-        token: body.token,
-        base: body.base,
-        createPath: body.createPath,
-        workspace: body.workspace,
-        waitSeconds: body.wait,
-        attempts: body.attempts,
-        bucket: body.bucket,
         prefix: body.prefix,
         slug: body.slug,
-        profile: body.profile,
-        skipInstall: body.skipInstall,
-        placeholderLimit: body.placeholderLimit,
+        description: body.description,
+        businessDetails: body.businessDetails || body.business,
       });
       send(res, 200, result);
       return;

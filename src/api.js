@@ -8,18 +8,10 @@ const ROUTES = {
     const body = parseJsonBody(event);
     const result = await runLaunch({
       url: body.url,
-      token: body.token,
-      base: body.base,
-      createPath: body.createPath,
-      workspace: body.workspace,
-      waitSeconds: body.wait,
-      attempts: body.attempts,
-      bucket: body.bucket || process.env.LOVABLE_DEPLOY_BUCKET,
       prefix: body.prefix || process.env.LOVABLE_DEPLOY_PREFIX,
       slug: body.slug,
-      profile: body.profile,
-      skipInstall: body.skipInstall,
-      placeholderLimit: body.placeholderLimit,
+      description: body.description,
+      businessDetails: body.businessDetails || body.business,
     });
     return json(200, result);
   },

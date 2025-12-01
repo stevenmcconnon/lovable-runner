@@ -1,6 +1,7 @@
 import awsLambdaFastify from '@fastify/aws-lambda';
 import { APIGatewayProxyEventV2, Context } from 'aws-lambda';
 import { buildServer } from './server';
+import { handleSiteLaunchJob } from './worker';
 
 let proxy: ReturnType<typeof awsLambdaFastify>;
 
@@ -25,7 +26,27 @@ const stripStageFromPath = (evt: APIGatewayProxyEventV2) => {
   }
 };
 
-export const handler = async (event: APIGatewayProxyEventV2, context: Context) => {
+const handleActionEvent = async (event: any) => {
+  if (event?.action === 'RUN_SITE_LAUNCH') {
+    const result = await handleSiteLaunchJob({
+      requestId: event.requestId,
+      url: event.url,
+      description: event.description,
+      businessDetails: event.businessDetails,
+      testMode: event.testMode,
+    });
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
+  }
+  throw new Error(`Unsupported action: ${event?.action ?? 'unknown'}`);
+};
+
+export const handler = async (event: APIGatewayProxyEventV2 | any, context: Context) => {
+  if (event && typeof event === 'object' && 'action' in event) {
+    return handleActionEvent(event);
+  }
   if (!proxy) {
     const app = buildServer();
     proxy = awsLambdaFastify(app);

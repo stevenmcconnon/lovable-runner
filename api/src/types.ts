@@ -47,6 +47,13 @@ export interface UsageDetails {
 
 export type EditRequestStatus = 'pending' | 'in_progress' | 'completed' | 'rejected';
 export type EditJobStatus = 'queued' | 'running' | 'failed' | 'completed';
+export type SiteGenerationStatus =
+  | 'queued'
+  | 'running'
+  | 'building'
+  | 'deploying'
+  | 'completed'
+  | 'failed';
 
 export interface EditJobRecord {
   id: string;
@@ -103,4 +110,25 @@ export interface AdminEditRequestFilters {
   status?: EditRequestStatus;
   accountId?: string;
   email?: string;
+}
+
+export interface SiteGenerationRecord {
+  requestId: string;
+  accountId?: string | null;
+  userId?: string | null;
+  sourceUrl?: string | null;
+  description?: string | null;
+  slug?: string | null;
+  prefix?: string | null;
+  bucket?: string | null;
+  businessName?: string | null;
+  businessType?: string | null;
+  businessPhone?: string | null;
+  businessAddress?: string | null;
+  additionalDetails?: string | null;
+  status: SiteGenerationStatus;
+  publicUrl?: string | null;
+  errorMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

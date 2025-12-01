@@ -7,6 +7,7 @@ import { registerAuthRoutes } from './routes/auth';
 import { registerBillingRoutes } from './routes/billing';
 import { registerCustomerRoutes } from './routes/customer';
 import { registerInternalRoutes } from './routes/internal';
+import { registerLaunchRoutes } from './routes/launch';
 import { registerWebhookRoutes } from './routes/webhooks';
 import { RunnerService } from './services/runner';
 import { StripeService } from './services/stripe';
@@ -61,6 +62,7 @@ export const buildServer = (): FastifyInstance => {
     registerBillingRoutes(instance, { db: database, stripe });
     registerWebhookRoutes(instance, { db: database, stripe });
     registerInternalRoutes(instance, { db: database });
+    registerLaunchRoutes(instance, { db: database, runner });
     registerAuthRoutes(instance);
   });
 

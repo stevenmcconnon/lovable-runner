@@ -4,7 +4,7 @@ Description: AI SiteMaker backend API
 
 Globals:
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Timeout: 900
     MemorySize: 2048
     Architectures:
@@ -66,9 +66,6 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Stripe webhook signing secret
-  RunnerLambdaName:
-    Type: String
-    Description: Name of the Lovable runner Lambda for job orchestration
   TemplateUploadBucket:
     Type: String
     Description: S3 bucket used to store uploaded templates
@@ -76,6 +73,28 @@ Parameters:
     Type: Number
     Default: 1
     Description: Number of trial edits allowed before subscription is required
+  GeminiApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: API key for Gemini (used by the runner Lambda)
+  GeminiApiKeySecretArn:
+    Type: String
+    Default: ''
+    Description: Optional Secrets Manager ARN holding the Gemini API key (string value)
+  GeminiModel:
+    Type: String
+    Default: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-pro:generateContent'
+    Description: Optional override for the Gemini model endpoint (use latest Gemini 3 endpoint)
+  RunnerApiBase:
+    Type: String
+    Default: https://api.ai-sitemaker.com
+    Description: Base URL for posting internal job updates (machine token required)
+  CognitoM2MClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Secret for the machine-to-machine Cognito app client (for internal job callbacks)
   CognitoDomain:
     Type: String
     Default: ai-sitemaker-auth.auth.us-east-1.amazoncognito.com
@@ -88,11 +107,17 @@ Parameters:
     Type: String
     Default: https://ai-sitemaker.com/auth/callback
     Description: Redirect URI used for OAuth exchanges
+  PreviewDomainName:
+    Type: String
+    Default: ''
+    Description: Optional preview domain (e.g., preview.ai-sitemaker.com) served via CloudFront
 
 Conditions:
   HasCustomDomain: !And
     - !Not [!Equals [!Ref ApiCustomDomainName, '']]
     - !Not [!Equals [!Ref ApiCertificateArn, '']]
+  HasGeminiSecret: !Not [!Equals [!Ref GeminiApiKeySecretArn, '']]
+  HasPreviewDomain: !Not [!Equals [!Ref PreviewDomainName, '']]
 
 Resources:
   RunnerApi:
@@ -204,9 +229,18 @@ Resources:
           COGNITO_M2M_CLIENT_ID: !Ref UserPoolMachineClient
           FRONTEND_ORIGIN: !Ref FrontendOrigin
           AUTH_CALLBACK_URL: !Ref AuthCallbackUrl
-          RUNNER_FUNCTION_NAME: !Ref RunnerLambdaName
+          LOVABLE_DEPLOY_BUCKET: !Ref DeployBucket
+          DEPLOY_BUCKET: !Ref DeployBucket
           TEMPLATE_UPLOAD_BUCKET: !Ref TemplateUploadBucket
           DEFAULT_TRIAL_EDIT_LIMIT: !Ref DefaultTrialEditLimit
+          PREVIEW_DOMAIN: !Ref PreviewDomainName
+          GEMINI_API_KEY: !If
+            - HasGeminiSecret
+            - !Sub "{{resolve:secretsmanager:${GeminiApiKeySecretArn}:SecretString}}"
+            - !Ref GeminiApiKey
+          GEMINI_MODEL: !Ref GeminiModel
+          RUNNER_API_BASE: !Ref RunnerApiBase
+          COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
       Events:
         RootProxy:
           Type: HttpApi
@@ -230,7 +264,7 @@ Resources:
             - Effect: Allow
               Action:
                 - lambda:InvokeFunction
-              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${RunnerLambdaName}
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
 
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -289,6 +323,7 @@ Resources:
     Properties:
       GroupName: user
       UserPoolId: !Ref UserPool
+
 
 Outputs:
   ApiEndpoint:

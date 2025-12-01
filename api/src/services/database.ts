@@ -11,6 +11,7 @@ import {
   ProfileRecord,
   SubscriptionDetails,
   SubscriptionPlan,
+  SiteGenerationRecord,
   TemplateUploadRecord,
   UsageDetails,
   UserRole,
@@ -64,6 +65,27 @@ const mapRequest = (row: any): EditRequestRecord => ({
         updatedAt: row.latest_job_updated_at?.toISOString?.() ?? row.latest_job_updated_at,
       }
     : null,
+});
+
+const mapSiteGeneration = (row: any): SiteGenerationRecord => ({
+  requestId: row.request_id,
+  accountId: row.account_id,
+  userId: row.user_id,
+  sourceUrl: row.source_url,
+  description: row.description,
+  slug: row.slug,
+  prefix: row.prefix,
+  bucket: row.bucket,
+  businessName: row.business_name,
+  businessType: row.business_type,
+  businessPhone: row.business_phone,
+  businessAddress: row.business_address,
+  additionalDetails: row.additional_details,
+  status: row.status,
+  publicUrl: row.public_url,
+  errorMessage: row.error_message,
+  createdAt: row.created_at?.toISOString?.() ?? row.created_at,
+  updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
 });
 
 export class DatabaseService {
@@ -511,6 +533,144 @@ export class DatabaseService {
       uploadedAt: row.uploaded_at?.toISOString?.() ?? row.uploaded_at,
       uploadedBy: row.uploaded_by,
     };
+  }
+
+  async createSiteGenerationRequest(params: {
+    requestId: string;
+    accountId?: string | null;
+    userId?: string | null;
+    sourceUrl?: string | null;
+    description?: string;
+    slug?: string;
+    prefix?: string;
+    bucket?: string | null;
+    businessDetails?: BusinessDetailsInput;
+  }): Promise<SiteGenerationRecord> {
+    const { rows } = await this.query(
+      `
+      INSERT INTO site_generations (
+        request_id,
+        account_id,
+        user_id,
+        source_url,
+        description,
+        slug,
+        prefix,
+        business_name,
+        business_type,
+        business_phone,
+        business_address,
+        additional_details,
+        status,
+        bucket
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'queued',$13)
+      RETURNING *
+    `,
+      [
+        params.requestId,
+        params.accountId ?? null,
+        params.userId ?? null,
+        params.sourceUrl ?? null,
+        params.description ?? null,
+        params.slug ?? null,
+        params.prefix ?? null,
+        params.businessDetails?.businessName ?? null,
+        params.businessDetails?.businessType ?? null,
+        params.businessDetails?.phone ?? null,
+        params.businessDetails?.address ?? null,
+        params.businessDetails?.additionalDetails ?? null,
+        params.bucket ?? null,
+      ]
+    );
+    if (!rows[0]) {
+      throw new Error('Failed to create site generation request');
+    }
+    return mapSiteGeneration(rows[0]);
+  }
+
+  async updateSiteGeneration(requestId: string, updates: Partial<SiteGenerationRecord>): Promise<void> {
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    const setField = (column: string, value: any) => {
+      params.push(value);
+      fields.push(`${column} = $${params.length}`);
+    };
+
+    if (updates.status) setField('status', updates.status);
+    if (updates.slug !== undefined) setField('slug', updates.slug);
+    if (updates.prefix !== undefined) setField('prefix', updates.prefix);
+    if (updates.bucket !== undefined) setField('bucket', updates.bucket);
+    if (updates.publicUrl !== undefined) setField('public_url', updates.publicUrl);
+    if (updates.errorMessage !== undefined) setField('error_message', updates.errorMessage);
+
+    if (!fields.length) return;
+    params.push(requestId);
+    await this.query(
+      `
+      UPDATE site_generations
+      SET ${fields.join(', ')}, updated_at = NOW()
+      WHERE request_id = $${params.length}
+    `,
+      params
+    );
+  }
+
+  async touchSiteGenerationStage(requestId: string, stage: SiteGenerationRecord['status']) {
+    await this.updateSiteGeneration(requestId, { status: stage });
+  }
+
+  async getSiteGenerationByRequestId(requestId: string, accountId?: string): Promise<SiteGenerationRecord | null> {
+    const params: any[] = [requestId];
+    let where = 'request_id = $1';
+    if (accountId) {
+      params.push(accountId);
+      where += ` AND account_id = $${params.length}`;
+    }
+    const { rows } = await this.query(`SELECT * FROM site_generations WHERE ${where} LIMIT 1`, params);
+    return rows[0] ? mapSiteGeneration(rows[0]) : null;
+  }
+
+  async listSiteGenerations(accountId: string): Promise<SiteGenerationRecord[]> {
+    const { rows } = await this.query(
+      `
+      SELECT * FROM site_generations
+      WHERE account_id = $1
+      ORDER BY created_at DESC
+    `,
+      [accountId]
+    );
+    return rows.map(mapSiteGeneration);
+  }
+
+  async listSiteGenerationsAdmin(filters: {
+    accountId?: string;
+    status?: SiteGenerationRecord['status'];
+    limit?: number;
+  }): Promise<SiteGenerationRecord[]> {
+    const conditions: string[] = [];
+    const params: any[] = [];
+    if (filters.accountId) {
+      params.push(filters.accountId);
+      conditions.push(`account_id = $${params.length}`);
+    }
+    if (filters.status) {
+      params.push(filters.status);
+      conditions.push(`status = $${params.length}`);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limit = filters.limit && Number.isFinite(filters.limit) ? Math.min(filters.limit, 200) : 100;
+    const { rows } = await this.query(
+      `
+      SELECT * FROM site_generations
+      ${where}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `,
+      params
+    );
+    return rows.map(mapSiteGeneration);
   }
 
   async upsertSubscriptionFromStripe(params: {
