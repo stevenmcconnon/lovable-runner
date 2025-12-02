@@ -125,7 +125,7 @@ while true; do
   if [[ "${HTTP_CODE}" == "200" ]]; then
     STATUS="$(echo "${STATUS_RESPONSE}" | jq -r '.status')"
     echo "Status: ${STATUS_RESPONSE}"
-    if [[ "${STATUS}" != "queued" && "${STATUS}" != "running" ]]; then
+    if [[ "${STATUS}" != "queued" && "${STATUS}" != "running" && "${STATUS}" != "building" && "${STATUS}" != "deploying" ]]; then
       break
     fi
   elif [[ "${HTTP_CODE}" == "404" ]]; then
@@ -135,7 +135,7 @@ while true; do
       if [[ -n "${STATUS_RESPONSE}" ]]; then
         STATUS="$(echo "${STATUS_RESPONSE}" | jq -r '.status' 2>/dev/null || echo '')"
         echo "S3 Status: ${STATUS_RESPONSE}"
-        if [[ "${STATUS}" != "queued" && "${STATUS}" != "running" && -n "${STATUS}" ]]; then
+        if [[ "${STATUS}" != "queued" && "${STATUS}" != "running" && "${STATUS}" != "building" && "${STATUS}" != "deploying" && -n "${STATUS}" ]]; then
           break
         fi
       else

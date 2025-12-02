@@ -11,6 +11,14 @@ const GIT_BRANCH = process.env.SITES_MONOREPO_BRANCH || 'main';
 const GIT_ROOT_DIR = (process.env.SITES_MONOREPO_ROOT || 'sites').replace(/^\/+|\/+$/g, '') || '';
 const GIT_USER_NAME = process.env.SITES_GIT_USER || 'Lovable Runner';
 const GIT_USER_EMAIL = process.env.SITES_GIT_EMAIL || 'runner@ai-sitemaker.com';
+const GIT_EXPORT_FLAG = process.env.SITES_EXPORT_ENABLED ?? process.env.SITES_ARCHIVE_ENABLED;
+const isGitExportEnabled = () => {
+  if (GIT_EXPORT_FLAG != null) {
+    const normalized = String(GIT_EXPORT_FLAG).trim().toLowerCase();
+    return normalized !== 'false' && normalized !== '0';
+  }
+  return Boolean(GIT_REPO_URL);
+};
 
 const runGit = (args, { cwd } = {}) =>
   new Promise((resolve, reject) => {
@@ -60,7 +68,9 @@ const buildRelativeGitPath = (slug, requestLabel) => {
 };
 
 const exportProjectToGit = async ({ projectDir, slug, requestId, sourceUrl, description }) => {
-  if (!GIT_REPO_URL) return null;
+  if (!GIT_REPO_URL || !isGitExportEnabled()) {
+    return null;
+  }
   const workDir = path.join(os.tmpdir(), 'lovable-sites', randomUUID());
   const label = requestId || randomUUID();
   const relativeGitPath = buildRelativeGitPath(slug, label);

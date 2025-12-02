@@ -70,4 +70,43 @@ export class RunnerService {
     }
     return { status: 'queued' };
   }
+
+  async runSiteUpdate(params: {
+    requestId: string;
+    slug: string;
+    patch?: any;
+    site?: any;
+    regenerateImages?: boolean;
+    description?: string;
+    sourceUrl?: string;
+  }) {
+    const functionName =
+      config.runner.functionName || process.env.AWS_LAMBDA_FUNCTION_NAME || '';
+    if (!functionName) {
+      throw new Error('Runner function name is not configured');
+    }
+    const payload = {
+      action: 'RUN_SITE_UPDATE',
+      requestId: params.requestId,
+      slug: params.slug,
+      patch: params.patch ?? null,
+      site: params.site ?? null,
+      regenerateImages: params.regenerateImages ?? true,
+      description: params.description ?? null,
+      sourceUrl: params.sourceUrl ?? null,
+    };
+
+    const response = await this.lambda.send(
+      new InvokeCommand({
+        FunctionName: functionName,
+        InvocationType: 'Event',
+        Payload: Buffer.from(JSON.stringify(payload)),
+      })
+    );
+
+    if (response.FunctionError) {
+      throw new Error(`Runner invocation failed: ${response.FunctionError}`);
+    }
+    return { status: 'queued' };
+  }
 }

@@ -37,6 +37,7 @@ type RecordStatus = (args: { requestId: string; status: string; result?: any; er
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { runLaunch }: { runLaunch: RunLaunch } = resolveRootModule('src/launch');
+const { updateSite }: { updateSite: UpdateSiteFn } = resolveRootModule('src/site-edit');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { recordLaunchStatus }: { recordLaunchStatus: RecordStatus } = resolveRootModule('src/launch-tracker');
 import { DatabaseService } from './services/database';
@@ -50,6 +51,31 @@ type SiteLaunchEvent = {
   description?: string;
   businessDetails?: BusinessDetailsInput;
   testMode?: boolean;
+};
+
+type UpdateSiteFn = (params: {
+  slug: string;
+  patch?: any;
+  site?: any;
+  regenerateImages?: boolean;
+  requestId?: string;
+  description?: string;
+  sourceUrl?: string;
+}) => Promise<{
+  slug: string;
+  bucket: string;
+  prefix: string;
+  publicUrl: string;
+}>;
+
+type SiteUpdateEvent = {
+  requestId: string;
+  slug: string;
+  patch?: any;
+  site?: any;
+  regenerateImages?: boolean;
+  description?: string;
+  sourceUrl?: string;
 };
 
 const updateStatus = async (requestId: string, status: string, extras: Record<string, unknown> = {}) => {
@@ -96,6 +122,39 @@ export const handleSiteLaunchJob = async (event: SiteLaunchEvent) => {
   } catch (error: any) {
     await updateStatus(requestId, 'failed', {
       errorMessage: error?.message || 'Generation failed',
+    });
+    throw error;
+  }
+};
+
+export const handleSiteUpdateJob = async (event: SiteUpdateEvent) => {
+  if (!event?.requestId || !event.slug) throw new Error('requestId and slug are required');
+  const requestId = event.requestId;
+  await updateStatus(requestId, 'running');
+  try {
+    const result = await updateSite({
+      slug: event.slug,
+      patch: event.patch,
+      site: event.site,
+      regenerateImages: event.regenerateImages,
+      requestId,
+      description: event.description,
+      sourceUrl: event.sourceUrl,
+    });
+    await updateStatus(requestId, 'completed', {
+      bucket: result.bucket,
+      prefix: result.prefix,
+      slug: result.slug,
+      publicUrl: result.publicUrl,
+    });
+    return {
+      requestId,
+      ...result,
+      status: 'completed',
+    };
+  } catch (error: any) {
+    await updateStatus(requestId, 'failed', {
+      errorMessage: error?.message || 'Update failed',
     });
     throw error;
   }

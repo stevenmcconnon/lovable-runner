@@ -128,6 +128,18 @@ Parameters:
     Type: String
     Default: ''
     Description: Optional preview domain (e.g., preview.ai-sitemaker.com) served via CloudFront
+  SiteBuilderApiEnabled:
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'true'
+    Description: Toggle to enable or disable the /sites builder endpoints.
+  SiteDocsToken:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Optional shared secret required to view /openapi.json and /docs.
 
 Conditions:
   HasCustomDomain: !And
@@ -265,6 +277,8 @@ Resources:
           GOOGLE_IMAGE_MODEL: !Ref GoogleImageModel
           RUNNER_API_BASE: !Ref RunnerApiBase
           COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
+          SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
+          SITE_DOCS_TOKEN: !Ref SiteDocsToken
       Events:
         RootProxy:
           Type: HttpApi

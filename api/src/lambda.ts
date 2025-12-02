@@ -1,7 +1,7 @@
 import awsLambdaFastify from '@fastify/aws-lambda';
 import { APIGatewayProxyEventV2, Context } from 'aws-lambda';
 import { buildServer } from './server';
-import { handleSiteLaunchJob } from './worker';
+import { handleSiteLaunchJob, handleSiteUpdateJob } from './worker';
 
 let proxy: ReturnType<typeof awsLambdaFastify>;
 
@@ -34,6 +34,21 @@ const handleActionEvent = async (event: any) => {
       description: event.description,
       businessDetails: event.businessDetails,
       testMode: event.testMode,
+    });
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
+  }
+  if (event?.action === 'RUN_SITE_UPDATE') {
+    const result = await handleSiteUpdateJob({
+      requestId: event.requestId,
+      slug: event.slug,
+      patch: event.patch,
+      site: event.site,
+      regenerateImages: event.regenerateImages,
+      description: event.description,
+      sourceUrl: event.sourceUrl,
     });
     return {
       statusCode: 200,

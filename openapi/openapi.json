@@ -1,0 +1,636 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI SiteMaker Runner API",
+    "version": "1.0.0",
+    "description": "Endpoints for launching, editing, and managing AI-generated marketing sites. All responses are JSON."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development"
+    },
+    {
+      "url": "https://api.ai-sitemaker.com",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/launch": {
+      "post": {
+        "summary": "Launch a new AI-generated site",
+        "description": "Generates copy/layout with GPT-5.1, builds the base Vite template, and uploads the compiled /dist bundle to the preview bucket.",
+        "operationId": "launchSite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Launch request completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/sites/{slug}": {
+      "get": {
+        "summary": "Fetch stored site config",
+        "description": "Returns the persisted site.json plus metadata describing the last deployment.",
+        "operationId": "getSite",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Site slug assigned during launch."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Site record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Apply edits to an existing site",
+        "description": "Loads the stored site.json, applies a structured patch or full replacement, rebuilds the Vite project, and redeploys to the existing preview prefix.",
+        "operationId": "patchSite",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated site deployed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure"
+          },
+          "404": {
+            "description": "Site not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/instructions": {
+      "post": {
+        "summary": "Apply natural-language instructions",
+        "description": "LLM-assisted editing flow. Sends the stored site + human instructions to GPT‑5.1 to produce a SitePatch, applies it, and redeploys the preview slug.",
+        "operationId": "applyInstructions",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstructionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Instruction applied and site redeployed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/LaunchResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "patchSummary": { "type": "string" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing instructions" },
+          "404": { "description": "Site not found" }
+        }
+      }
+    },
+    "/sites/{slug}/assets": {
+      "get": {
+        "summary": "List uploaded assets",
+        "description": "Returns objects stored under the site’s asset prefix.",
+        "operationId": "listAssets",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Asset list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AssetListResponse" }
+              }
+            }
+          },
+          "404": { "description": "Site not found" }
+        }
+      },
+      "post": {
+        "summary": "Request a signed upload URL",
+        "description": "Generates a pre-signed S3 PUT URL so clients can upload binary assets directly.",
+        "operationId": "createAssetUpload",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssetUploadRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload URL issued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AssetUploadResponse" }
+              }
+            }
+          },
+          "404": { "description": "Site not found" }
+        }
+      }
+    },
+    "/update": {
+      "post": {
+        "summary": "Trigger a Lovable-style draft update",
+        "operationId": "queueUpdate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update queued"
+          }
+        }
+      }
+    },
+    "/approve-update": {
+      "post": {
+        "summary": "Publish a draft update to the live prefix",
+        "operationId": "approveUpdate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Draft published"
+          }
+        }
+      }
+    },
+    "/updates": {
+      "get": {
+        "summary": "List draft updates",
+        "operationId": "listUpdates",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BusinessDetails": {
+        "type": "object",
+        "properties": {
+          "businessName": { "type": "string" },
+          "businessType": { "type": "string" },
+          "address": { "type": "string" },
+          "phone": { "type": "string" },
+          "additionalDetails": { "type": "string" }
+        }
+      },
+      "CTA": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string" },
+          "href": { "type": "string", "format": "uri" }
+        }
+      },
+      "SectionProps": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Arbitrary props consumed by the section component."
+      },
+      "Section": {
+        "type": "object",
+        "required": ["id", "componentId", "props"],
+        "properties": {
+          "id": { "type": "string" },
+          "componentId": {
+            "type": "string",
+            "description": "One of the entries from SECTION_REGISTRY (e.g., hero-with-image, features-grid, testimonials-cards)."
+          },
+          "props": { "$ref": "#/components/schemas/SectionProps" }
+        }
+      },
+      "SectionPatch": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "componentId": { "type": "string" },
+          "action": {
+            "type": "string",
+            "enum": ["update", "insert", "remove"],
+            "default": "update"
+          },
+          "props": { "$ref": "#/components/schemas/SectionProps" },
+          "position": {
+            "type": "object",
+            "properties": {
+              "beforeId": { "type": "string" },
+              "afterId": { "type": "string" },
+              "index": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      },
+      "Site": {
+        "type": "object",
+        "required": ["meta", "seo", "theme", "sections"],
+        "properties": {
+          "meta": {
+            "type": "object",
+            "required": ["brandName", "headline", "subheadline"],
+            "properties": {
+              "brandName": { "type": "string" },
+              "headline": { "type": "string" },
+              "subheadline": { "type": "string" },
+              "location": { "type": "string" },
+              "phone": { "type": "string" },
+              "email": { "type": "string", "format": "email" }
+            }
+          },
+          "seo": {
+            "type": "object",
+            "required": ["title", "description", "keywords"],
+            "properties": {
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "keywords": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 5
+              }
+            }
+          },
+          "theme": {
+            "type": "object",
+            "required": ["primaryColor", "accentColor", "backgroundStyle", "vibe"],
+            "properties": {
+              "primaryColor": { "type": "string" },
+              "accentColor": { "type": "string" },
+              "backgroundStyle": { "type": "string", "enum": ["gradient", "mesh", "texture"] },
+              "vibe": { "type": "string", "enum": ["luxury", "tech", "playful", "earthy"] }
+            }
+          },
+          "sections": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Section" },
+            "minItems": 6
+          }
+        }
+      },
+      "SitePatch": {
+        "type": "object",
+        "properties": {
+          "meta": { "$ref": "#/components/schemas/Site/properties/meta" },
+          "seo": { "$ref": "#/components/schemas/Site/properties/seo" },
+          "theme": { "$ref": "#/components/schemas/Site/properties/theme" },
+          "sections": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SectionPatch" }
+          }
+        }
+      },
+      "SiteMetadata": {
+        "type": "object",
+        "properties": {
+          "bucket": { "type": "string" },
+          "prefix": { "type": "string" },
+          "publicUrl": { "type": "string", "format": "uri" },
+          "requestId": { "type": "string" },
+          "sourceUrl": { "type": "string", "format": "uri" },
+          "description": { "type": "string" },
+          "lastBuildAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SiteRecord": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string" },
+          "site": { "$ref": "#/components/schemas/Site" },
+          "metadata": { "$ref": "#/components/schemas/SiteMetadata" }
+        }
+      },
+      "LaunchRequest": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Reference site to outperform."
+          },
+          "description": {
+            "type": "string",
+            "description": "Additional prompt instructions."
+          },
+          "businessDetails": {
+            "$ref": "#/components/schemas/BusinessDetails"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Optional preferred slug. The system will append a counter if already taken."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Optional preview prefix override (advanced)."
+          }
+        }
+      },
+      "GitArchive": {
+        "type": "object",
+        "properties": {
+          "repoUrl": { "type": "string", "format": "uri" },
+          "branch": { "type": "string" },
+          "path": { "type": "string" },
+          "commit": { "type": "string" },
+          "committed": { "type": "boolean" },
+          "commitMessage": { "type": "string" }
+        }
+      },
+      "LaunchResponse": {
+        "type": "object",
+        "properties": {
+          "slug": { "type": "string" },
+          "bucket": { "type": "string" },
+          "prefix": { "type": "string" },
+          "target": { "type": "string" },
+          "publicUrl": { "type": "string", "format": "uri" },
+          "gitArchive": { "$ref": "#/components/schemas/GitArchive" },
+          "site": { "$ref": "#/components/schemas/Site" }
+        }
+      },
+      "SiteUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "patch": { "$ref": "#/components/schemas/SitePatch" },
+          "site": { "$ref": "#/components/schemas/Site" },
+          "regenerateImages": {
+            "type": "boolean",
+            "default": true,
+            "description": "If false, skips new Google Imagen calls."
+          },
+          "requestId": { "type": "string" },
+          "description": { "type": "string" },
+          "sourceUrl": { "type": "string", "format": "uri" }
+        },
+        "oneOf": [
+          { "required": ["patch"] },
+          { "required": ["site"] }
+        ]
+      },
+      "UpdateRequest": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "instructions": { "type": "string" },
+          "token": { "type": "string" },
+          "base": { "type": "string" },
+          "createPath": { "type": "string" },
+          "workspace": { "type": "string" },
+          "wait": { "type": "integer" },
+          "attempts": { "type": "integer" },
+          "bucket": { "type": "string" },
+          "prefix": { "type": "string" },
+          "profile": { "type": "string" },
+          "skipInstall": { "type": "boolean" },
+          "placeholderLimit": { "type": "integer" },
+          "requestedBy": { "type": "string" }
+        }
+      },
+      "ApproveUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string" },
+          "draftId": { "type": "string" },
+          "bucket": { "type": "string" },
+          "prefix": { "type": "string" },
+          "livePrefix": { "type": "string" },
+          "approvedBy": { "type": "string" }
+        },
+        "required": ["projectId", "draftId"]
+      },
+      "InstructionRequest": {
+        "type": "object",
+        "required": ["instructions"],
+        "properties": {
+          "instructions": {
+            "type": "string",
+            "description": "Human-typed description of the desired changes. Example: \"Move the gallery above testimonials and add a CTA button linking to /book.\""
+          },
+          "assets": {
+            "type": "array",
+            "description": "Optional manual asset context to include in the LLM prompt. Each entry should contain at least a url.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "url": { "type": "string", "format": "uri" },
+                "description": { "type": "string" }
+              },
+              "required": ["url"]
+            }
+          },
+          "regenerateImages": {
+            "type": "boolean",
+            "default": true
+          },
+          "requestId": { "type": "string" },
+          "description": {
+            "type": "string",
+            "description": "Optional audit log note."
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Optional new reference site for context."
+          }
+        }
+      },
+      "AssetUploadRequest": {
+        "type": "object",
+        "properties": {
+          "filename": { "type": "string", "description": "Original filename for reference." },
+          "contentType": { "type": "string", "description": "Preferred MIME type (e.g., image/png)." },
+          "expiresIn": { "type": "integer", "minimum": 60, "maximum": 3600, "description": "Signed URL lifetime in seconds." }
+        }
+      },
+      "AssetUploadResponse": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "uploadUrl": { "type": "string", "format": "uri" },
+          "assetUrl": { "type": "string", "format": "uri" },
+          "contentType": { "type": "string" },
+          "bucket": { "type": "string" }
+        }
+      },
+      "AssetListResponse": {
+        "type": "object",
+        "properties": {
+          "bucket": { "type": "string" },
+          "prefix": { "type": "string" },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": { "type": "string" },
+                "size": { "type": "integer" },
+                "lastModified": { "type": "string", "format": "date-time" },
+                "etag": { "type": "string" },
+                "url": { "type": "string", "format": "uri" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

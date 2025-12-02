@@ -94,19 +94,20 @@ const createImageRecord = (section, fileName) => ({
 });
 
 const enhanceSiteWithImages = async ({ site, projectDir, slug, requestId, enabled = true }) => {
-  if (!enabled) return site;
+  if (!enabled) return { site, assets: [] };
   const apiKey = process.env.GOOGLE_IMAGE_API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn('[images] Skipping image generation (no Google API key configured)');
-    return site;
+    return { site, assets: [] };
   }
 
   const prompts = collectPrompts(site).slice(0, MAX_IMAGES);
-  if (!prompts.length) return site;
+  if (!prompts.length) return { site, assets: [] };
 
   const siteClone = JSON.parse(JSON.stringify(site));
   const assetsDir = path.join(projectDir, 'public', 'generated');
   await ensureDir(assetsDir);
+  const generatedAssets = [];
 
   for (const promptEntry of prompts) {
     const section = siteClone.sections[promptEntry.sectionIndex];
@@ -126,6 +127,11 @@ const enhanceSiteWithImages = async ({ site, projectDir, slug, requestId, enable
         ...section.props,
         image: createImageRecord(section, fileName),
       };
+      generatedAssets.push({
+        relativePath: `generated/${fileName}`,
+        buffer,
+        contentType: mimeType,
+      });
     } catch (error) {
       console.warn('[images] Failed to generate image', {
         requestId,
@@ -135,7 +141,7 @@ const enhanceSiteWithImages = async ({ site, projectDir, slug, requestId, enable
     }
   }
 
-  return siteClone;
+  return { site: siteClone, assets: generatedAssets };
 };
 
 module.exports = { enhanceSiteWithImages };

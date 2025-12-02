@@ -8,6 +8,8 @@ const { uploadToS3, buildProject } = require('./deploy');
 const { exportProjectToGit } = require('./git-archive');
 const { copyTemplateTo, writeSiteJson } = require('./site-template');
 const { enhanceSiteWithImages } = require('./image-generator');
+const { saveSiteConfig } = require('./site-store');
+const { uploadGeneratedAssets, hydrateExistingGeneratedAssets } = require('./generated-assets');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -337,6 +339,154 @@ const clearS3Prefix = async ({ bucket, prefix }) => {
   } while (continuationToken);
 };
 
+const buildPublicUrl = ({ bucket, prefix }) => {
+  const normalizedPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : '';
+  const previewDomain = (process.env.PREVIEW_DOMAIN || '').trim().replace(/\/+$/, '');
+  if (previewDomain) return `https://${previewDomain}/${normalizedPrefix}`;
+  return `https://${bucket}.s3.amazonaws.com/${normalizedPrefix}`;
+};
+
+const deploySiteFromConfig = async ({
+  slug,
+  site,
+  bucket,
+  prefix,
+  requestId,
+  sourceUrl,
+  description,
+  onProgress,
+  generateImages = true,
+  testMode = false,
+}) => {
+  if (!slug) throw new Error('slug is required');
+  if (!bucket) throw new Error('bucket is required');
+  if (!site) throw new Error('site config is required');
+
+  const requestLabel = requestId || randomUUID();
+  const requestSuffix = requestLabel.slice(0, 8);
+
+  console.log('[launch] Site template preparation starting', { requestId: requestLabel, slug, prefix });
+  const outputDir = await createProjectFromTemplate({
+    slug,
+    requestSuffix,
+  });
+  console.log('[launch] Site template prepared', { requestId: requestLabel, outputDir });
+
+  if (!generateImages) {
+    await hydrateExistingGeneratedAssets({
+      site,
+      bucket,
+      prefix,
+      projectDir: outputDir,
+    }).catch((error) => {
+      console.warn('[launch] Failed to hydrate existing generated assets', {
+        err: error?.message,
+      });
+    });
+  }
+
+  let workingSite = site;
+  let generatedAssets = [];
+  if (generateImages) {
+    try {
+      const result = await enhanceSiteWithImages({
+        site,
+        projectDir: outputDir,
+        slug,
+        requestId: requestLabel,
+      });
+      workingSite = result.site;
+      generatedAssets = result.assets || [];
+    } catch (error) {
+      console.warn('[launch] Failed to generate AI imagery', { err: error?.message, requestId: requestLabel });
+      workingSite = site;
+    }
+  } else {
+    console.log('[launch] Skipping AI imagery generation', { requestId: requestLabel, slug, testMode });
+  }
+  await writeSiteJson(outputDir, workingSite);
+
+  const gitArchive = await exportProjectToGit({
+    projectDir: outputDir,
+    slug,
+    requestId: requestLabel,
+    sourceUrl,
+    description,
+  });
+  if (gitArchive) {
+    console.log('[launch] Exported project to git', gitArchive);
+  }
+
+  onProgress?.('building');
+  console.log('[launch] Installing and building site project', { requestId: requestLabel, outputDir });
+  const distPath = await buildProject(outputDir);
+  console.log('[launch] Build complete', { requestId: requestLabel, distPath });
+
+  onProgress?.('deploying');
+  console.log('[launch] Clearing existing preview prefix', {
+    requestId: requestLabel,
+    bucket,
+    prefix,
+  });
+  await clearS3Prefix({ bucket, prefix }).catch((error) => {
+    console.warn('[launch] Failed to clear prefix (continuing)', {
+      err: error?.message,
+      prefix,
+    });
+  });
+
+  console.log('[launch] Uploading to S3', {
+    requestId: requestLabel,
+    bucket,
+    prefix,
+  });
+  const target = await uploadToS3(distPath, { bucket, prefix });
+  console.log('[launch] Upload complete', { requestId: requestLabel, target });
+
+  await uploadGeneratedAssets({
+    site: workingSite,
+    projectDir: outputDir,
+    bucket,
+    prefix,
+    assets: generatedAssets,
+  }).catch((error) => {
+    console.warn('[launch] Failed to upload generated assets (continuing)', {
+      err: error?.message,
+    });
+  });
+
+  const publicUrl = buildPublicUrl({ bucket, prefix });
+
+  await saveSiteConfig({
+    slug,
+    site: workingSite,
+    metadata: {
+      bucket,
+      prefix,
+      publicUrl,
+      requestId: requestLabel,
+      sourceUrl,
+      description,
+      lastBuildAt: new Date().toISOString(),
+      testMode,
+    },
+  });
+
+  return {
+    slug,
+    bucket,
+    prefix,
+    outputDir,
+    hostingDir: distPath,
+    builtFromProject: true,
+    target,
+    publicUrl,
+    gitArchive,
+    requestId: requestLabel,
+    site: workingSite,
+  };
+};
+
 const runLaunch = async ({
   url,
   description,
@@ -384,92 +534,20 @@ const runLaunch = async ({
   });
   const targetPrefix = resolvedPrefix;
 
-  const requestSuffix = (requestId || randomUUID()).slice(0, 8);
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: resolvedPrefix });
-  const outputDir = await createProjectFromTemplate({
-    slug: finalSlug,
-    requestSuffix,
-  });
-  console.log('[launch] Site template prepared', { requestId, outputDir });
 
-  let workingSite = siteConfig;
-  if (!testMode) {
-    try {
-      workingSite = await enhanceSiteWithImages({
-        site: siteConfig,
-        projectDir: outputDir,
-        slug: finalSlug,
-        requestId,
-      });
-    } catch (error) {
-      console.warn('[launch] Failed to generate AI imagery', { err: error?.message, requestId });
-      workingSite = siteConfig;
-    }
-  } else {
-    console.log('[launch] Skipping AI imagery generation in test mode', { requestId });
-  }
-  await writeSiteJson(outputDir, workingSite);
-
-  const gitArchive = await exportProjectToGit({
-    projectDir: outputDir,
+  return deploySiteFromConfig({
     slug: finalSlug,
-    requestId: requestId || requestSuffix,
+    site: siteConfig,
+    bucket: resolvedBucket,
+    prefix: targetPrefix,
+    requestId,
     sourceUrl: url,
     description,
+    onProgress,
+    generateImages: !testMode,
+    testMode,
   });
-  if (gitArchive) {
-    console.log('[launch] Exported project to git', gitArchive);
-  }
-
-  onProgress?.('building');
-  console.log('[launch] Installing and building site project', { requestId, outputDir });
-  const distPath = await buildProject(outputDir);
-  console.log('[launch] Build complete', { requestId, distPath });
-
-  const hostingDir = distPath;
-  const builtFromProject = true;
-  const buildArtifacts = 'built';
-  console.log('[launch] Hosting payload prepared', {
-    requestId,
-    builtFromProject,
-    hostingDir,
-    buildArtifacts,
-  });
-
-  onProgress?.('deploying');
-  console.log('[launch] Clearing existing preview prefix', {
-    requestId,
-    bucket: resolvedBucket,
-    prefix: targetPrefix,
-  });
-  await clearS3Prefix({ bucket: resolvedBucket, prefix: targetPrefix }).catch((error) => {
-    console.warn('[launch] Failed to clear prefix (continuing)', { err: error?.message, prefix: targetPrefix });
-  });
-  console.log('[launch] Uploading to S3', {
-    requestId,
-    bucket: resolvedBucket,
-    prefix: targetPrefix,
-  });
-  const target = await uploadToS3(hostingDir, { bucket: resolvedBucket, prefix: targetPrefix });
-  console.log('[launch] Upload complete', { requestId, target });
-  const normalizedPrefix = targetPrefix ? `${targetPrefix.replace(/\/+$/, '')}/` : '';
-  const previewDomain = (process.env.PREVIEW_DOMAIN || '').trim().replace(/\/+$/, '');
-  const publicUrl = previewDomain
-    ? `https://${previewDomain}/${normalizedPrefix}`
-    : `https://${resolvedBucket}.s3.amazonaws.com/${normalizedPrefix}`;
-
-  return {
-    slug: finalSlug,
-    bucket: resolvedBucket,
-    prefix: targetPrefix,
-    outputDir,
-    hostingDir,
-    builtFromProject,
-    target,
-    publicUrl,
-    gitArchive,
-    requestId,
-  };
 };
 
-module.exports = { runLaunch, loadDotEnvIfPresent };
+module.exports = { runLaunch, loadDotEnvIfPresent, deploySiteFromConfig };

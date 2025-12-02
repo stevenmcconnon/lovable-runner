@@ -13,6 +13,7 @@ import { RunnerService } from './services/runner';
 import { StripeService } from './services/stripe';
 import { DatabaseService } from './services/database';
 import { config } from './env';
+import { registerSiteBuilderRoutes } from './routes/site-builder';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -64,6 +65,7 @@ export const buildServer = (): FastifyInstance => {
     registerInternalRoutes(instance, { db: database });
     registerLaunchRoutes(instance, { db: database, runner });
     registerAuthRoutes(instance);
+    registerSiteBuilderRoutes(instance, { db: database, runner });
   });
 
   app.get('/health', async () => ({ status: 'ok' }));

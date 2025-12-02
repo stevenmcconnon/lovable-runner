@@ -119,6 +119,86 @@ const extractOutputText = (responseJson) => {
   return '';
 };
 
+const buildPatchFormat = () => ({
+  type: 'json_schema',
+  name: 'site_edit_patch',
+  strict: false,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['patch'],
+    properties: {
+      summary: {
+        type: 'string',
+        description: 'One paragraph recap of what changed and why.',
+      },
+      patch: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          meta: { type: 'object', additionalProperties: true },
+          seo: { type: 'object', additionalProperties: true },
+          theme: { type: 'object', additionalProperties: true },
+          sections: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                id: { type: 'string' },
+                componentId: { type: 'string', enum: SECTION_IDS },
+                action: { type: 'string', enum: ['update', 'insert', 'remove'], default: 'update' },
+                props: { type: 'object', additionalProperties: true },
+                position: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    beforeId: { type: 'string' },
+                    afterId: { type: 'string' },
+                    index: { type: 'integer', minimum: 0 },
+                  },
+                },
+              },
+            },
+            minItems: 1,
+          },
+        },
+      },
+    },
+  },
+});
+
+const formatAssetsForPrompt = (assets = []) => {
+  if (!assets.length) return '';
+  const lines = assets
+    .slice(0, 20)
+    .map((asset, index) => {
+      const label = asset.name || asset.filename || `asset-${index + 1}`;
+      const url = asset.url || asset.assetUrl || asset.href || asset.key || '';
+      const note = asset.description || asset.alt || '';
+      return `- ${label}${url ? ` (${url})` : ''}${note ? ` — ${note}` : ''}`;
+    })
+    .join('\n');
+  return `Assets available:\n${lines}`;
+};
+
+const buildEditPrompt = ({ siteJson, instructions, assets }) =>
+  [
+    'You are the creative director + product manager for AI-SiteMaker.',
+    'A human described edits they want on the existing site.',
+    'Return compact JSON describing a SitePatch we can apply. Only touch sections relevant to the request; keep prior copy when not mentioned.',
+    'Use insert/remove/update actions for sections, keep CTAs concrete, and remember tone/voice expectations from the current page.',
+    assets?.length ? formatAssetsForPrompt(assets) : '',
+    '',
+    'Existing site JSON:',
+    siteJson,
+    '',
+    'Requested changes:',
+    instructions,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
 const generateSiteWithOpenAI = async ({ sourceUrl, description, businessDetails }) => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY is required');
@@ -179,4 +259,66 @@ const generateSiteWithOpenAI = async ({ sourceUrl, description, businessDetails 
   return { site: validation.site, rawText: text };
 };
 
-module.exports = { generateSiteWithOpenAI };
+const generateSitePatchWithOpenAI = async ({ site, instructions, assets }) => {
+  if (!instructions || !instructions.trim()) {
+    throw new Error('instructions are required');
+  }
+  if (!site) throw new Error('site is required');
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY is required');
+
+  const siteJson = JSON.stringify(site, null, 2);
+  const prompt = buildEditPrompt({ siteJson, instructions, assets });
+  const body = {
+    model: DEFAULT_MODEL,
+    temperature: 0.3,
+    input: [
+      {
+        role: 'system',
+        content:
+          'Translate high-level marketing site edit requests into precise JSON patches. Preserve existing structure unless explicitly told to change it. Tone: polished agency copywriter.',
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    text: {
+      format: buildPatchFormat(),
+    },
+  };
+
+  const response = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await response.json();
+  if (!response.ok) {
+    const error = new Error(`OpenAI edit request failed: ${response.status} ${response.statusText}`);
+    error.body = json;
+    throw error;
+  }
+  const text = extractOutputText(json);
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    const err = new Error('OpenAI edit response was not valid JSON');
+    err.body = text;
+    throw err;
+  }
+  if (!parsed?.patch) {
+    throw new Error('OpenAI edit response missing patch property');
+  }
+  return {
+    patch: parsed.patch,
+    summary: parsed.summary,
+    rawText: text,
+  };
+};
+
+module.exports = { generateSiteWithOpenAI, generateSitePatchWithOpenAI };

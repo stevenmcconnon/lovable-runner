@@ -32,6 +32,20 @@ const findDistFolder = (projectDir) => {
   return null;
 };
 
+const ensurePublicAssetsSynced = async (projectDir, distPath) => {
+  const publicDir = path.join(projectDir, 'public');
+  try {
+    const stats = await fsp.stat(publicDir);
+    if (!stats.isDirectory()) return;
+  } catch {
+    return;
+  }
+  await fsp.cp(publicDir, distPath, {
+    recursive: true,
+    force: true,
+  });
+};
+
 const buildProject = async (projectDir, { skipInstall } = {}) => {
   if (!skipInstall) {
     await run('npm', ['install', '--include=dev'], projectDir, {
@@ -47,6 +61,7 @@ const buildProject = async (projectDir, { skipInstall } = {}) => {
   if (!distPath) {
     throw new Error('No dist/build folder found after build.');
   }
+  await ensurePublicAssetsSynced(projectDir, distPath);
   return distPath;
 };
 

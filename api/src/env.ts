@@ -26,6 +26,8 @@ const envSchema = z
     AWS_REGION: z.string().optional(),
     FRONTEND_ORIGIN: z.string().optional(),
     AUTH_CALLBACK_URL: z.string().optional(),
+    SITE_BUILDER_API_ENABLED: z.string().optional(),
+    SITE_DOCS_TOKEN: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -69,6 +71,8 @@ const rawEnv = envSchema.parse({
   AWS_REGION: process.env.AWS_REGION,
   FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN,
   AUTH_CALLBACK_URL: process.env.AUTH_CALLBACK_URL,
+  SITE_BUILDER_API_ENABLED: process.env.SITE_BUILDER_API_ENABLED,
+  SITE_DOCS_TOKEN: process.env.SITE_DOCS_TOKEN,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -127,5 +131,9 @@ export const config = {
   frontend: {
     origin: fallbackOrigin,
     authCallbackUrl: fallbackCallbackUrl,
+  },
+  siteBuilder: {
+    enabled: rawEnv.SITE_BUILDER_API_ENABLED !== 'false',
+    docsToken: rawEnv.SITE_DOCS_TOKEN ?? '',
   },
 } as const;
