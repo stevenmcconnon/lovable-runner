@@ -1281,6 +1281,144 @@
           }
         }
       }
+    },
+    "/domains": {
+      "get": {
+        "summary": "List domains for the authenticated account",
+        "operationId": "listDomains",
+        "responses": {
+          "200": {
+            "description": "Domain collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/domains/{domain}": {
+      "get": {
+        "summary": "Fetch a single domain for this account",
+        "operationId": "getDomain",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
+    "/sites": {
+      "get": {
+        "summary": "List sites for the authenticated account",
+        "operationId": "listSites",
+        "responses": {
+          "200": {
+            "description": "Site collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains/{domain}/primary": {
+      "post": {
+        "summary": "Mark a site domain as primary",
+        "operationId": "setPrimaryDomain",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated domain record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains/{domain}": {
+      "delete": {
+        "summary": "Detach a domain from a site",
+        "operationId": "detachDomain",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Domain removed"
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2494,6 +2632,9 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean"
           }
         }
       },
@@ -2781,6 +2922,28 @@
           },
           "limits": {
             "$ref": "#/components/schemas/UsageLimits"
+          }
+        }
+      },
+      "DomainDetailResponse": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "dns": {
+            "$ref": "#/components/schemas/DomainDnsConfig"
+          }
+        }
+      },
+      "SiteListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteGeneration"
+            }
           }
         }
       }

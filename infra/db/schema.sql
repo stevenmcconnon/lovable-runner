@@ -166,6 +166,7 @@ CREATE TABLE IF NOT EXISTS site_domains (
   type TEXT NOT NULL DEFAULT 'manual',
   provider TEXT,
   status TEXT NOT NULL DEFAULT 'pending',
+  is_primary BOOLEAN NOT NULL DEFAULT false,
   verification_token TEXT,
   dns_settings JSONB,
   verified_at TIMESTAMPTZ,

@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { DatabaseService } from '../services/database';
 import { DomainService, domainHelpers } from '../services/domain';
-import { UserRole } from '../types';
+import { DomainRecord, UserRole } from '../types';
 
 const searchSchema = z.object({
   query: z.string().min(2).max(120),
@@ -45,6 +45,11 @@ const verifyParams = z.object({
   domain: z.string().min(3),
 });
 
+const slugDomainParams = z.object({
+  slug: z.string().min(3),
+  domain: z.string().min(3),
+});
+
 const ensureCustomerAccess = (roles: UserRole[]) => {
   const allowed: UserRole[] = ['customer', 'admin', 'super-admin'];
   return allowed.some((role) => roles.includes(role));
@@ -61,11 +66,34 @@ const sanitizeDomainOrThrow = (value: string) => {
   return sanitized;
 };
 
+const withDns = (
+  record: DomainRecord,
+  domainService: DomainService
+): DomainRecord & { dns: any } => ({
+  ...record,
+  dns:
+    record.dnsSettings ??
+    domainService.buildDnsConfig({
+      slug: record.slug,
+      domain: record.domain,
+      verificationToken: record.verificationToken ?? undefined,
+    }),
+});
+
 export const registerDomainRoutes = (
   app: FastifyInstance,
   deps: { db: DatabaseService; domainService: DomainService }
 ) => {
   const { db, domainService } = deps;
+
+  app.get('/domains', { preHandler: app.authenticateUser }, async (request, reply) => {
+    if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
+      return reply.code(403).send({ message: 'Forbidden' });
+    }
+    const records = await db.listDomainsForAccount(request.auth.profile.accountId);
+    const items = records.map((record) => withDns(record, domainService));
+    return { items };
+  });
 
   app.post('/domains/search', { preHandler: app.authenticateUser }, async (request, reply) => {
     if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
@@ -161,6 +189,24 @@ export const registerDomainRoutes = (
     }
   );
 
+  app.get('/domains/:domain', { preHandler: app.authenticateUser }, async (request, reply) => {
+    if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
+      return reply.code(403).send({ message: 'Forbidden' });
+    }
+    const params = verifyParams.parse(request.params);
+    const sanitizedDomain = sanitizeDomainOrThrow(params.domain);
+    const record = await db.getDomainByName(sanitizedDomain);
+    if (!record) {
+      return reply.code(404).send({ message: 'Domain not found' });
+    }
+    const isSuperAdmin = request.auth.roles.includes('super-admin');
+    const sameAccount = !record.accountId || record.accountId === request.auth.profile.accountId;
+    if (!sameAccount && !isSuperAdmin) {
+      return reply.code(404).send({ message: 'Domain not found' });
+    }
+    return { domain: withDns(record, domainService) };
+  });
+
   app.post(
     '/sites/:slug/domains',
     { preHandler: app.authenticateUser },
@@ -224,6 +270,53 @@ export const registerDomainRoutes = (
           }),
       }));
       return { items: enriched };
+    }
+  );
+
+  app.post(
+    '/sites/:slug/domains/:domain/primary',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
+        return reply.code(403).send({ message: 'Forbidden' });
+      }
+      const params = slugDomainParams.parse(request.params);
+      const sanitizedDomain = sanitizeDomainOrThrow(params.domain);
+      const record = await db.getDomainByName(sanitizedDomain);
+      if (!record || record.slug !== params.slug) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      const isSuperAdmin = request.auth.roles.includes('super-admin');
+      const isOwner = record.accountId === request.auth.profile.accountId;
+      if (!isOwner && !isSuperAdmin) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      await db.setPrimaryDomainForSlug(params.slug, sanitizedDomain);
+      const updated = await db.getDomainByName(sanitizedDomain);
+      return { domain: updated ? withDns(updated, domainService) : null };
+    }
+  );
+
+  app.delete(
+    '/sites/:slug/domains/:domain',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
+        return reply.code(403).send({ message: 'Forbidden' });
+      }
+      const params = slugDomainParams.parse(request.params);
+      const sanitizedDomain = sanitizeDomainOrThrow(params.domain);
+      const record = await db.getDomainByName(sanitizedDomain);
+      if (!record || record.slug !== params.slug) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      const isSuperAdmin = request.auth.roles.includes('super-admin');
+      const isOwner = record.accountId === request.auth.profile.accountId;
+      if (!isOwner && !isSuperAdmin) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      await db.deleteSiteDomain(sanitizedDomain, params.slug);
+      reply.code(204).send();
     }
   );
 };

@@ -199,6 +199,12 @@ export const registerCustomerRoutes = (
     return items;
   });
 
+  app.get('/sites', { preHandler: app.authenticateUser }, async (request, reply) => {
+    const profile = ensureCustomerAccess(request);
+    const items = await db.listSiteGenerations(profile.accountId);
+    return { items };
+  });
+
   app.get(
     '/customer/sites/:requestId',
     { preHandler: app.authenticateUser },

@@ -144,6 +144,7 @@ const mapDomainRecord = (row: any): DomainRecord => ({
   type: row.type,
   provider: row.provider ?? null,
   status: row.status,
+  isPrimary: Boolean(row.is_primary),
   verificationToken: row.verification_token ?? null,
   dnsSettings: row.dns_settings ?? null,
   verifiedAt: toIsoString(row.verified_at),
@@ -1137,6 +1138,18 @@ export class DatabaseService {
     return rows.map(mapDomainRecord);
   }
 
+  async listDomainsForAccount(accountId: string): Promise<DomainRecord[]> {
+    const { rows } = await this.query(
+      `
+      SELECT * FROM site_domains
+      WHERE account_id = $1
+      ORDER BY created_at DESC
+    `,
+      [accountId]
+    );
+    return rows.map(mapDomainRecord);
+  }
+
   async upsertSiteDomain(params: {
     accountId?: string | null;
     slug: string;
@@ -1193,6 +1206,7 @@ export class DatabaseService {
       fields.push(`${column} = $${params.length}`);
     };
     if (updates.status) setField('status', updates.status);
+    if (updates.isPrimary !== undefined) setField('is_primary', updates.isPrimary);
     if (updates.verificationToken !== undefined) setField('verification_token', updates.verificationToken);
     if (updates.dnsSettings !== undefined) setField('dns_settings', updates.dnsSettings);
     if (updates.provider !== undefined) setField('provider', updates.provider);
@@ -1220,6 +1234,34 @@ export class DatabaseService {
   async getDomainByName(domain: string): Promise<DomainRecord | null> {
     const { rows } = await this.query(`SELECT * FROM site_domains WHERE domain = $1 LIMIT 1`, [domain]);
     return rows[0] ? mapDomainRecord(rows[0]) : null;
+  }
+
+  async deleteSiteDomain(domain: string, slug?: string): Promise<void> {
+    const params: any[] = [domain];
+    let where = 'domain = $1';
+    if (slug) {
+      params.push(slug);
+      where += ` AND slug = $${params.length}`;
+    }
+    await this.query(`DELETE FROM site_domains WHERE ${where}`, params);
+  }
+
+  async setPrimaryDomainForSlug(slug: string, domain: string): Promise<void> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(`UPDATE site_domains SET is_primary = false WHERE slug = $1`, [slug]);
+      await client.query(
+        `UPDATE site_domains SET is_primary = true WHERE slug = $1 AND domain = $2`,
+        [slug, domain]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async createDeployment(params: {

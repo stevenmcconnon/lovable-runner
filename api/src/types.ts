@@ -205,6 +205,7 @@ export interface DomainRecord {
   type: string;
   provider?: string | null;
   status: string;
+  isPrimary: boolean;
   verificationToken?: string | null;
   dnsSettings?: Record<string, unknown> | null;
   verifiedAt?: string | null;
