@@ -1,12 +1,13 @@
 const fs = require('node:fs');
-const fsp = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const AWS = require('aws-sdk');
 const { randomUUID } = require('node:crypto');
-const { generateSiteWithGemini } = require('./gemini');
+const { generateSiteWithOpenAI } = require('./openai');
 const { uploadToS3, buildProject } = require('./deploy');
 const { exportProjectToGit } = require('./git-archive');
+const { copyTemplateTo, writeSiteJson } = require('./site-template');
+const { enhanceSiteWithImages } = require('./image-generator');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -69,46 +70,11 @@ const ensureUniqueSlug = async ({ bucket, basePrefix, slugCandidate }) => {
   return { slug: fallback, prefixPath: buildPrefixPath(fallback) };
 };
 
-const sanitizePath = (relativePath) => {
-  const normalized = path.normalize(relativePath || '').replace(/^(\.\.[/\\])+/, '');
-  if (!normalized || normalized === '.' || normalized === '/' || normalized === '\\') {
-    return null;
-  }
-  return normalized;
-};
+const buildTempDir = (...parts) => path.join(os.tmpdir(), ...parts, randomUUID());
 
-const decodeFile = (file) => {
-  if (!file || file.contents === undefined || file.contents === null) return null;
-  if (file.encoding === 'base64') {
-    return Buffer.from(file.contents, 'base64');
-  }
-  if (typeof file.contents === 'string' && file.contents.startsWith('data:')) {
-    const match = file.contents.match(/^data:[^;]+;base64,(.+)$/);
-    if (match?.[1]) return Buffer.from(match[1], 'base64');
-  }
-  if (typeof file.contents === 'string') return file.contents;
-  return Buffer.from(String(file.contents));
-};
-
-const writeGeneratedFiles = async (files, outputDir) => {
-  await fsp.mkdir(outputDir, { recursive: true });
-  for (const file of files) {
-    const targetPath = sanitizePath(file.path || file.name);
-    if (!targetPath) {
-      // eslint-disable-next-line no-console
-      console.warn('Skipping file with unsafe/empty path', file);
-      continue;
-    }
-    const data = decodeFile(file);
-    if (data === null) {
-      // eslint-disable-next-line no-console
-      console.warn(`Skipping file with empty data: ${targetPath}`);
-      continue;
-    }
-    const fullPath = path.join(outputDir, targetPath);
-    await fsp.mkdir(path.dirname(fullPath), { recursive: true });
-    await fsp.writeFile(fullPath, data);
-  }
+const createProjectFromTemplate = async ({ slug, requestSuffix }) => {
+  const outputDir = buildTempDir('site', slug, requestSuffix);
+  await copyTemplateTo(outputDir);
   return outputDir;
 };
 
@@ -120,113 +86,231 @@ const buildSlugCandidate = ({ businessDetails, url, description, requestId }) =>
   return slugify(`site-${Date.now()}`);
 };
 
-const buildTestSiteFiles = ({ url, description }) => {
+const buildTestSiteConfig = ({ url, description }) => {
   const safeUrl = url || 'https://example.com';
   const safeDescription = description || 'Sample site generated in test mode.';
   const timestamp = new Date().toISOString();
-  return [
-    {
-      path: 'index.html',
-      contents: `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lovable Test Site</title>
-    <link rel="stylesheet" href="assets/styles.css" />
-  </head>
-  <body>
-    <main class="hero">
-      <h1>Lovable Test Deployment</h1>
-      <p>${safeDescription}</p>
-      <p class="meta">Reference URL: ${safeUrl}</p>
-      <p class="meta">Generated: ${timestamp}</p>
-      <a class="cta" href="${safeUrl}" target="_blank" rel="noreferrer">View Source</a>
-    </main>
-    <section class="details">
-      <h2>Why this exists</h2>
-      <ul>
-        <li>Validates the upload/deploy pipeline without calling Gemini.</li>
-        <li>Confirms bucket permissions and status tracking.</li>
-        <li>Use the <code>--simple</code> flag in <code>scripts/test-launch.sh</code> to trigger.</li>
-      </ul>
-    </section>
-  </body>
-</html>`,
-      encoding: 'utf8',
-      contentType: 'text/html',
+  return {
+    meta: {
+      brandName: 'AI SiteMaker Test',
+      headline: 'Edge-ready preview harness',
+      subheadline: 'Validates the deploy loop without contacting Gemini.',
+      location: 'San Francisco, CA',
+      phone: '(555) 000-1000',
+      email: 'lab@ai-sitemaker.com',
     },
-    {
-      path: 'assets/styles.css',
-      contents: `:root {
-  color-scheme: dark;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #050505;
-  color: #f6f6f6;
-}
-body {
-  margin: 0;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  padding: 4rem clamp(1.5rem, 4vw, 5rem);
-  background: radial-gradient(circle at top, rgba(99,102,241,0.15), transparent 55%);
-}
-.hero {
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 24px;
-  padding: clamp(2rem, 4vw, 3.5rem);
-  background: rgba(255,255,255,0.02);
-  box-shadow: 0 10px 50px rgba(0,0,0,0.4);
-}
-.hero h1 {
-  font-size: clamp(2.5rem, 6vw, 3.5rem);
-  margin-bottom: 0.5rem;
-}
-.meta {
-  color: rgba(255,255,255,0.7);
-  margin: 0.5rem 0;
-}
-.cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.85rem 1.5rem;
-  border-radius: 999px;
-  background: linear-gradient(120deg, #6366f1, #8b5cf6);
-  color: white;
-  text-decoration: none;
-  margin-top: 1.5rem;
-  font-weight: 600;
-}
-.details {
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
-  padding: clamp(1.5rem, 3vw, 2.5rem);
-  background: rgba(255,255,255,0.01);
-}
-.details h2 {
-  margin-top: 0;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  font-size: 0.95rem;
-  color: rgba(255,255,255,0.75);
-}
-.details ul {
-  padding-left: 1.2rem;
-  color: rgba(255,255,255,0.8);
-  line-height: 1.6;
-}
-`,
-      encoding: 'utf8',
-      contentType: 'text/css',
+    seo: {
+      title: 'AI SiteMaker Pipeline Test',
+      description: 'Automated verification for the AI SiteMaker preview + deploy workflow.',
+      keywords: ['ai sitemaker', 'preview harness', 'lovable replacement', 'vite template', 'tailwind marketing'],
     },
-  ];
+    theme: {
+      primaryColor: '#6366f1',
+      accentColor: '#f97316',
+      backgroundStyle: 'mesh',
+      vibe: 'tech',
+    },
+    sections: [
+      {
+        id: 'hero',
+        componentId: 'hero-with-image',
+        props: {
+          eyebrow: 'Internal QA',
+          title: 'This is a synthetic hero for smoke testing',
+          subtitle: `${safeDescription} Reference: ${safeUrl}. Generated ${timestamp}.`,
+          primaryCta: { label: 'View source', href: safeUrl },
+          secondaryCta: { label: 'Inspect logs', href: '#logs' },
+          stats: [
+            { label: 'Latest run', value: new Date().toLocaleDateString() },
+            { label: 'Deploy ms', value: '3200' },
+            { label: 'Confidence', value: '99.8%' },
+          ],
+          imagePrompt: 'Isometric dashboard with deployment metrics and neon gradients',
+        },
+      },
+      {
+        id: 'features',
+        componentId: 'features-grid',
+      props: {
+        title: 'What this test checks',
+        subtitle: 'Ensures the base template builds, the dist bundle uploads to S3, and preview URLs resolve as HTML.',
+        imagePrompt: 'Neon dashboard with tiles representing services/features and glowing icons',
+        features: [
+            {
+              name: 'Template hydration',
+              description: 'Copies the Vite + shadcn base project, injects site.json, and runs npm install/build on Lambda.',
+              benefit: 'catch build regressions early',
+            },
+            {
+              name: 'Preview integrity',
+              description: 'Uploads hashed assets with accurate Content-Type headers so preview.ai-sitemaker.com renders inline.',
+              benefit: 'no download prompts',
+            },
+            {
+              name: 'Git export (optional)',
+              description: 'Archives the generated project into the sites monorepo for auditing.',
+              benefit: 'traceability',
+            },
+            {
+              name: 'Status tracker',
+              description: 'Writes status JSON into site-builds/status for CLI polling fallbacks.',
+              benefit: 'observability',
+            },
+          ],
+        },
+      },
+      {
+        id: 'process',
+        componentId: 'process-timeline',
+        props: {
+          title: 'Pipeline flow',
+          subtitle: 'Every launch follows this sequence.',
+          steps: [
+            {
+              id: '1',
+              title: 'Generate site config',
+              description: 'Either prompt Gemini or use the static harness JSON.',
+              timeline: '00:00',
+            },
+            {
+              id: '2',
+              title: 'Build template',
+              description: 'Install dependencies, run npm run build, collect dist.',
+              timeline: '00:45',
+            },
+            {
+              id: '3',
+              title: 'Upload + warm cache',
+              description: 'Push dist to S3 with correct headers and clear CloudFront caches.',
+              timeline: '01:10',
+            },
+            {
+              id: '4',
+              title: 'Publish status',
+              description: 'Record completion + preview URL for CLI and dashboard consumers.',
+              timeline: '01:20',
+            },
+          ],
+        },
+      },
+      {
+        id: 'stats',
+        componentId: 'stats-showcase',
+      props: {
+        title: 'Baseline telemetry',
+        subtitle: 'Synthetic numbers to validate layout spacing.',
+        imagePrompt: 'Glassmorphism analytics board with floating statistic cards in deep navy gradients',
+          stats: [
+            { label: 'Deploy/minute', value: '12', helper: 'with warm cache' },
+            { label: 'Template age', value: '72 hrs', helper: 'since last reset' },
+            { label: 'Preview TTFB', value: '420ms' },
+            { label: 'Confidence', value: '99.8%' },
+          ],
+        },
+      },
+      {
+        id: 'testimonials',
+        componentId: 'testimonials-cards',
+        props: {
+          title: 'Why this harness exists',
+          subtitle: 'Quotes from the AI SiteMaker platform team.',
+          testimonials: [
+            {
+              name: 'Automation Bot',
+              role: 'CI/CD',
+              quote: 'If this template builds, we know the entire deploy stack is healthy.',
+              highlight: 'Platform reliability',
+            },
+            {
+              name: 'Preview Edge',
+              role: 'Edge cache',
+              quote: 'The new preview format keeps HTML streaming fast and never forces downloads.',
+              highlight: 'Edge ready',
+            },
+            {
+              name: 'Site Archive',
+              role: 'Git storage',
+              quote: 'Saving source + site.json per slug makes customer rollbacks trivial.',
+              highlight: 'Audit trail',
+            },
+          ],
+        },
+      },
+      {
+        id: 'faq',
+        componentId: 'faq-accordion',
+        props: {
+          title: 'FAQ',
+          subtitle: 'Answers for anyone peeking at this harness output.',
+          faqs: [
+            {
+              id: 'f1',
+              question: 'Why am I seeing placeholder copy?',
+              answer: 'Because the CLI was run with --simple test mode, bypassing Gemini to validate infrastructure only.',
+            },
+            {
+              id: 'f2',
+              question: 'Does this hit my AI quota?',
+              answer: 'No. All copy is deterministic; no API calls were made to creative models.',
+            },
+            {
+              id: 'f3',
+              question: 'Where is the source saved?',
+              answer: 'Under the AI SiteMaker template directory with a generated site.json for auditing.',
+            },
+            {
+              id: 'f4',
+              question: 'How do I run it locally?',
+              answer: 'Clone the exported folder, npm install, npm run dev, and edit src/content/site.json.',
+            },
+          ],
+        },
+      },
+      {
+        id: 'pricing',
+        componentId: 'pricing-table',
+        props: {
+          title: 'Internal plan comparison',
+          subtitle: 'Illustrates the pricing layout inside the template.',
+          tiers: [
+            {
+              name: 'Starter',
+              description: 'Manual QA, single preview slug.',
+              price: '$0',
+              features: ['Gemini disabled', 'Single run', 'No git export'],
+              ctaLabel: 'Use harness',
+            },
+            {
+              name: 'Pro',
+              description: 'Full pipeline with AI + git archive.',
+              price: '$89',
+              features: ['Gemini 3 Pro', 'Git export', 'Custom domains'],
+              ctaLabel: 'Upgrade',
+            },
+            {
+              name: 'Enterprise',
+              description: 'Dedicated runners + SOC2 logging.',
+              price: 'Contact',
+              features: ['24/7 support', 'Audit logging', 'Rollbacks'],
+              ctaLabel: 'Book call',
+            },
+          ],
+        },
+      },
+      {
+        id: 'cta',
+        componentId: 'cta-banner',
+        props: {
+          title: 'Ready to trigger a real build?',
+          body: 'Re-run the CLI without --simple and provide a real domain. Gemini will fill this same template with live copy.',
+          primaryCta: { label: 'Launch production run', href: '#launch' },
+          secondaryCta: { label: 'View docs', href: safeUrl },
+          imagePrompt: 'Clean command palette with deploy button, neon glow, developer desk aesthetic',
+        },
+      },
+    ],
+  };
 };
-
-const buildTempDir = (...parts) => path.join(os.tmpdir(), ...parts, randomUUID());
 
 const clearS3Prefix = async ({ bucket, prefix }) => {
   if (!prefix) return;
@@ -253,61 +337,6 @@ const clearS3Prefix = async ({ bucket, prefix }) => {
   } while (continuationToken);
 };
 
-const hasPackageJson = (dir) => fs.existsSync(path.join(dir, 'package.json'));
-
-const readPackageJson = async (dir) => {
-  const packageJsonPath = path.join(dir, 'package.json');
-  const raw = await fsp.readFile(packageJsonPath, 'utf8');
-  return JSON.parse(raw);
-};
-
-const findExistingBuildDir = (projectDir) => {
-  const candidates = ['dist', 'build'];
-  for (const folder of candidates) {
-    const fullPath = path.join(projectDir, folder);
-    if (fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory()) {
-      return fullPath;
-    }
-  }
-  return null;
-};
-
-const maybeBuildForHosting = async (projectDir) => {
-  if (!hasPackageJson(projectDir)) {
-    return { hostingDir: projectDir, builtFromProject: false, buildArtifacts: null };
-  }
-  let packageJson;
-  try {
-    packageJson = await readPackageJson(projectDir);
-  } catch (error) {
-    console.warn('[launch] Failed to parse package.json; serving raw files', {
-      projectDir,
-      err: error?.message,
-    });
-    return { hostingDir: projectDir, builtFromProject: false, buildArtifacts: null };
-  }
-
-  const existingBuildDir = findExistingBuildDir(projectDir);
-  if (existingBuildDir) {
-    return { hostingDir: existingBuildDir, builtFromProject: true, buildArtifacts: 'existing-dist' };
-  }
-
-  if (!packageJson?.scripts?.build) {
-    return { hostingDir: projectDir, builtFromProject: false, buildArtifacts: null };
-  }
-
-  try {
-    const distPath = await buildProject(projectDir, { skipInstall: true });
-    return { hostingDir: distPath, builtFromProject: true, buildArtifacts: 'built' };
-  } catch (error) {
-    console.warn('[launch] Build step failed, using raw project output', {
-      projectDir,
-      err: error?.message,
-    });
-    return { hostingDir: projectDir, builtFromProject: false, buildArtifacts: null };
-  }
-};
-
 const runLaunch = async ({
   url,
   description,
@@ -324,22 +353,24 @@ const runLaunch = async ({
   if (!resolvedBucket) throw new Error('bucket is required (set LOVABLE_DEPLOY_BUCKET or DEPLOY_BUCKET).');
 
   onProgress?.('running');
-  let files;
+  let siteConfig;
   if (testMode) {
     console.log('[launch] Generating test site (Gemini skipped)', { requestId, sourceUrl: url });
-    files = buildTestSiteFiles({ url, description });
+    siteConfig = buildTestSiteConfig({ url, description });
   } else {
-    console.log('[launch] Generating site with Gemini', { requestId, sourceUrl: url });
-    const result = await generateSiteWithGemini({
+    console.log('[launch] Generating site with OpenAI', { requestId, sourceUrl: url });
+    const result = await generateSiteWithOpenAI({
       sourceUrl: url,
       description,
       businessDetails,
     });
-    files = result.files;
-    console.log('[launch] Gemini generation complete', { requestId, fileCount: files.length });
+    siteConfig = result.site;
+    console.log('[launch] Gemini generation complete', {
+      requestId,
+      sectionCount: siteConfig.sections?.length || 0,
+    });
   }
 
-  onProgress?.('building');
   const basePrefix =
     process.env.LOVABLE_DEPLOY_PREFIX ||
     process.env.DEPLOY_PREFIX ||
@@ -355,9 +386,29 @@ const runLaunch = async ({
 
   const requestSuffix = (requestId || randomUUID()).slice(0, 8);
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: resolvedPrefix });
-  const outputDir = buildTempDir('gemini-site', finalSlug, requestSuffix);
-  await writeGeneratedFiles(files, outputDir);
-  console.log('[launch] Files written to disk', { requestId, outputDir });
+  const outputDir = await createProjectFromTemplate({
+    slug: finalSlug,
+    requestSuffix,
+  });
+  console.log('[launch] Site template prepared', { requestId, outputDir });
+
+  let workingSite = siteConfig;
+  if (!testMode) {
+    try {
+      workingSite = await enhanceSiteWithImages({
+        site: siteConfig,
+        projectDir: outputDir,
+        slug: finalSlug,
+        requestId,
+      });
+    } catch (error) {
+      console.warn('[launch] Failed to generate AI imagery', { err: error?.message, requestId });
+      workingSite = siteConfig;
+    }
+  } else {
+    console.log('[launch] Skipping AI imagery generation in test mode', { requestId });
+  }
+  await writeSiteJson(outputDir, workingSite);
 
   const gitArchive = await exportProjectToGit({
     projectDir: outputDir,
@@ -370,7 +421,14 @@ const runLaunch = async ({
     console.log('[launch] Exported project to git', gitArchive);
   }
 
-  const { hostingDir, builtFromProject, buildArtifacts } = await maybeBuildForHosting(outputDir);
+  onProgress?.('building');
+  console.log('[launch] Installing and building site project', { requestId, outputDir });
+  const distPath = await buildProject(outputDir);
+  console.log('[launch] Build complete', { requestId, distPath });
+
+  const hostingDir = distPath;
+  const builtFromProject = true;
+  const buildArtifacts = 'built';
   console.log('[launch] Hosting payload prepared', {
     requestId,
     builtFromProject,

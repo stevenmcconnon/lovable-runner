@@ -1,0 +1,66 @@
+[
+  {
+    "id": "hero-with-image",
+    "label": "Hero with floating imagery",
+    "description": "Large hero block with eyebrow, headline, CTA buttons, stat pills, and a generated imagery prompt card.",
+    "requiredProps": ["eyebrow", "title", "subtitle", "primaryCta", "stats", "imagePrompt"],
+    "minWordCount": 60,
+    "group": "hero"
+  },
+  {
+    "id": "features-grid",
+    "label": "Features grid",
+    "description": "Two-column Magic UI style feature cards with benefit tags and marketing copy.",
+    "requiredProps": ["title", "subtitle", "features"],
+    "minWordCount": 80,
+    "group": "services"
+  },
+  {
+    "id": "testimonials-cards",
+    "label": "Testimonials",
+    "description": "Aceternity inspired gradient testimonial cards with quotes and proof labels.",
+    "requiredProps": ["title", "subtitle", "testimonials"],
+    "minWordCount": 60,
+    "group": "social-proof"
+  },
+  {
+    "id": "faq-accordion",
+    "label": "FAQ accordion",
+    "description": "Shadcn accordion block with at least 4 question/answer pairs.",
+    "requiredProps": ["title", "subtitle", "faqs"],
+    "minWordCount": 40,
+    "group": "support"
+  },
+  {
+    "id": "pricing-table",
+    "label": "Pricing table",
+    "description": "Three-tier pricing table with CTA buttons and feature bullets.",
+    "requiredProps": ["title", "subtitle", "tiers"],
+    "minWordCount": 60,
+    "group": "pricing"
+  },
+  {
+    "id": "cta-banner",
+    "label": "CTA banner",
+    "description": "High-impact CTA row with supporting imagery prompt and dual buttons.",
+    "requiredProps": ["title", "body", "primaryCta"],
+    "minWordCount": 40,
+    "group": "cta"
+  },
+  {
+    "id": "process-timeline",
+    "label": "Process timeline",
+    "description": "Four-step process timeline illustrating engagement journey.",
+    "requiredProps": ["title", "subtitle", "steps"],
+    "minWordCount": 60,
+    "group": "process"
+  },
+  {
+    "id": "stats-showcase",
+    "label": "Stat blocks",
+    "description": "Animated stat grid showing metrics and outcomes.",
+    "requiredProps": ["title", "subtitle", "stats"],
+    "minWordCount": 40,
+    "group": "proof"
+  }
+]

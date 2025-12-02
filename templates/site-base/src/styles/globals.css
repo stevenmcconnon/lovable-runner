@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Inter';
+  --font-body: 'Inter';
+  --brand: 222 100% 60%;
+  --brand-accent: 255 70% 65%;
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-900 text-slate-50 min-h-screen antialiased;
+}
+
+.section-shell {
+  @apply w-full px-4 py-16 md:py-24;
+}
+
+.section-card {
+  @apply relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-10 shadow-2xl backdrop-blur;
+}

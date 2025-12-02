@@ -34,7 +34,13 @@ const findDistFolder = (projectDir) => {
 
 const buildProject = async (projectDir, { skipInstall } = {}) => {
   if (!skipInstall) {
-    await run('npm', ['install'], projectDir);
+    await run('npm', ['install', '--include=dev'], projectDir, {
+      env: {
+        NODE_ENV: 'development',
+        npm_config_production: 'false',
+        NPM_CONFIG_PRODUCTION: 'false',
+      },
+    });
   }
   await run('npm', ['run', 'build'], projectDir);
   const distPath = findDistFolder(projectDir);

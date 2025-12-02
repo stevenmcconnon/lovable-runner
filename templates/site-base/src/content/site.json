@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "brandName": "AI SiteMaker",
+    "headline": "Human-grade marketing sites in minutes",
+    "subheadline": "A composable React system with shadcn, Magic UI, and Aceternity patterns.",
+    "location": "Remote",
+    "phone": "(555) 000-0000",
+    "email": "hello@example.com"
+  },
+  "seo": {
+    "title": "AI SiteMaker Starter",
+    "description": "Composable marketing site starter powered by AI-designed sections and Tailwind.",
+    "keywords": ["ai", "marketing", "tailwind", "vite", "shadcn"]
+  },
+  "theme": {
+    "primaryColor": "#6366f1",
+    "accentColor": "#f97316",
+    "backgroundStyle": "mesh",
+    "vibe": "tech"
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "componentId": "hero-with-image",
+      "props": {
+        "eyebrow": "Trusted AI Launch Partner",
+        "title": "Launch premium sites in hours, not weeks",
+        "subtitle": "AI SiteMaker orchestrates copy, design, and build steps so your clients get pixel-perfect experiences on day one.",
+        "primaryCta": { "label": "Request a build", "href": "#contact" },
+        "secondaryCta": { "label": "Watch demo", "href": "#demo" },
+        "stats": [
+          { "label": "Avg launch time", "value": "2.3 hrs" },
+          { "label": "Conversion lift", "value": "+38%" },
+          { "label": "Active sites", "value": "4,200" }
+        ],
+        "imagePrompt": "Futuristic design workspace with holographic UI and gradients"
+      }
+    }
+  ]
+}

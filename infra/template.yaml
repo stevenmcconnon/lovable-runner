@@ -86,6 +86,23 @@ Parameters:
     Type: String
     Default: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-pro:generateContent'
     Description: Optional override for the Gemini model endpoint (use latest Gemini 3 endpoint)
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: API key for the OpenAI Responses API (used when Gemini is disabled)
+  OpenAIApiKeySecretArn:
+    Type: String
+    Default: ''
+    Description: Optional Secrets Manager ARN containing the OpenAI API key
+  OpenAIModel:
+    Type: String
+    Default: 'gpt-5.1'
+    Description: OpenAI model identifier (e.g., gpt-5.1, gpt-4.1)
+  GoogleImageModel:
+    Type: String
+    Default: 'gemini-3-pro-image-preview'
+    Description: Google Generative Image model identifier (e.g., gemini-3-pro-image-preview)
   RunnerApiBase:
     Type: String
     Default: https://api.ai-sitemaker.com
@@ -117,6 +134,7 @@ Conditions:
     - !Not [!Equals [!Ref ApiCustomDomainName, '']]
     - !Not [!Equals [!Ref ApiCertificateArn, '']]
   HasGeminiSecret: !Not [!Equals [!Ref GeminiApiKeySecretArn, '']]
+  HasOpenAISecret: !Not [!Equals [!Ref OpenAIApiKeySecretArn, '']]
   HasPreviewDomain: !Not [!Equals [!Ref PreviewDomainName, '']]
 
 Resources:
@@ -239,6 +257,12 @@ Resources:
             - !Sub "{{resolve:secretsmanager:${GeminiApiKeySecretArn}:SecretString}}"
             - !Ref GeminiApiKey
           GEMINI_MODEL: !Ref GeminiModel
+          OPENAI_API_KEY: !If
+            - HasOpenAISecret
+            - !Sub "{{resolve:secretsmanager:${OpenAIApiKeySecretArn}:SecretString}}"
+            - !Ref OpenAIApiKey
+          OPENAI_MODEL: !Ref OpenAIModel
+          GOOGLE_IMAGE_MODEL: !Ref GoogleImageModel
           RUNNER_API_BASE: !Ref RunnerApiBase
           COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
       Events:
