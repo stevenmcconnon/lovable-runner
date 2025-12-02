@@ -14,6 +14,10 @@ import { StripeService } from './services/stripe';
 import { DatabaseService } from './services/database';
 import { config } from './env';
 import { registerSiteBuilderRoutes } from './routes/site-builder';
+import { registerDomainRoutes } from './routes/domains';
+import { DomainService } from './services/domain';
+import { registerPublishingRoutes } from './routes/publishing';
+import { registerUsageRoutes } from './routes/usage';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -55,16 +59,20 @@ export const buildServer = (): FastifyInstance => {
   const database = new DatabaseService();
   const stripe = new StripeService();
   const runner = new RunnerService();
+  const domainService = new DomainService();
 
   app.register(buildAuthPlugin(database));
   app.register(async (instance) => {
     registerCustomerRoutes(instance, { db: database, runner });
     registerAdminRoutes(instance, { db: database, runner });
     registerBillingRoutes(instance, { db: database, stripe });
+    registerDomainRoutes(instance, { db: database, domainService });
+    registerPublishingRoutes(instance, { db: database });
+    registerUsageRoutes(instance, { db: database });
     registerWebhookRoutes(instance, { db: database, stripe });
     registerInternalRoutes(instance, { db: database });
     registerLaunchRoutes(instance, { db: database, runner });
-    registerAuthRoutes(instance);
+    registerAuthRoutes(instance, { db: database });
     registerSiteBuilderRoutes(instance, { db: database, runner });
   });
 

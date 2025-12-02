@@ -43,6 +43,20 @@ export class StripeService {
     return { checkoutUrl: session.url };
   }
 
+  async createBillingPortalSession(params: {
+    customerId: string;
+    returnUrl: string;
+  }): Promise<{ url: string }> {
+    const session = await this.stripe.billingPortal.sessions.create({
+      customer: params.customerId,
+      return_url: params.returnUrl,
+    });
+    if (!session.url) {
+      throw new Error('Stripe portal session missing url');
+    }
+    return { url: session.url };
+  }
+
   verifyWebhook(payload: Buffer | string, signature: string | undefined) {
     if (!config.stripe.webhookSecret) {
       throw new Error('STRIPE_WEBHOOK_SECRET is not configured');

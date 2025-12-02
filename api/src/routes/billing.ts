@@ -3,11 +3,16 @@ import { z } from 'zod';
 import { StripeService } from '../services/stripe';
 import { DatabaseService } from '../services/database';
 import { UserRole } from '../types';
+import { config } from '../env';
 
 const checkoutSchema = z.object({
   planKey: z.string().min(1),
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
+});
+
+const portalSchema = z.object({
+  returnUrl: z.string().url(),
 });
 
 const ensureCustomerAccess = (roles: UserRole[]) => {
@@ -51,6 +56,51 @@ export const registerBillingRoutes = (
         }
       );
       return checkout;
+    }
+  );
+
+  app.get(
+    '/billing/subscription-status',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      if (!request.auth?.profile) {
+        return reply.code(401).send({ message: 'Unauthorized' });
+      }
+      if (!ensureCustomerAccess(request.auth.roles)) {
+        return reply.code(403).send({ message: 'Forbidden' });
+      }
+      const subscription = await db.getSubscription(request.auth.profile.accountId);
+      const limit = subscription?.monthlyEditLimit ?? config.limits.trialEditLimit;
+      const usage = await db.getUsage(request.auth.profile.accountId, limit);
+      const limits = db.buildUsageLimits(subscription, config.limits.trialEditLimit);
+      return {
+        subscription: subscription ?? { status: 'none' },
+        usage,
+        limits,
+      };
+    }
+  );
+
+  app.post(
+    '/billing/manage-portal',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      if (!request.auth?.profile) {
+        return reply.code(401).send({ message: 'Unauthorized' });
+      }
+      if (!ensureCustomerAccess(request.auth.roles)) {
+        return reply.code(403).send({ message: 'Forbidden' });
+      }
+      const body = portalSchema.parse(request.body);
+      const subscription = await db.getSubscription(request.auth.profile.accountId);
+      if (!subscription?.stripeCustomerId) {
+        return reply.code(400).send({ message: 'No active Stripe subscription found' });
+      }
+      const portal = await stripe.createBillingPortalSession({
+        customerId: subscription.stripeCustomerId,
+        returnUrl: body.returnUrl,
+      });
+      return portal;
     }
   );
 };

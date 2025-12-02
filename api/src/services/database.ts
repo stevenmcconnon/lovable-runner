@@ -8,15 +8,20 @@ import {
   AdminJobFilters,
   AdminUserRecord,
   BusinessDetailsInput,
+  DeploymentRecord,
+  DomainOrderRecord,
+  DomainRecord,
   EditJobRecord,
   EditRequestRecord,
   EditRequestStatus,
+  ProfileDetails,
   ProfileRecord,
   SubscriptionDetails,
   SubscriptionPlan,
   SiteGenerationRecord,
   TemplateUploadRecord,
   UsageDetails,
+  UsageLimits,
   UserRole,
 } from '../types';
 
@@ -44,6 +49,18 @@ const mapAdminUser = (row: any): AdminUserRecord => ({
   cognitoSub: row.cognito_sub,
   hasUsedTrial: Boolean(row.has_used_trial),
   roles: (row.roles as UserRole[]) ?? [],
+  createdAt: toIsoString(row.created_at),
+  updatedAt: toIsoString(row.updated_at),
+});
+
+const mapDetails = (row: any): ProfileDetails => ({
+  userId: row.user_id,
+  companyName: row.company_name ?? undefined,
+  title: row.title ?? undefined,
+  phone: row.phone ?? undefined,
+  location: row.location ?? undefined,
+  photoUrl: row.photo_url ?? undefined,
+  metadata: row.metadata ?? null,
   createdAt: toIsoString(row.created_at),
   updatedAt: toIsoString(row.updated_at),
 });
@@ -105,11 +122,114 @@ const mapSiteGeneration = (row: any): SiteGenerationRecord => ({
   updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
 });
 
+const mapDomainOrder = (row: any): DomainOrderRecord => ({
+  id: row.id,
+  accountId: row.account_id ?? null,
+  slug: row.slug ?? null,
+  domain: row.domain,
+  status: row.status,
+  providerOrderId: row.provider_order_id ?? null,
+  priceCents: row.price_cents ?? null,
+  currency: row.currency ?? null,
+  metadata: row.metadata ?? null,
+  createdAt: toIsoString(row.created_at),
+  updatedAt: toIsoString(row.updated_at),
+});
+
+const mapDomainRecord = (row: any): DomainRecord => ({
+  id: row.id,
+  accountId: row.account_id ?? null,
+  slug: row.slug,
+  domain: row.domain,
+  type: row.type,
+  provider: row.provider ?? null,
+  status: row.status,
+  verificationToken: row.verification_token ?? null,
+  dnsSettings: row.dns_settings ?? null,
+  verifiedAt: toIsoString(row.verified_at),
+  lastCheckedAt: toIsoString(row.last_checked_at),
+  createdAt: toIsoString(row.created_at),
+  updatedAt: toIsoString(row.updated_at),
+});
+
+const mapDeploymentRecord = (row: any): DeploymentRecord => ({
+  id: row.id,
+  slug: row.slug,
+  accountId: row.account_id ?? null,
+  target: row.target,
+  status: row.status,
+  bucket: row.bucket ?? null,
+  prefix: row.prefix ?? null,
+  publicUrl: row.public_url ?? null,
+  requestedBy: row.requested_by ?? null,
+  errorMessage: row.error_message ?? null,
+  createdAt: toIsoString(row.created_at),
+  updatedAt: toIsoString(row.updated_at),
+  completedAt: toIsoString(row.completed_at),
+});
+
 export class DatabaseService {
   private pool: Pool;
 
   constructor(poolInstance: Pool = pool) {
     this.pool = poolInstance;
+  }
+
+  async getProfileDetails(userId: string): Promise<ProfileDetails | null> {
+    const { rows } = await this.query(
+      `
+      SELECT *
+      FROM profile_details
+      WHERE user_id = $1
+      LIMIT 1
+    `,
+      [userId]
+    );
+    return rows[0] ? mapDetails(rows[0]) : null;
+  }
+
+  async upsertProfileDetails(
+    userId: string,
+    details: Partial<Omit<ProfileDetails, 'userId' | 'createdAt' | 'updatedAt'>>
+  ): Promise<ProfileDetails> {
+    const payload = {
+      companyName: details.companyName ?? null,
+      title: details.title ?? null,
+      phone: details.phone ?? null,
+      location: details.location ?? null,
+      photoUrl: details.photoUrl ?? null,
+      metadata: details.metadata ?? null,
+    };
+    const { rows } = await this.query(
+      `
+      INSERT INTO profile_details (user_id, company_name, title, phone, location, photo_url, metadata)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
+      ON CONFLICT (user_id) DO UPDATE
+      SET company_name = EXCLUDED.company_name,
+          title = EXCLUDED.title,
+          phone = EXCLUDED.phone,
+          location = EXCLUDED.location,
+          photo_url = EXCLUDED.photo_url,
+          metadata = EXCLUDED.metadata,
+          updated_at = NOW()
+      RETURNING *
+    `,
+      [userId, payload.companyName, payload.title, payload.phone, payload.location, payload.photoUrl, payload.metadata]
+    );
+    return mapDetails(rows[0]);
+  }
+
+  async getProfileWithDetails(userId: string): Promise<{
+    profile: ProfileRecord | null;
+    details: ProfileDetails | null;
+    roles: UserRole[];
+  }> {
+    const [profile, details, roles] = await Promise.all([
+      this.getProfileById(userId),
+      this.getProfileDetails(userId),
+      this.getRolesForUser(userId),
+    ]);
+    return { profile, details, roles };
   }
 
   private async query<T extends QueryResultRow = QueryResultRow>(text: string, params: any[] = []) {
@@ -216,7 +336,7 @@ export class DatabaseService {
     }
   }
 
-  async createProfileForAdmin(params: {
+  async createProfileRecord(params: {
     email: string;
     fullName?: string;
     cognitoSub: string;
@@ -235,7 +355,7 @@ export class DatabaseService {
     return mapProfile(rows[0]);
   }
 
-  async updateProfileForAdmin(
+  async updateProfileById(
     userId: string,
     updates: { email?: string; fullName?: string; accountId?: string }
   ): Promise<ProfileRecord | null> {
@@ -964,5 +1084,257 @@ export class DatabaseService {
         currentPeriodEnd,
       ]
     );
+  }
+
+  async createDomainOrder(params: {
+    accountId?: string | null;
+    slug?: string | null;
+    domain: string;
+    status: string;
+    providerOrderId?: string | null;
+    priceCents?: number | null;
+    currency?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<DomainOrderRecord> {
+    const { rows } = await this.query(
+      `
+      INSERT INTO domain_orders (
+        account_id,
+        slug,
+        domain,
+        status,
+        provider_order_id,
+        price_cents,
+        currency,
+        metadata
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      RETURNING *
+    `,
+      [
+        params.accountId ?? null,
+        params.slug ?? null,
+        params.domain,
+        params.status,
+        params.providerOrderId ?? null,
+        params.priceCents ?? null,
+        params.currency ?? null,
+        params.metadata ?? null,
+      ]
+    );
+    if (!rows[0]) throw new Error('Failed to record domain order');
+    return mapDomainOrder(rows[0]);
+  }
+
+  async listDomainsForSlug(slug: string): Promise<DomainRecord[]> {
+    const { rows } = await this.query(
+      `
+      SELECT * FROM site_domains
+      WHERE slug = $1
+      ORDER BY created_at DESC
+    `,
+      [slug]
+    );
+    return rows.map(mapDomainRecord);
+  }
+
+  async upsertSiteDomain(params: {
+    accountId?: string | null;
+    slug: string;
+    domain: string;
+    type: string;
+    provider?: string | null;
+    status?: string;
+    verificationToken?: string | null;
+    dnsSettings?: Record<string, unknown> | null;
+  }): Promise<DomainRecord> {
+    const { rows } = await this.query(
+      `
+      INSERT INTO site_domains (
+        account_id,
+        slug,
+        domain,
+        type,
+        provider,
+        status,
+        verification_token,
+        dns_settings
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      ON CONFLICT (domain) DO UPDATE
+      SET
+        slug = EXCLUDED.slug,
+        account_id = COALESCE(EXCLUDED.account_id, site_domains.account_id),
+        type = EXCLUDED.type,
+        provider = EXCLUDED.provider,
+        status = EXCLUDED.status,
+        verification_token = EXCLUDED.verification_token,
+        dns_settings = EXCLUDED.dns_settings,
+        updated_at = NOW()
+      RETURNING *
+    `,
+      [
+        params.accountId ?? null,
+        params.slug,
+        params.domain,
+        params.type,
+        params.provider ?? null,
+        params.status ?? 'pending',
+        params.verificationToken ?? null,
+        params.dnsSettings ?? null,
+      ]
+    );
+    return mapDomainRecord(rows[0]);
+  }
+
+  async updateSiteDomain(domain: string, updates: Partial<DomainRecord>): Promise<DomainRecord | null> {
+    const fields: string[] = [];
+    const params: any[] = [];
+    const setField = (column: string, value: any) => {
+      params.push(value);
+      fields.push(`${column} = $${params.length}`);
+    };
+    if (updates.status) setField('status', updates.status);
+    if (updates.verificationToken !== undefined) setField('verification_token', updates.verificationToken);
+    if (updates.dnsSettings !== undefined) setField('dns_settings', updates.dnsSettings);
+    if (updates.provider !== undefined) setField('provider', updates.provider);
+    if (updates.type) setField('type', updates.type);
+    if (updates.accountId !== undefined) setField('account_id', updates.accountId);
+    if (updates.slug) setField('slug', updates.slug);
+    if (updates.verifiedAt) setField('verified_at', updates.verifiedAt);
+    if (updates.lastCheckedAt) setField('last_checked_at', updates.lastCheckedAt);
+    if (!fields.length) {
+      return this.getDomainByName(domain);
+    }
+    params.push(domain);
+    const { rows } = await this.query(
+      `
+      UPDATE site_domains
+      SET ${fields.join(', ')}, updated_at = NOW()
+      WHERE domain = $${params.length}
+      RETURNING *
+    `,
+      params
+    );
+    return rows[0] ? mapDomainRecord(rows[0]) : null;
+  }
+
+  async getDomainByName(domain: string): Promise<DomainRecord | null> {
+    const { rows } = await this.query(`SELECT * FROM site_domains WHERE domain = $1 LIMIT 1`, [domain]);
+    return rows[0] ? mapDomainRecord(rows[0]) : null;
+  }
+
+  async createDeployment(params: {
+    slug: string;
+    accountId?: string | null;
+    target: string;
+    status: string;
+    bucket?: string | null;
+    prefix?: string | null;
+    publicUrl?: string | null;
+    requestedBy?: string | null;
+    errorMessage?: string | null;
+  }): Promise<DeploymentRecord> {
+    const { rows } = await this.query(
+      `
+      INSERT INTO site_deployments (
+        slug,
+        account_id,
+        target,
+        status,
+        bucket,
+        prefix,
+        public_url,
+        requested_by,
+        error_message
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      RETURNING *
+    `,
+      [
+        params.slug,
+        params.accountId ?? null,
+        params.target,
+        params.status,
+        params.bucket ?? null,
+        params.prefix ?? null,
+        params.publicUrl ?? null,
+        params.requestedBy ?? null,
+        params.errorMessage ?? null,
+      ]
+    );
+    return mapDeploymentRecord(rows[0]);
+  }
+
+  async updateDeployment(
+    deploymentId: string,
+    updates: Partial<DeploymentRecord>
+  ): Promise<DeploymentRecord | null> {
+    const fields: string[] = [];
+    const params: any[] = [];
+    const setField = (column: string, value: any) => {
+      params.push(value);
+      fields.push(`${column} = $${params.length}`);
+    };
+    if (updates.status) setField('status', updates.status);
+    if (updates.bucket !== undefined) setField('bucket', updates.bucket);
+    if (updates.prefix !== undefined) setField('prefix', updates.prefix);
+    if (updates.publicUrl !== undefined) setField('public_url', updates.publicUrl);
+    if (updates.errorMessage !== undefined) setField('error_message', updates.errorMessage);
+    if (updates.completedAt) setField('completed_at', updates.completedAt);
+    if (!fields.length) {
+      return this.getDeploymentById(deploymentId);
+    }
+    params.push(deploymentId);
+    const { rows } = await this.query(
+      `
+      UPDATE site_deployments
+      SET ${fields.join(', ')}, updated_at = NOW()
+      WHERE id = $${params.length}
+      RETURNING *
+    `,
+      params
+    );
+    return rows[0] ? mapDeploymentRecord(rows[0]) : null;
+  }
+
+  async listDeployments(slug: string, limit = 50): Promise<DeploymentRecord[]> {
+    const { rows } = await this.query(
+      `
+      SELECT * FROM site_deployments
+      WHERE slug = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+    `,
+      [slug, Math.min(Math.max(limit, 1), 200)]
+    );
+    return rows.map(mapDeploymentRecord);
+  }
+
+  async getDeploymentById(deploymentId: string): Promise<DeploymentRecord | null> {
+    const { rows } = await this.query(
+      `
+      SELECT * FROM site_deployments
+      WHERE id = $1
+      LIMIT 1
+    `,
+      [deploymentId]
+    );
+    return rows[0] ? mapDeploymentRecord(rows[0]) : null;
+  }
+
+  buildUsageLimits(subscription: SubscriptionDetails | null, fallbackLimit: number): UsageLimits {
+    const planKey = subscription?.planKey ?? 'trial';
+    const planName = subscription?.planName ?? 'Trial';
+    const monthlyEditLimit = subscription?.monthlyEditLimit ?? fallbackLimit;
+    const isPaid = Boolean(subscription && subscription.status === 'active');
+    return {
+      planKey,
+      planName,
+      monthlyEditLimit,
+      freeSiteLimit: isPaid ? 10 : 1,
+      dailyRebuildLimit: isPaid ? 20 : 3,
+      allowCustomDomains: isPaid,
+      allowLivePublishing: isPaid,
+      allowAiImages: isPaid,
+      allowSeoTools: isPaid,
+    };
   }
 }

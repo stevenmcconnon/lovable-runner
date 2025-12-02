@@ -11,6 +11,18 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS profile_details (
+  user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+  company_name TEXT,
+  title TEXT,
+  phone TEXT,
+  location TEXT,
+  photo_url TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS user_roles (
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   role TEXT NOT NULL,
@@ -130,6 +142,58 @@ CREATE TABLE IF NOT EXISTS site_generations (
 CREATE INDEX IF NOT EXISTS site_generations_account_idx ON site_generations(account_id);
 CREATE INDEX IF NOT EXISTS site_generations_request_idx ON site_generations(request_id);
 
+CREATE TABLE IF NOT EXISTS domain_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID,
+  slug TEXT,
+  domain TEXT NOT NULL,
+  status TEXT NOT NULL,
+  provider_order_id TEXT,
+  price_cents INTEGER,
+  currency TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS domain_orders_domain_idx ON domain_orders(domain);
+
+CREATE TABLE IF NOT EXISTS site_domains (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID,
+  slug TEXT NOT NULL,
+  domain TEXT NOT NULL UNIQUE,
+  type TEXT NOT NULL DEFAULT 'manual',
+  provider TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  verification_token TEXT,
+  dns_settings JSONB,
+  verified_at TIMESTAMPTZ,
+  last_checked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS site_domains_slug_idx ON site_domains(slug);
+
+CREATE TABLE IF NOT EXISTS site_deployments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL,
+  account_id UUID,
+  target TEXT NOT NULL,
+  status TEXT NOT NULL,
+  bucket TEXT,
+  prefix TEXT,
+  public_url TEXT,
+  requested_by UUID,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS site_deployments_slug_idx ON site_deployments(slug);
+
 ALTER TABLE site_generations ALTER COLUMN account_id DROP NOT NULL;
 ALTER TABLE site_generations ALTER COLUMN user_id DROP NOT NULL;
 
@@ -144,6 +208,12 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS set_profiles_updated_at ON profiles;
 CREATE TRIGGER set_profiles_updated_at
   BEFORE UPDATE ON profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_profile_details_updated_at ON profile_details;
+CREATE TRIGGER set_profile_details_updated_at
+  BEFORE UPDATE ON profile_details
   FOR EACH ROW
   EXECUTE FUNCTION set_updated_at();
 
@@ -174,5 +244,23 @@ CREATE TRIGGER set_edit_jobs_updated_at
 DROP TRIGGER IF EXISTS set_site_generations_updated_at ON site_generations;
 CREATE TRIGGER set_site_generations_updated_at
   BEFORE UPDATE ON site_generations
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_domain_orders_updated_at ON domain_orders;
+CREATE TRIGGER set_domain_orders_updated_at
+  BEFORE UPDATE ON domain_orders
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_site_domains_updated_at ON site_domains;
+CREATE TRIGGER set_site_domains_updated_at
+  BEFORE UPDATE ON site_domains
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_site_deployments_updated_at ON site_deployments;
+CREATE TRIGGER set_site_deployments_updated_at
+  BEFORE UPDATE ON site_deployments
   FOR EACH ROW
   EXECUTE FUNCTION set_updated_at();

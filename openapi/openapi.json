@@ -156,11 +156,15 @@
               "application/json": {
                 "schema": {
                   "allOf": [
-                    { "$ref": "#/components/schemas/LaunchResponse" },
+                    {
+                      "$ref": "#/components/schemas/LaunchResponse"
+                    },
                     {
                       "type": "object",
                       "properties": {
-                        "patchSummary": { "type": "string" }
+                        "patchSummary": {
+                          "type": "string"
+                        }
                       }
                     }
                   ]
@@ -168,8 +172,12 @@
               }
             }
           },
-          "400": { "description": "Missing instructions" },
-          "404": { "description": "Site not found" }
+          "400": {
+            "description": "Missing instructions"
+          },
+          "404": {
+            "description": "Site not found"
+          }
         }
       }
     },
@@ -183,7 +191,9 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -191,11 +201,15 @@
             "description": "Asset list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AssetListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AssetListResponse"
+                }
               }
             }
           },
-          "404": { "description": "Site not found" }
+          "404": {
+            "description": "Site not found"
+          }
         }
       },
       "post": {
@@ -207,14 +221,18 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": false,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AssetUploadRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/AssetUploadRequest"
+              }
             }
           }
         },
@@ -223,11 +241,15 @@
             "description": "Upload URL issued",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AssetUploadResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AssetUploadResponse"
+                }
               }
             }
           },
-          "404": { "description": "Site not found" }
+          "404": {
+            "description": "Site not found"
+          }
         }
       }
     },
@@ -240,19 +262,27 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "key",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "File name returned by the list API. Do not include the full S3 prefix."
           }
         ],
         "responses": {
-          "204": { "description": "Asset deleted" },
-          "404": { "description": "Asset not found" }
+          "204": {
+            "description": "Asset deleted"
+          },
+          "404": {
+            "description": "Asset not found"
+          }
         }
       }
     },
@@ -266,44 +296,78 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "key",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "File name from the list API."
           },
           {
             "name": "width",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 16, "maximum": 4000 }
+            "schema": {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 4000
+            }
           },
           {
             "name": "height",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 16, "maximum": 4000 }
+            "schema": {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 4000
+            }
           },
           {
             "name": "format",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["jpg", "jpeg", "png", "webp", "avif"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "jpg",
+                "jpeg",
+                "png",
+                "webp",
+                "avif"
+              ]
+            }
           },
           {
             "name": "quality",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 100 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
           },
           {
             "name": "fit",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["cover", "contain", "fill", "inside", "outside"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cover",
+                "contain",
+                "fill",
+                "inside",
+                "outside"
+              ]
+            }
           }
         ],
         "responses": {
@@ -311,11 +375,15 @@
             "description": "Optimized asset URL",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AssetTransformResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AssetTransformResponse"
+                }
               }
             }
           },
-          "404": { "description": "Asset not found" }
+          "404": {
+            "description": "Asset not found"
+          }
         }
       }
     },
@@ -407,8 +475,136 @@
           }
         }
       }
-    }
-    ,
+    },
+    "/auth/signup": {
+      "post": {
+        "summary": "Self-service signup",
+        "operationId": "signup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signup initiated. User must confirm via email."
+          },
+          "400": {
+            "description": "Invalid payload"
+          },
+          "409": {
+            "description": "Email already registered"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Password-based login",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "summary": "Begin password reset flow",
+        "operationId": "forgotPassword",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset started"
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "summary": "Fetch the authenticated user's profile",
+        "operationId": "getMe",
+        "responses": {
+          "200": {
+            "description": "Current profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update profile/business info",
+        "operationId": "updateMe",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
     "/admin/users": {
       "get": {
         "summary": "List users (super admin)",
@@ -418,19 +614,26 @@
             "name": "role",
             "in": "query",
             "required": false,
-            "schema": { "$ref": "#/components/schemas/UserRoleEnum" }
+            "schema": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            }
           },
           {
             "name": "search",
             "in": "query",
             "required": false,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "accountId",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -443,7 +646,9 @@
                   "properties": {
                     "items": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/AdminUser" }
+                      "items": {
+                        "$ref": "#/components/schemas/AdminUser"
+                      }
                     }
                   }
                 }
@@ -459,7 +664,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AdminUserCreateRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserCreateRequest"
+              }
             }
           }
         },
@@ -468,11 +675,15 @@
             "description": "User created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminUser" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
               }
             }
           },
-          "400": { "description": "Invalid payload" }
+          "400": {
+            "description": "Invalid payload"
+          }
         }
       }
     },
@@ -485,7 +696,10 @@
             "name": "userId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -493,11 +707,15 @@
             "description": "User record",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminUser" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
               }
             }
           },
-          "404": { "description": "Not found" }
+          "404": {
+            "description": "Not found"
+          }
         }
       },
       "patch": {
@@ -508,14 +726,19 @@
             "name": "userId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AdminUserUpdateRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserUpdateRequest"
+              }
             }
           }
         },
@@ -524,11 +747,15 @@
             "description": "Updated user",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminUser" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
               }
             }
           },
-          "404": { "description": "Not found" }
+          "404": {
+            "description": "Not found"
+          }
         }
       },
       "delete": {
@@ -539,12 +766,19 @@
             "name": "userId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
-          "204": { "description": "User deleted" },
-          "404": { "description": "Not found" }
+          "204": {
+            "description": "User deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
         }
       }
     },
@@ -562,7 +796,9 @@
                   "properties": {
                     "items": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/AccountSummary" }
+                      "items": {
+                        "$ref": "#/components/schemas/AccountSummary"
+                      }
                     }
                   }
                 }
@@ -581,7 +817,10 @@
             "name": "accountId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -589,11 +828,15 @@
             "description": "Account detail",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AccountDetail" }
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDetail"
+                }
               }
             }
           },
-          "404": { "description": "Not found" }
+          "404": {
+            "description": "Not found"
+          }
         }
       }
     },
@@ -606,7 +849,10 @@
             "name": "accountId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "status",
@@ -614,14 +860,25 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["queued", "running", "building", "deploying", "completed", "failed"]
+              "enum": [
+                "queued",
+                "running",
+                "building",
+                "deploying",
+                "completed",
+                "failed"
+              ]
             }
           },
           {
             "name": "limit",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 200 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
           }
         ],
         "responses": {
@@ -634,9 +891,390 @@
                   "properties": {
                     "items": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/SiteGeneration" }
+                      "items": {
+                        "$ref": "#/components/schemas/SiteGeneration"
+                      }
                     }
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/create-checkout-session": {
+      "post": {
+        "summary": "Start a Stripe checkout session",
+        "description": "Creates a subscription checkout session for the requested plan and returns the hosted Stripe URL.",
+        "operationId": "createCheckoutSession",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout URL issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/billing/subscription-status": {
+      "get": {
+        "summary": "Fetch current subscription/usage state",
+        "operationId": "getBillingStatus",
+        "responses": {
+          "200": {
+            "description": "Billing status response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/manage-portal": {
+      "post": {
+        "summary": "Create a Stripe customer portal session",
+        "operationId": "createBillingPortalSession",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingPortalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portal URL created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingPortalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Stripe customer"
+          }
+        }
+      }
+    },
+    "/domains/search": {
+      "post": {
+        "summary": "Search for available domains",
+        "operationId": "searchDomains",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain candidates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/domains/purchase": {
+      "post": {
+        "summary": "Purchase and assign a managed domain",
+        "operationId": "purchaseDomain",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainPurchaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain purchase recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainAttachResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Domain already attached"
+          }
+        }
+      }
+    },
+    "/domains/{domain}/verify": {
+      "post": {
+        "summary": "Mark a connected domain as verified",
+        "operationId": "verifyDomain",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Domain"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains": {
+      "post": {
+        "summary": "Attach a manual domain to a site",
+        "operationId": "attachDomain",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualDomainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain attached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainAttachResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains/status": {
+      "get": {
+        "summary": "List domains + DNS instructions for a site",
+        "operationId": "listSiteDomains",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domains for slug",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/publish": {
+      "post": {
+        "summary": "Publish the latest preview to live hosting",
+        "operationId": "publishSite",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deployment record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/deployments": {
+      "get": {
+        "summary": "List deployments for a site",
+        "operationId": "listDeployments",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/deployments/{deploymentId}": {
+      "get": {
+        "summary": "Fetch a deployment by id",
+        "operationId": "getDeployment",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found"
+          }
+        }
+      }
+    },
+    "/usage": {
+      "get": {
+        "summary": "Usage snapshot for the authenticated account",
+        "operationId": "getUsage",
+        "responses": {
+          "200": {
+            "description": "Usage response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usage/limits": {
+      "get": {
+        "summary": "Plan limits for the authenticated account",
+        "operationId": "getUsageLimits",
+        "responses": {
+          "200": {
+            "description": "Limit information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageLimits"
                 }
               }
             }
@@ -650,18 +1288,33 @@
       "BusinessDetails": {
         "type": "object",
         "properties": {
-          "businessName": { "type": "string" },
-          "businessType": { "type": "string" },
-          "address": { "type": "string" },
-          "phone": { "type": "string" },
-          "additionalDetails": { "type": "string" }
+          "businessName": {
+            "type": "string"
+          },
+          "businessType": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "additionalDetails": {
+            "type": "string"
+          }
         }
       },
       "CTA": {
         "type": "object",
         "properties": {
-          "label": { "type": "string" },
-          "href": { "type": "string", "format": "uri" }
+          "label": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string",
+            "format": "uri"
+          }
         }
       },
       "SectionProps": {
@@ -671,79 +1324,162 @@
       },
       "Section": {
         "type": "object",
-        "required": ["id", "componentId", "props"],
+        "required": [
+          "id",
+          "componentId",
+          "props"
+        ],
         "properties": {
-          "id": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
           "componentId": {
             "type": "string",
             "description": "One of the entries from SECTION_REGISTRY (e.g., hero-with-image, features-grid, testimonials-cards)."
           },
-          "props": { "$ref": "#/components/schemas/SectionProps" }
+          "props": {
+            "$ref": "#/components/schemas/SectionProps"
+          }
         }
       },
       "SectionPatch": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "componentId": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
+          "componentId": {
+            "type": "string"
+          },
           "action": {
             "type": "string",
-            "enum": ["update", "insert", "remove"],
+            "enum": [
+              "update",
+              "insert",
+              "remove"
+            ],
             "default": "update"
           },
-          "props": { "$ref": "#/components/schemas/SectionProps" },
+          "props": {
+            "$ref": "#/components/schemas/SectionProps"
+          },
           "position": {
             "type": "object",
             "properties": {
-              "beforeId": { "type": "string" },
-              "afterId": { "type": "string" },
-              "index": { "type": "integer", "minimum": 0 }
+              "beforeId": {
+                "type": "string"
+              },
+              "afterId": {
+                "type": "string"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           }
         }
       },
       "Site": {
         "type": "object",
-        "required": ["meta", "seo", "theme", "sections"],
+        "required": [
+          "meta",
+          "seo",
+          "theme",
+          "sections"
+        ],
         "properties": {
           "meta": {
             "type": "object",
-            "required": ["brandName", "headline", "subheadline"],
+            "required": [
+              "brandName",
+              "headline",
+              "subheadline"
+            ],
             "properties": {
-              "brandName": { "type": "string" },
-              "headline": { "type": "string" },
-              "subheadline": { "type": "string" },
-              "location": { "type": "string" },
-              "phone": { "type": "string" },
-              "email": { "type": "string", "format": "email" }
+              "brandName": {
+                "type": "string"
+              },
+              "headline": {
+                "type": "string"
+              },
+              "subheadline": {
+                "type": "string"
+              },
+              "location": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              }
             }
           },
           "seo": {
             "type": "object",
-            "required": ["title", "description", "keywords"],
+            "required": [
+              "title",
+              "description",
+              "keywords"
+            ],
             "properties": {
-              "title": { "type": "string" },
-              "description": { "type": "string" },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
               "keywords": {
                 "type": "array",
-                "items": { "type": "string" },
+                "items": {
+                  "type": "string"
+                },
                 "minItems": 5
               }
             }
           },
           "theme": {
             "type": "object",
-            "required": ["primaryColor", "accentColor", "backgroundStyle", "vibe"],
+            "required": [
+              "primaryColor",
+              "accentColor",
+              "backgroundStyle",
+              "vibe"
+            ],
             "properties": {
-              "primaryColor": { "type": "string" },
-              "accentColor": { "type": "string" },
-              "backgroundStyle": { "type": "string", "enum": ["gradient", "mesh", "texture"] },
-              "vibe": { "type": "string", "enum": ["luxury", "tech", "playful", "earthy"] }
+              "primaryColor": {
+                "type": "string"
+              },
+              "accentColor": {
+                "type": "string"
+              },
+              "backgroundStyle": {
+                "type": "string",
+                "enum": [
+                  "gradient",
+                  "mesh",
+                  "texture"
+                ]
+              },
+              "vibe": {
+                "type": "string",
+                "enum": [
+                  "luxury",
+                  "tech",
+                  "playful",
+                  "earthy"
+                ]
+              }
             }
           },
           "sections": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Section" },
+            "items": {
+              "$ref": "#/components/schemas/Section"
+            },
             "minItems": 6
           }
         }
@@ -751,38 +1487,71 @@
       "SitePatch": {
         "type": "object",
         "properties": {
-          "meta": { "$ref": "#/components/schemas/Site/properties/meta" },
-          "seo": { "$ref": "#/components/schemas/Site/properties/seo" },
-          "theme": { "$ref": "#/components/schemas/Site/properties/theme" },
+          "meta": {
+            "$ref": "#/components/schemas/Site/properties/meta"
+          },
+          "seo": {
+            "$ref": "#/components/schemas/Site/properties/seo"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Site/properties/theme"
+          },
           "sections": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/SectionPatch" }
+            "items": {
+              "$ref": "#/components/schemas/SectionPatch"
+            }
           }
         }
       },
       "SiteMetadata": {
         "type": "object",
         "properties": {
-          "bucket": { "type": "string" },
-          "prefix": { "type": "string" },
-          "publicUrl": { "type": "string", "format": "uri" },
-          "requestId": { "type": "string" },
-          "sourceUrl": { "type": "string", "format": "uri" },
-          "description": { "type": "string" },
-          "lastBuildAt": { "type": "string", "format": "date-time" }
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "publicUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lastBuildAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "SiteRecord": {
         "type": "object",
         "properties": {
-          "slug": { "type": "string" },
-          "site": { "$ref": "#/components/schemas/Site" },
-          "metadata": { "$ref": "#/components/schemas/SiteMetadata" }
+          "slug": {
+            "type": "string"
+          },
+          "site": {
+            "$ref": "#/components/schemas/Site"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SiteMetadata"
+          }
         }
       },
       "LaunchRequest": {
         "type": "object",
-        "required": ["url"],
+        "required": [
+          "url"
+        ],
         "properties": {
           "url": {
             "type": "string",
@@ -809,80 +1578,175 @@
       "GitArchive": {
         "type": "object",
         "properties": {
-          "repoUrl": { "type": "string", "format": "uri" },
-          "branch": { "type": "string" },
-          "path": { "type": "string" },
-          "commit": { "type": "string" },
-          "committed": { "type": "boolean" },
-          "commitMessage": { "type": "string" }
+          "repoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "committed": {
+            "type": "boolean"
+          },
+          "commitMessage": {
+            "type": "string"
+          }
         }
       },
       "LaunchResponse": {
         "type": "object",
         "properties": {
-          "slug": { "type": "string" },
-          "bucket": { "type": "string" },
-          "prefix": { "type": "string" },
-          "target": { "type": "string" },
-          "publicUrl": { "type": "string", "format": "uri" },
-          "gitArchive": { "$ref": "#/components/schemas/GitArchive" },
-          "site": { "$ref": "#/components/schemas/Site" }
+          "slug": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "publicUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "gitArchive": {
+            "$ref": "#/components/schemas/GitArchive"
+          },
+          "site": {
+            "$ref": "#/components/schemas/Site"
+          }
         }
       },
       "SiteUpdateRequest": {
         "type": "object",
         "properties": {
-          "patch": { "$ref": "#/components/schemas/SitePatch" },
-          "site": { "$ref": "#/components/schemas/Site" },
+          "patch": {
+            "$ref": "#/components/schemas/SitePatch"
+          },
+          "site": {
+            "$ref": "#/components/schemas/Site"
+          },
           "regenerateImages": {
             "type": "boolean",
             "default": true,
             "description": "If false, skips new Google Imagen calls."
           },
-          "requestId": { "type": "string" },
-          "description": { "type": "string" },
-          "sourceUrl": { "type": "string", "format": "uri" }
+          "requestId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          }
         },
         "oneOf": [
-          { "required": ["patch"] },
-          { "required": ["site"] }
+          {
+            "required": [
+              "patch"
+            ]
+          },
+          {
+            "required": [
+              "site"
+            ]
+          }
         ]
       },
       "UpdateRequest": {
         "type": "object",
         "properties": {
-          "projectId": { "type": "string" },
-          "url": { "type": "string", "format": "uri" },
-          "instructions": { "type": "string" },
-          "token": { "type": "string" },
-          "base": { "type": "string" },
-          "createPath": { "type": "string" },
-          "workspace": { "type": "string" },
-          "wait": { "type": "integer" },
-          "attempts": { "type": "integer" },
-          "bucket": { "type": "string" },
-          "prefix": { "type": "string" },
-          "profile": { "type": "string" },
-          "skipInstall": { "type": "boolean" },
-          "placeholderLimit": { "type": "integer" },
-          "requestedBy": { "type": "string" }
+          "projectId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "base": {
+            "type": "string"
+          },
+          "createPath": {
+            "type": "string"
+          },
+          "workspace": {
+            "type": "string"
+          },
+          "wait": {
+            "type": "integer"
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "skipInstall": {
+            "type": "boolean"
+          },
+          "placeholderLimit": {
+            "type": "integer"
+          },
+          "requestedBy": {
+            "type": "string"
+          }
         }
       },
       "ApproveUpdateRequest": {
         "type": "object",
         "properties": {
-          "projectId": { "type": "string" },
-          "draftId": { "type": "string" },
-          "bucket": { "type": "string" },
-          "prefix": { "type": "string" },
-          "livePrefix": { "type": "string" },
-          "approvedBy": { "type": "string" }
+          "projectId": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "livePrefix": {
+            "type": "string"
+          },
+          "approvedBy": {
+            "type": "string"
+          }
         },
-        "required": ["projectId", "draftId"]
+        "required": [
+          "projectId",
+          "draftId"
+        ]
       },
       "InstructionRequest": {
         "type": "object",
-        "required": ["instructions"],
+        "required": [
+          "instructions"
+        ],
         "properties": {
           "instructions": {
             "type": "string",
@@ -894,18 +1758,29 @@
             "items": {
               "type": "object",
               "properties": {
-                "name": { "type": "string" },
-                "url": { "type": "string", "format": "uri" },
-                "description": { "type": "string" }
+                "name": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": {
+                  "type": "string"
+                }
               },
-              "required": ["url"]
+              "required": [
+                "url"
+              ]
             }
           },
           "regenerateImages": {
             "type": "boolean",
             "default": true
           },
-          "requestId": { "type": "string" },
+          "requestId": {
+            "type": "string"
+          },
           "description": {
             "type": "string",
             "description": "Optional audit log note."
@@ -920,36 +1795,75 @@
       "AssetUploadRequest": {
         "type": "object",
         "properties": {
-          "filename": { "type": "string", "description": "Original filename for reference." },
-          "contentType": { "type": "string", "description": "Preferred MIME type (e.g., image/png)." },
-          "expiresIn": { "type": "integer", "minimum": 60, "maximum": 3600, "description": "Signed URL lifetime in seconds." }
+          "filename": {
+            "type": "string",
+            "description": "Original filename for reference."
+          },
+          "contentType": {
+            "type": "string",
+            "description": "Preferred MIME type (e.g., image/png)."
+          },
+          "expiresIn": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 3600,
+            "description": "Signed URL lifetime in seconds."
+          }
         }
       },
       "AssetUploadResponse": {
         "type": "object",
         "properties": {
-          "key": { "type": "string" },
-          "uploadUrl": { "type": "string", "format": "uri" },
-          "assetUrl": { "type": "string", "format": "uri" },
-          "contentType": { "type": "string" },
-          "bucket": { "type": "string" }
+          "key": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "assetUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          }
         }
       },
       "AssetListResponse": {
         "type": "object",
         "properties": {
-          "bucket": { "type": "string" },
-          "prefix": { "type": "string" },
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
           "items": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "key": { "type": "string" },
-                "size": { "type": "integer" },
-                "lastModified": { "type": "string", "format": "date-time" },
-                "etag": { "type": "string" },
-                "url": { "type": "string", "format": "uri" }
+                "key": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "integer"
+                },
+                "lastModified": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "etag": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                }
               }
             }
           }
@@ -958,44 +1872,233 @@
       "AssetTransformResponse": {
         "type": "object",
         "properties": {
-          "url": { "type": "string", "format": "uri" },
-          "key": { "type": "string" },
-          "bucket": { "type": "string" }
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "key": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          }
+        }
+      },
+      "SignupRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          },
+          "fullName": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "idToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer"
+          },
+          "tokenType": {
+            "type": "string"
+          }
+        }
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "ProfileDetails": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ProfileUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "MeResponse": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/AdminUser"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            }
+          },
+          "details": {
+            "$ref": "#/components/schemas/ProfileDetails"
+          }
         }
       },
       "UserRoleEnum": {
         "type": "string",
-        "enum": ["customer", "admin", "super-admin"]
+        "enum": [
+          "customer",
+          "admin",
+          "super-admin"
+        ]
       },
       "AdminUser": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "accountId": { "type": "string", "format": "uuid" },
-          "email": { "type": "string", "format": "email" },
-          "fullName": { "type": "string" },
-          "cognitoSub": { "type": "string" },
-          "hasUsedTrial": { "type": "boolean" },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "cognitoSub": {
+            "type": "string"
+          },
+          "hasUsedTrial": {
+            "type": "boolean"
+          },
           "roles": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/UserRoleEnum" }
+            "items": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            }
           },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AdminUserCreateRequest": {
         "type": "object",
-        "required": ["email"],
+        "required": [
+          "email"
+        ],
         "properties": {
-          "email": { "type": "string", "format": "email" },
-          "fullName": { "type": "string" },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
           "roles": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/UserRoleEnum" },
+            "items": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            },
             "description": "Defaults to ['customer'] when omitted."
           },
-          "accountId": { "type": "string", "format": "uuid" },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "sendInvite": {
             "type": "boolean",
             "description": "If false, suppresses the Cognito invite email."
@@ -1009,13 +2112,23 @@
       "AdminUserUpdateRequest": {
         "type": "object",
         "properties": {
-          "email": { "type": "string", "format": "email" },
-          "fullName": { "type": "string" },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
           "roles": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/UserRoleEnum" }
+            "items": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            }
           },
-          "accountId": { "type": "string", "format": "uuid" },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "temporaryPassword": {
             "type": "string",
             "description": "When supplied, sets a new permanent password in Cognito."
@@ -1025,23 +2138,43 @@
       "AccountSummary": {
         "type": "object",
         "properties": {
-          "accountId": { "type": "string", "format": "uuid" },
-          "primaryEmail": { "type": "string", "format": "email" },
-          "userCount": { "type": "integer" },
-          "siteCount": { "type": "integer" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "lastSiteAt": { "type": "string", "format": "date-time" }
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "primaryEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "userCount": {
+            "type": "integer"
+          },
+          "siteCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSiteAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AccountDetail": {
         "allOf": [
-          { "$ref": "#/components/schemas/AccountSummary" },
+          {
+            "$ref": "#/components/schemas/AccountSummary"
+          },
           {
             "type": "object",
             "properties": {
               "users": {
                 "type": "array",
-                "items": { "$ref": "#/components/schemas/AdminUser" }
+                "items": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
               }
             }
           }
@@ -1050,22 +2183,605 @@
       "SiteGeneration": {
         "type": "object",
         "properties": {
-          "requestId": { "type": "string" },
-          "accountId": { "type": "string", "format": "uuid" },
-          "userId": { "type": "string", "format": "uuid" },
-          "sourceUrl": { "type": "string", "format": "uri" },
-          "description": { "type": "string" },
-          "slug": { "type": "string" },
-          "prefix": { "type": "string" },
-          "bucket": { "type": "string" },
+          "requestId": {
+            "type": "string"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
-            "enum": ["queued", "running", "building", "deploying", "completed", "failed"]
+            "enum": [
+              "queued",
+              "running",
+              "building",
+              "deploying",
+              "completed",
+              "failed"
+            ]
           },
-          "publicUrl": { "type": "string", "format": "uri" },
-          "errorMessage": { "type": "string" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "publicUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CheckoutSessionRequest": {
+        "type": "object",
+        "required": [
+          "planKey",
+          "successUrl",
+          "cancelUrl"
+        ],
+        "properties": {
+          "planKey": {
+            "type": "string"
+          },
+          "successUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cancelUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "CheckoutSessionResponse": {
+        "type": "object",
+        "properties": {
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "BillingPortalRequest": {
+        "type": "object",
+        "required": [
+          "returnUrl"
+        ],
+        "properties": {
+          "returnUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "BillingPortalResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "SubscriptionDetails": {
+        "type": "object",
+        "properties": {
+          "planKey": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "priceMonthly": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "currentPeriodStart": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "currentPeriodEnd": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "stripeCustomerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stripeSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "monthlyEditLimit": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "UsageDetails": {
+        "type": "object",
+        "properties": {
+          "monthlyEditLimit": {
+            "type": "integer"
+          },
+          "editsUsedThisPeriod": {
+            "type": "integer"
+          },
+          "remainingEdits": {
+            "type": "integer"
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "UsageLimits": {
+        "type": "object",
+        "properties": {
+          "planKey": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "monthlyEditLimit": {
+            "type": "integer"
+          },
+          "freeSiteLimit": {
+            "type": "integer"
+          },
+          "dailyRebuildLimit": {
+            "type": "integer"
+          },
+          "allowCustomDomains": {
+            "type": "boolean"
+          },
+          "allowLivePublishing": {
+            "type": "boolean"
+          },
+          "allowAiImages": {
+            "type": "boolean"
+          },
+          "allowSeoTools": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BillingStatusResponse": {
+        "type": "object",
+        "properties": {
+          "subscription": {
+            "$ref": "#/components/schemas/SubscriptionDetails"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageDetails"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/UsageLimits"
+          }
+        }
+      },
+      "DomainDnsRecord": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "ttl": {
+            "type": "integer"
+          }
+        }
+      },
+      "DomainDnsConfig": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "verificationToken": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainDnsRecord"
+            }
+          }
+        }
+      },
+      "Domain": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "slug": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "managed"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "verificationToken": {
+            "type": "string",
+            "nullable": true
+          },
+          "dnsSettings": {
+            "$ref": "#/components/schemas/DomainDnsConfig",
+            "nullable": true
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastCheckedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "DomainOrder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true
+          },
+          "domain": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "providerOrderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceCents": {
+            "type": "integer",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "DomainSearchRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "tlds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      },
+      "DomainSearchResult": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "tld": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "priceCents": {
+            "type": "integer"
+          },
+          "termYears": {
+            "type": "integer"
+          }
+        }
+      },
+      "DomainSearchResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainSearchResult"
+            }
+          }
+        }
+      },
+      "DomainPurchaseRequest": {
+        "type": "object",
+        "required": [
+          "domain",
+          "slug"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "termYears": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "contact": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "phone": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ManualDomainRequest": {
+        "type": "object",
+        "required": [
+          "domain"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          }
+        }
+      },
+      "DomainAttachResponse": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/DomainOrder"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "dns": {
+            "$ref": "#/components/schemas/DomainDnsConfig"
+          }
+        }
+      },
+      "DomainListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Domain"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "dns": {
+                      "$ref": "#/components/schemas/DomainDnsConfig"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "PublishRequest": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "live",
+              "preview"
+            ]
+          }
+        }
+      },
+      "Deployment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "target": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string",
+            "nullable": true
+          },
+          "prefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "publicUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "requestedBy": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "DeploymentListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Deployment"
+            }
+          }
+        }
+      },
+      "UsageResponse": {
+        "type": "object",
+        "properties": {
+          "usage": {
+            "$ref": "#/components/schemas/UsageDetails"
+          },
+          "subscription": {
+            "$ref": "#/components/schemas/SubscriptionDetails"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/UsageLimits"
+          }
         }
       }
     }

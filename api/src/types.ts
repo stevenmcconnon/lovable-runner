@@ -9,6 +9,18 @@ export interface ProfileRecord {
   hasUsedTrial: boolean;
 }
 
+export interface ProfileDetails {
+  userId: string;
+  companyName?: string | null;
+  title?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  photoUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface AdminUserRecord extends ProfileRecord {
   roles: UserRole[];
   createdAt?: string | null;
@@ -37,6 +49,12 @@ export interface AuthContext {
   profile?: ProfileRecord;
 }
 
+export interface MeResponse {
+  profile: ProfileRecord;
+  roles: UserRole[];
+  details?: ProfileDetails | null;
+}
+
 export interface SubscriptionPlan {
   planKey: string;
   planName: string;
@@ -63,6 +81,18 @@ export interface UsageDetails {
   remainingEdits: number;
   periodStart: string | null;
   periodEnd: string | null;
+}
+
+export interface UsageLimits {
+  planKey: string;
+  planName: string;
+  monthlyEditLimit: number;
+  freeSiteLimit: number;
+  dailyRebuildLimit: number;
+  allowCustomDomains: boolean;
+  allowLivePublishing: boolean;
+  allowAiImages: boolean;
+  allowSeoTools: boolean;
 }
 
 export type EditRequestStatus = 'pending' | 'in_progress' | 'completed' | 'rejected';
@@ -151,4 +181,50 @@ export interface SiteGenerationRecord {
   errorMessage?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DomainOrderRecord {
+  id: string;
+  accountId?: string | null;
+  slug?: string | null;
+  domain: string;
+  status: string;
+  providerOrderId?: string | null;
+  priceCents?: number | null;
+  currency?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface DomainRecord {
+  id: string;
+  accountId?: string | null;
+  slug: string;
+  domain: string;
+  type: string;
+  provider?: string | null;
+  status: string;
+  verificationToken?: string | null;
+  dnsSettings?: Record<string, unknown> | null;
+  verifiedAt?: string | null;
+  lastCheckedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface DeploymentRecord {
+  id: string;
+  slug: string;
+  accountId?: string | null;
+  target: string;
+  status: string;
+  bucket?: string | null;
+  prefix?: string | null;
+  publicUrl?: string | null;
+  requestedBy?: string | null;
+  errorMessage?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  completedAt?: string | null;
 }
