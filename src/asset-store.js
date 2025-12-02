@@ -22,7 +22,10 @@ const sanitizeFilename = (value) => {
     .slice(0, 80) || 'asset';
 };
 
-const buildAssetKey = (slug, filename) => `site-builds/assets/${slug}/${filename}`;
+const buildAssetKey = (slug, filename = '') => {
+  const suffix = filename ? filename.replace(/^\/+/, '') : '';
+  return `site-builds/assets/${slug}/${suffix}`;
+};
 
 const buildAssetUrl = ({ bucket, key }) => {
   const domain = (process.env.ASSET_CDN_DOMAIN || process.env.PREVIEW_DOMAIN || '').trim().replace(/\/+$/, '');
@@ -30,10 +33,39 @@ const buildAssetUrl = ({ bucket, key }) => {
   return `https://${bucket}.s3.amazonaws.com/${key}`;
 };
 
-const createSiteAssetUpload = async ({ slug, filename, contentType, expiresIn = 900 } = {}) => {
-  if (!slug) throw new Error('slug is required');
+const ensureBucket = () => {
   const bucket = resolveBucket();
   if (!bucket) throw new Error('ASSET_UPLOAD_BUCKET or equivalent bucket env is required');
+  return bucket;
+};
+
+const resolveKeyForSlug = (slug, keyInput = '') => {
+  const decoded = decodeURIComponent(keyInput || '');
+  const prefix = buildAssetKey(slug, '');
+  if (!decoded) throw new Error('key is required');
+  if (decoded.startsWith(prefix)) return decoded;
+  const trimmed = decoded.replace(/^\/+/, '');
+  return `${prefix}${trimmed}`;
+};
+
+const ensureAssetExists = async ({ bucket, key }) => {
+  try {
+    await s3
+      .headObject({
+        Bucket: bucket,
+        Key: key,
+      })
+      .promise();
+    return true;
+  } catch (error) {
+    if (error.code === 'NotFound') return false;
+    throw error;
+  }
+};
+
+const createSiteAssetUpload = async ({ slug, filename, contentType, expiresIn = 900 } = {}) => {
+  if (!slug) throw new Error('slug is required');
+  const bucket = ensureBucket();
   const safeName = sanitizeFilename(filename);
   const uniqueName = `${Date.now()}-${safeName}`;
   const key = buildAssetKey(slug, uniqueName);
@@ -55,8 +87,7 @@ const createSiteAssetUpload = async ({ slug, filename, contentType, expiresIn = 
 
 const listSiteAssets = async ({ slug, limit = 100 } = {}) => {
   if (!slug) throw new Error('slug is required');
-  const bucket = resolveBucket();
-  if (!bucket) throw new Error('ASSET_UPLOAD_BUCKET or equivalent bucket env is required');
+  const bucket = ensureBucket();
   const prefix = buildAssetKey(slug, '');
   const response = await s3
     .listObjectsV2({
@@ -76,4 +107,54 @@ const listSiteAssets = async ({ slug, limit = 100 } = {}) => {
   return { items, bucket, prefix };
 };
 
-module.exports = { createSiteAssetUpload, listSiteAssets };
+const deleteSiteAsset = async ({ slug, key }) => {
+  if (!slug) throw new Error('slug is required');
+  const bucket = ensureBucket();
+  const resolvedKey = resolveKeyForSlug(slug, key);
+  await s3
+    .deleteObject({
+      Bucket: bucket,
+      Key: resolvedKey,
+    })
+    .promise();
+  return { deleted: true };
+};
+
+const buildTransformedAssetUrl = async ({
+  slug,
+  key,
+  width,
+  height,
+  format,
+  quality,
+  fit,
+}) => {
+  if (!slug) throw new Error('slug is required');
+  const bucket = ensureBucket();
+  const resolvedKey = resolveKeyForSlug(slug, key);
+  const exists = await ensureAssetExists({ bucket, key: resolvedKey });
+  if (!exists) {
+    const error = new Error('Asset not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  const baseUrl = buildAssetUrl({ bucket, key: resolvedKey });
+  const url = new URL(baseUrl);
+  if (width) url.searchParams.set('width', String(width));
+  if (height) url.searchParams.set('height', String(height));
+  if (format) url.searchParams.set('format', format);
+  if (quality) url.searchParams.set('quality', String(quality));
+  if (fit) url.searchParams.set('fit', fit);
+  return {
+    url: url.toString(),
+    key: resolvedKey,
+    bucket,
+  };
+};
+
+module.exports = {
+  createSiteAssetUpload,
+  listSiteAssets,
+  deleteSiteAsset,
+  buildTransformedAssetUrl,
+};

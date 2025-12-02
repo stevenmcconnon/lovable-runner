@@ -2,8 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { Pool, PoolClient, QueryResultRow } from 'pg';
 import { config } from '../env';
 import {
+  AccountSummary,
+  AccountWithUsers,
   AdminEditRequestFilters,
   AdminJobFilters,
+  AdminUserRecord,
   BusinessDetailsInput,
   EditJobRecord,
   EditRequestRecord,
@@ -22,6 +25,8 @@ const pool = new Pool({
   ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
 });
 
+const toIsoString = (value: any) => value?.toISOString?.() ?? value ?? null;
+
 const mapProfile = (row: any): ProfileRecord => ({
   id: row.id,
   accountId: row.account_id,
@@ -29,6 +34,18 @@ const mapProfile = (row: any): ProfileRecord => ({
   fullName: row.full_name,
   cognitoSub: row.cognito_sub,
   hasUsedTrial: Boolean(row.has_used_trial),
+});
+
+const mapAdminUser = (row: any): AdminUserRecord => ({
+  id: row.id,
+  accountId: row.account_id,
+  email: row.email,
+  fullName: row.full_name,
+  cognitoSub: row.cognito_sub,
+  hasUsedTrial: Boolean(row.has_used_trial),
+  roles: (row.roles as UserRole[]) ?? [],
+  createdAt: toIsoString(row.created_at),
+  updatedAt: toIsoString(row.updated_at),
 });
 
 const mapJob = (row: any): EditJobRecord => ({
@@ -116,6 +133,19 @@ export class DatabaseService {
     return rows[0] ? mapProfile(rows[0]) : null;
   }
 
+  async getProfileById(id: string): Promise<ProfileRecord | null> {
+    const { rows } = await this.query(
+      `
+      SELECT id, account_id, email, full_name, cognito_sub, has_used_trial
+      FROM profiles
+      WHERE id = $1
+      LIMIT 1
+    `,
+      [id]
+    );
+    return rows[0] ? mapProfile(rows[0]) : null;
+  }
+
   async getRolesForUser(userId: string): Promise<UserRole[]> {
     const { rows } = await this.query<{ role: UserRole }>(
       `SELECT role FROM user_roles WHERE user_id = $1`,
@@ -160,6 +190,161 @@ export class DatabaseService {
     `,
       params
     );
+  }
+
+  async replaceRolesForUser(userId: string, roles: UserRole[]): Promise<void> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(`DELETE FROM user_roles WHERE user_id = $1`, [userId]);
+      if (roles.length) {
+        const valuePlaceholders = roles.map((_, index) => `($1, $${index + 2})`).join(', ');
+        await client.query(
+          `
+          INSERT INTO user_roles (user_id, role)
+          VALUES ${valuePlaceholders}
+        `,
+          [userId, ...roles]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async createProfileForAdmin(params: {
+    email: string;
+    fullName?: string;
+    cognitoSub: string;
+    accountId?: string;
+  }): Promise<ProfileRecord> {
+    const profileId = randomUUID();
+    const accountId = params.accountId || randomUUID();
+    const { rows } = await this.query(
+      `
+      INSERT INTO profiles (id, account_id, email, full_name, cognito_sub, has_used_trial)
+      VALUES ($1,$2,$3,$4,$5,false)
+      RETURNING id, account_id, email, full_name, cognito_sub, has_used_trial
+    `,
+      [profileId, accountId, params.email, params.fullName ?? null, params.cognitoSub]
+    );
+    return mapProfile(rows[0]);
+  }
+
+  async updateProfileForAdmin(
+    userId: string,
+    updates: { email?: string; fullName?: string; accountId?: string }
+  ): Promise<ProfileRecord | null> {
+    const fields: string[] = [];
+    const params: any[] = [];
+    if (updates.email !== undefined) {
+      params.push(updates.email);
+      fields.push(`email = $${params.length}`);
+    }
+    if (updates.fullName !== undefined) {
+      params.push(updates.fullName);
+      fields.push(`full_name = $${params.length}`);
+    }
+    if (updates.accountId !== undefined) {
+      params.push(updates.accountId);
+      fields.push(`account_id = $${params.length}`);
+    }
+    if (!fields.length) {
+      return this.getProfileById(userId);
+    }
+    params.push(userId);
+    const { rows } = await this.query(
+      `
+      UPDATE profiles
+      SET ${fields.join(', ')}, updated_at = NOW()
+      WHERE id = $${params.length}
+      RETURNING id, account_id, email, full_name, cognito_sub, has_used_trial
+    `,
+      params
+    );
+    return rows[0] ? mapProfile(rows[0]) : null;
+  }
+
+  async deleteProfileForAdmin(userId: string): Promise<void> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(`DELETE FROM user_roles WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM profiles WHERE id = $1`, [userId]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listUsersAdmin(filters: {
+    role?: UserRole;
+    search?: string;
+    accountId?: string;
+  } = {}): Promise<AdminUserRecord[]> {
+    const conditions: string[] = [];
+    const params: any[] = [];
+    if (filters.accountId) {
+      params.push(filters.accountId);
+      conditions.push(`p.account_id = $${params.length}`);
+    }
+    if (filters.role) {
+      params.push(filters.role);
+      conditions.push(`$${params.length} = ANY(roles.roles)`);
+    }
+    if (filters.search) {
+      params.push(`%${filters.search}%`);
+      params.push(`%${filters.search}%`);
+      conditions.push(`(p.email ILIKE $${params.length - 1} OR p.full_name ILIKE $${params.length})`);
+    }
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const { rows } = await this.query(
+      `
+      WITH roles AS (
+        SELECT user_id, ARRAY_AGG(role ORDER BY role) AS roles
+        FROM user_roles
+        GROUP BY user_id
+      )
+      SELECT
+        p.*,
+        COALESCE(roles.roles, ARRAY[]::text[]) AS roles
+      FROM profiles p
+      LEFT JOIN roles ON roles.user_id = p.id
+      ${whereClause}
+      ORDER BY p.created_at DESC
+    `,
+      params
+    );
+    return rows.map(mapAdminUser);
+  }
+
+  async getAdminUserById(userId: string): Promise<AdminUserRecord | null> {
+    const { rows } = await this.query(
+      `
+      WITH roles AS (
+        SELECT user_id, ARRAY_AGG(role ORDER BY role) AS roles
+        FROM user_roles
+        WHERE user_id = $1
+        GROUP BY user_id
+      )
+      SELECT
+        p.*,
+        COALESCE(roles.roles, ARRAY[]::text[]) AS roles
+      FROM profiles p
+      LEFT JOIN roles ON roles.user_id = p.id
+      WHERE p.id = $1
+      LIMIT 1
+    `,
+      [userId]
+    );
+    return rows[0] ? mapAdminUser(rows[0]) : null;
   }
 
   async getSubscription(accountId: string): Promise<SubscriptionDetails | null> {
@@ -642,6 +827,64 @@ export class DatabaseService {
       [accountId]
     );
     return rows.map(mapSiteGeneration);
+  }
+
+  async listAccountsAdmin(): Promise<AccountSummary[]> {
+    const { rows } = await this.query(
+      `
+      SELECT
+        p.account_id,
+        MIN(p.created_at) AS created_at,
+        MIN(p.email) FILTER (WHERE p.email IS NOT NULL) AS primary_email,
+        COUNT(DISTINCT p.id) AS user_count,
+        COUNT(DISTINCT sg.request_id) AS site_count,
+        MAX(sg.created_at) AS last_site_at
+      FROM profiles p
+      LEFT JOIN site_generations sg ON sg.account_id = p.account_id
+      GROUP BY p.account_id
+      ORDER BY MAX(sg.created_at) DESC NULLS LAST, MIN(p.created_at) DESC
+    `
+    );
+    return rows.map((row) => ({
+      accountId: row.account_id,
+      primaryEmail: row.primary_email ?? null,
+      userCount: Number(row.user_count ?? 0),
+      siteCount: Number(row.site_count ?? 0),
+      createdAt: toIsoString(row.created_at),
+      lastSiteAt: toIsoString(row.last_site_at),
+    }));
+  }
+
+  async getAccountWithUsers(accountId: string): Promise<AccountWithUsers | null> {
+    const { rows } = await this.query(
+      `
+      SELECT
+        p.account_id,
+        MIN(p.created_at) AS created_at,
+        MIN(p.email) FILTER (WHERE p.email IS NOT NULL) AS primary_email,
+        COUNT(DISTINCT p.id) AS user_count,
+        COUNT(DISTINCT sg.request_id) AS site_count,
+        MAX(sg.created_at) AS last_site_at
+      FROM profiles p
+      LEFT JOIN site_generations sg ON sg.account_id = p.account_id
+      WHERE p.account_id = $1
+      GROUP BY p.account_id
+      LIMIT 1
+    `,
+      [accountId]
+    );
+    const summaryRow = rows[0];
+    if (!summaryRow) return null;
+    const summary: AccountSummary = {
+      accountId: summaryRow.account_id,
+      primaryEmail: summaryRow.primary_email ?? null,
+      userCount: Number(summaryRow.user_count ?? 0),
+      siteCount: Number(summaryRow.site_count ?? 0),
+      createdAt: toIsoString(summaryRow.created_at),
+      lastSiteAt: toIsoString(summaryRow.last_site_at),
+    };
+    const users = await this.listUsersAdmin({ accountId });
+    return { ...summary, users };
   }
 
   async listSiteGenerationsAdmin(filters: {

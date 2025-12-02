@@ -9,6 +9,26 @@ export interface ProfileRecord {
   hasUsedTrial: boolean;
 }
 
+export interface AdminUserRecord extends ProfileRecord {
+  roles: UserRole[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  isDisabled?: boolean;
+}
+
+export interface AccountSummary {
+  accountId: string;
+  primaryEmail?: string | null;
+  userCount: number;
+  siteCount: number;
+  createdAt?: string | null;
+  lastSiteAt?: string | null;
+}
+
+export interface AccountWithUsers extends AccountSummary {
+  users: AdminUserRecord[];
+}
+
 export interface AuthContext {
   type: 'user' | 'machine';
   sub: string;

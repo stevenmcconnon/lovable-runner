@@ -39,10 +39,21 @@ const { loadSiteConfig } = rootRequire('src/site-store.js') as {
 const { generateSitePatchWithOpenAI } = rootRequire('src/openai.js') as {
   generateSitePatchWithOpenAI: GeneratePatchFn;
 };
-const { createSiteAssetUpload, listSiteAssets } = rootRequire('src/asset-store.js') as {
-  createSiteAssetUpload: AssetUploadFn;
-  listSiteAssets: AssetListFn;
-};
+const { createSiteAssetUpload, listSiteAssets, deleteSiteAsset, buildTransformedAssetUrl } =
+  rootRequire('src/asset-store.js') as {
+    createSiteAssetUpload: AssetUploadFn;
+    listSiteAssets: AssetListFn;
+    deleteSiteAsset: (params: { slug: string; key: string }) => Promise<any>;
+    buildTransformedAssetUrl: (params: {
+      slug: string;
+      key: string;
+      width?: number;
+      height?: number;
+      format?: string;
+      quality?: number;
+      fit?: string;
+    }) => Promise<{ url: string; key: string }>;
+  };
 
 const openApiPath = path.join(process.cwd(), 'openapi', 'openapi.json');
 let cachedOpenApi: any = null;
@@ -97,6 +108,20 @@ const uploadRequestSchema = z
     expiresIn: z.number().int().min(60).max(3600).optional(),
   })
   .optional();
+
+const assetDeleteParams = z.object({
+  slug: z.string().min(1),
+  key: z.string().min(1),
+});
+
+const assetTransformQuery = z.object({
+  key: z.string().min(1),
+  width: z.coerce.number().int().min(16).max(4000).optional(),
+  height: z.coerce.number().int().min(16).max(4000).optional(),
+  format: z.enum(['jpg', 'jpeg', 'png', 'webp', 'avif']).optional(),
+  quality: z.coerce.number().int().min(1).max(100).optional(),
+  fit: z.enum(['cover', 'contain', 'fill', 'inside', 'outside']).optional(),
+});
 
 const getDocsToken = () => (config.siteBuilder.docsToken || '').trim();
 const docsEnabled = Boolean(getDocsToken() && cachedOpenApi);
@@ -291,6 +316,35 @@ export const registerSiteBuilderRoutes = (
         expiresIn: body.expiresIn,
       });
       reply.send(upload);
+    }
+  );
+
+  app.delete(
+    '/sites/:slug/assets/:key',
+    { preHandler: builderPreHandler },
+    async (request, reply) => {
+      const params = assetDeleteParams.parse(request.params);
+      await deleteSiteAsset({ slug: params.slug, key: params.key });
+      reply.code(204).send();
+    }
+  );
+
+  app.get(
+    '/sites/:slug/assets/transform',
+    { preHandler: builderPreHandler },
+    async (request, reply) => {
+      const params = slugParamsSchema.parse(request.params);
+      const query = assetTransformQuery.parse(request.query);
+      const transformed = await buildTransformedAssetUrl({
+        slug: params.slug,
+        key: query.key,
+        width: query.width,
+        height: query.height,
+        format: query.format,
+        quality: query.quality,
+        fit: query.fit,
+      });
+      reply.send(transformed);
     }
   );
 

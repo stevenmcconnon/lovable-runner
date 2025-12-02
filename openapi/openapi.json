@@ -231,6 +231,94 @@
         }
       }
     },
+    "/sites/{slug}/assets/{key}": {
+      "delete": {
+        "summary": "Delete an uploaded asset",
+        "operationId": "deleteAsset",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "File name returned by the list API. Do not include the full S3 prefix."
+          }
+        ],
+        "responses": {
+          "204": { "description": "Asset deleted" },
+          "404": { "description": "Asset not found" }
+        }
+      }
+    },
+    "/sites/{slug}/assets/transform": {
+      "get": {
+        "summary": "Generate a transformed asset URL",
+        "description": "Returns a CDN URL with width/height/format parameters applied so the caller can fetch an optimized rendition.",
+        "operationId": "transformAsset",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "File name from the list API."
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 16, "maximum": 4000 }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 16, "maximum": 4000 }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["jpg", "jpeg", "png", "webp", "avif"] }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "fit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["cover", "contain", "fill", "inside", "outside"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Optimized asset URL",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AssetTransformResponse" }
+              }
+            }
+          },
+          "404": { "description": "Asset not found" }
+        }
+      }
+    },
     "/update": {
       "post": {
         "summary": "Trigger a Lovable-style draft update",
@@ -311,6 +399,242 @@
                         "type": "object",
                         "additionalProperties": true
                       }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    ,
+    "/admin/users": {
+      "get": {
+        "summary": "List users (super admin)",
+        "operationId": "listAdminUsers",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/UserRoleEnum" }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/AdminUser" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a user in Cognito + AI SiteMaker",
+        "operationId": "createAdminUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminUserCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminUser" }
+              }
+            }
+          },
+          "400": { "description": "Invalid payload" }
+        }
+      }
+    },
+    "/admin/users/{userId}": {
+      "get": {
+        "summary": "Fetch a single user",
+        "operationId": "getAdminUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminUser" }
+              }
+            }
+          },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": {
+        "summary": "Update user metadata or roles",
+        "operationId": "updateAdminUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminUserUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminUser" }
+              }
+            }
+          },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete a user",
+        "operationId": "deleteAdminUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "User deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/admin/accounts": {
+      "get": {
+        "summary": "List customer accounts",
+        "operationId": "listAccounts",
+        "responses": {
+          "200": {
+            "description": "Account collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/AccountSummary" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/accounts/{accountId}": {
+      "get": {
+        "summary": "Fetch account details + users",
+        "operationId": "getAccount",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account detail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AccountDetail" }
+              }
+            }
+          },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/admin/accounts/{accountId}/sites": {
+      "get": {
+        "summary": "List all site launches for an account",
+        "operationId": "listAccountSites",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["queued", "running", "building", "deploying", "completed", "failed"]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Site launch collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/SiteGeneration" }
                     }
                   }
                 }
@@ -629,6 +953,119 @@
               }
             }
           }
+        }
+      },
+      "AssetTransformResponse": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "key": { "type": "string" },
+          "bucket": { "type": "string" }
+        }
+      },
+      "UserRoleEnum": {
+        "type": "string",
+        "enum": ["customer", "admin", "super-admin"]
+      },
+      "AdminUser": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "accountId": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "fullName": { "type": "string" },
+          "cognitoSub": { "type": "string" },
+          "hasUsedTrial": { "type": "boolean" },
+          "roles": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UserRoleEnum" }
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AdminUserCreateRequest": {
+        "type": "object",
+        "required": ["email"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "fullName": { "type": "string" },
+          "roles": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UserRoleEnum" },
+            "description": "Defaults to ['customer'] when omitted."
+          },
+          "accountId": { "type": "string", "format": "uuid" },
+          "sendInvite": {
+            "type": "boolean",
+            "description": "If false, suppresses the Cognito invite email."
+          },
+          "temporaryPassword": {
+            "type": "string",
+            "description": "Optional initial password. When provided with sendInvite=false it is set as a permanent password."
+          }
+        }
+      },
+      "AdminUserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "fullName": { "type": "string" },
+          "roles": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/UserRoleEnum" }
+          },
+          "accountId": { "type": "string", "format": "uuid" },
+          "temporaryPassword": {
+            "type": "string",
+            "description": "When supplied, sets a new permanent password in Cognito."
+          }
+        }
+      },
+      "AccountSummary": {
+        "type": "object",
+        "properties": {
+          "accountId": { "type": "string", "format": "uuid" },
+          "primaryEmail": { "type": "string", "format": "email" },
+          "userCount": { "type": "integer" },
+          "siteCount": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "lastSiteAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AccountDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/AccountSummary" },
+          {
+            "type": "object",
+            "properties": {
+              "users": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/AdminUser" }
+              }
+            }
+          }
+        ]
+      },
+      "SiteGeneration": {
+        "type": "object",
+        "properties": {
+          "requestId": { "type": "string" },
+          "accountId": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "sourceUrl": { "type": "string", "format": "uri" },
+          "description": { "type": "string" },
+          "slug": { "type": "string" },
+          "prefix": { "type": "string" },
+          "bucket": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "running", "building", "deploying", "completed", "failed"]
+          },
+          "publicUrl": { "type": "string", "format": "uri" },
+          "errorMessage": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
         }
       }
     }
