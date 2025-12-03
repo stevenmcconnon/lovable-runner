@@ -3,6 +3,7 @@ const path = require('node:path');
 const os = require('node:os');
 const AWS = require('aws-sdk');
 const { randomUUID } = require('node:crypto');
+const fetch = global.fetch;
 const { generateSiteWithOpenAI } = require('./openai');
 const { uploadToS3, buildProject } = require('./deploy');
 const { exportProjectToGit } = require('./git-archive');
@@ -86,6 +87,60 @@ const buildSlugCandidate = ({ businessDetails, url, description, requestId }) =>
   if (description) return slugify(description.slice(0, 50));
   if (requestId) return slugify(requestId);
   return slugify(`site-${Date.now()}`);
+};
+
+const fetchSourceContext = async (url) => {
+  if (!url) return null;
+  try {
+    const response = await fetch(url, { redirect: 'follow' });
+    if (!response.ok) {
+      console.warn('[launch] Failed to fetch source url', { url, status: response.status });
+      return null;
+    }
+    const html = await response.text();
+    const withoutScripts = html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ');
+
+    const titleMatch = withoutScripts.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const metaDescriptionMatch = withoutScripts.match(
+      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i
+    );
+    const ogTitleMatch = withoutScripts.match(
+      /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i
+    );
+    const ogDescriptionMatch = withoutScripts.match(
+      /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i
+    );
+    const headings = Array.from(withoutScripts.matchAll(/<(h1|h2|h3)[^>]*>([^<]*)<\/\1>/gi))
+      .map((m) => m[2])
+      .filter(Boolean)
+      .slice(0, 12)
+      .join(' | ');
+
+    const text = withoutScripts.replace(/<[^>]+>/g, ' ');
+    const cleanedBody = text.replace(/\s+/g, ' ').trim();
+
+    const chunks = [
+      titleMatch?.[1] ? `Title: ${titleMatch[1]}` : '',
+      metaDescriptionMatch?.[1] ? `Meta Description: ${metaDescriptionMatch[1]}` : '',
+      ogTitleMatch?.[1] ? `OG Title: ${ogTitleMatch[1]}` : '',
+      ogDescriptionMatch?.[1] ? `OG Description: ${ogDescriptionMatch[1]}` : '',
+      headings ? `Headings: ${headings}` : '',
+      cleanedBody ? `Body: ${cleanedBody}` : '',
+    ].filter(Boolean);
+
+    const combined = chunks.join(' | ').slice(0, 6000);
+    if (!combined) return null;
+    console.log('[launch] Fetched source summary', {
+      url,
+      length: combined.length,
+    });
+    return combined;
+  } catch (error) {
+    console.warn('[launch] Error fetching source url (continuing)', { url, err: error?.message });
+    return null;
+  }
 };
 
 const buildTestSiteConfig = ({ url, description }) => {
@@ -494,9 +549,13 @@ const runLaunch = async ({
   requestId,
   onProgress,
   testMode = false,
+  slug,
+  prefix,
+  bucket,
 }) => {
   if (!url && !description) throw new Error('url or description is required');
   const resolvedBucket =
+    bucket ||
     process.env.LOVABLE_DEPLOY_BUCKET ||
     process.env.DEPLOY_BUCKET ||
     process.env.TEMPLATE_UPLOAD_BUCKET;
@@ -508,11 +567,16 @@ const runLaunch = async ({
     console.log('[launch] Generating test site (Gemini skipped)', { requestId, sourceUrl: url });
     siteConfig = buildTestSiteConfig({ url, description });
   } else {
+    const sourceSummary = await fetchSourceContext(url);
+    if (!sourceSummary) {
+      console.warn('[launch] No source summary extracted', { requestId, sourceUrl: url });
+    }
     console.log('[launch] Generating site with OpenAI', { requestId, sourceUrl: url });
     const result = await generateSiteWithOpenAI({
       sourceUrl: url,
       description,
       businessDetails,
+      sourceSummary,
     });
     siteConfig = result.site;
     console.log('[launch] Gemini generation complete', {
@@ -526,15 +590,22 @@ const runLaunch = async ({
     process.env.DEPLOY_PREFIX ||
     process.env.PREVIEW_ROOT_PREFIX ||
     '';
-  const desiredSlug = buildSlugCandidate({ businessDetails, url, description, requestId });
-  const { slug: finalSlug, prefixPath: resolvedPrefix } = await ensureUniqueSlug({
-    bucket: resolvedBucket,
-    basePrefix,
-    slugCandidate: desiredSlug,
-  });
-  const targetPrefix = resolvedPrefix;
 
-  console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: resolvedPrefix });
+  let finalSlug = slug;
+  let targetPrefix = prefix;
+
+  if (!finalSlug || !targetPrefix) {
+    const desiredSlug = slug || buildSlugCandidate({ businessDetails, url, description, requestId });
+    const { slug: ensuredSlug, prefixPath: resolvedPrefix } = await ensureUniqueSlug({
+      bucket: resolvedBucket,
+      basePrefix,
+      slugCandidate: desiredSlug,
+    });
+    finalSlug = ensuredSlug;
+    targetPrefix = prefix || resolvedPrefix;
+  }
+
+  console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
 
   return deploySiteFromConfig({
     slug: finalSlug,

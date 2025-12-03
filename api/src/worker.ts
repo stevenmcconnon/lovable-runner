@@ -16,6 +16,9 @@ type RunLaunch = (params: {
   requestId?: string;
   testMode?: boolean;
   onProgress?: (stage: string) => Promise<void> | void;
+  slug?: string;
+  prefix?: string;
+  bucket?: string;
 }) => Promise<{
   slug: string;
   bucket: string;
@@ -51,6 +54,9 @@ type SiteLaunchEvent = {
   description?: string;
   businessDetails?: BusinessDetailsInput;
   testMode?: boolean;
+  slug?: string;
+  prefix?: string;
+  bucket?: string;
 };
 
 type UpdateSiteFn = (params: {
@@ -105,6 +111,9 @@ export const handleSiteLaunchJob = async (event: SiteLaunchEvent) => {
       requestId,
       testMode,
       onProgress: reportStage,
+      slug: event.slug,
+      prefix: event.prefix,
+      bucket: event.bucket,
     });
     await updateStatus(requestId, 'completed', {
       bucket: result.bucket,

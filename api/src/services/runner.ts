@@ -42,6 +42,9 @@ export class RunnerService {
     businessDetails?: BusinessDetailsInput;
     requestId?: string;
     testMode?: boolean;
+    slug?: string;
+    prefix?: string;
+    bucket?: string;
   }) {
     const functionName =
       config.runner.functionName || process.env.AWS_LAMBDA_FUNCTION_NAME || '';
@@ -55,6 +58,9 @@ export class RunnerService {
       businessDetails: params.businessDetails ?? null,
       requestId: params.requestId,
       testMode: params.testMode ?? false,
+      slug: params.slug,
+      prefix: params.prefix,
+      bucket: params.bucket,
     };
 
     const response = await this.lambda.send(

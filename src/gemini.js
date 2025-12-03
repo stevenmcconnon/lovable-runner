@@ -85,7 +85,7 @@ const buildSectionsInventory = () =>
     return `- ${section.id}: ${section.description} ${props}`.trim();
   }).join('\n');
 
-const buildPrompt = ({ sourceUrl, description, businessDetails }) => {
+const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary }) => {
   const details = [];
   if (businessDetails?.businessName) details.push(`Business name: ${businessDetails.businessName}`);
   if (businessDetails?.businessType) details.push(`Business type: ${businessDetails.businessType}`);
@@ -96,7 +96,8 @@ const buildPrompt = ({ sourceUrl, description, businessDetails }) => {
   const sectionsInventory = buildSectionsInventory();
 
   const overview = [
-    'You are the creative director for AI-SiteMaker. Design a best-in-class marketing site plan, not raw code.',
+    'You are a senior marketing copywriter rebuilding the referenced business website for our Vite + shadcn template.',
+    'Do NOT mention AI SiteMaker or generic generators; ground every line in the reference business and provided businessDetails.',
     'Output a single JSON object that matches the Site schema (meta, seo, theme, sections) for our base Vite + shadcn project.',
     'Do NOT include HTML, JSX, Markdown, or file payloads. All copy must live inside the JSON fields.',
     '',
@@ -107,11 +108,15 @@ const buildPrompt = ({ sourceUrl, description, businessDetails }) => {
     '- Include at least 8 sections covering hero, services/features, process, social proof, FAQ, pricing, CTA, and stats/proof.',
     '- Each section should contain 3+ persuasive sentences (>=80 words for hero/services, >=40 words elsewhere).',
     '- Provide vivid `imagePrompt` guidance for hero, features, stats, and CTA sections so Midjourney/Imagen can recreate the look.',
-    '- Copy must weave in the provided business details and source URL insights; no lorem ipsum.',
+    '- meta.brandName/headline/subheadline must reflect the actual reference business (use businessDetails.businessName if provided; otherwise derive from sourceSummary/URL).',
+    '- Copy must weave in the provided business details and source URL insights (sourceSummary); no lorem ipsum or AI-SiteMaker messaging.',
+    '- Treat sourceSummary as the ground truth: mirror its services, tone, and value props. If sourceSummary is missing, infer the brand from the URL words/businessDetails instead of inventing an AI platform.',
+    '- Theme colors should mirror the brand/industry palette and avoid default dark-purple schemes; choose high-conversion, legible combinations that match the reference vibe.',
     '- Use `componentId` values exactly as listed. Use unique `id` strings per section.',
     '- Keywords array must include at least 5 SEO phrases.',
     '- Respond with valid, minified JSON. No comments or backticks.',
     sourceUrl ? `Study this reference and beat it: ${sourceUrl}` : '',
+    sourceSummary ? `Reference site text (truncated): ${sourceSummary}` : '',
     description ? `Additional instructions: ${description}` : '',
     details.length ? `Business inputs:\n- ${details.join('\n- ')}` : '',
   ];
@@ -119,10 +124,10 @@ const buildPrompt = ({ sourceUrl, description, businessDetails }) => {
   return overview.filter(Boolean).join('\n');
 };
 
-const generateSiteWithGemini = async ({ sourceUrl, description, businessDetails }) => {
+const generateSiteWithGemini = async ({ sourceUrl, description, businessDetails, sourceSummary }) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY is required');
-  const prompt = buildPrompt({ sourceUrl, description, businessDetails });
+  const prompt = buildPrompt({ sourceUrl, description, businessDetails, sourceSummary });
   const body = {
     contents: [
       {

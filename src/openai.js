@@ -11,7 +11,7 @@ const buildSectionsInventory = () =>
     return `- ${section.id}: ${section.description} ${required}`.trim();
   }).join('\n');
 
-const buildPrompt = ({ sourceUrl, description, businessDetails }) => {
+const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary }) => {
   const details = [];
   if (businessDetails?.businessName) details.push(`Business name: ${businessDetails.businessName}`);
   if (businessDetails?.businessType) details.push(`Business type: ${businessDetails.businessType}`);
@@ -20,7 +20,9 @@ const buildPrompt = ({ sourceUrl, description, businessDetails }) => {
   if (businessDetails?.additionalDetails) details.push(`Notes: ${businessDetails.additionalDetails}`);
 
   return [
-    'You are the creative director for AI-SiteMaker. Return ONLY JSON (no Markdown) describing a premium marketing site layout for our Vite + shadcn template.',
+    'You are a senior marketing copywriter rebuilding the referenced business website. Return ONLY JSON (no Markdown) describing a premium marketing site layout for our Vite + shadcn template.',
+    'Do NOT mention AI SiteMaker or any AI generator. All copy must stay grounded in the reference business and the provided businessDetails.',
+    'Set meta.brandName/headline/subheadline to the real business (prefer businessDetails.businessName; otherwise derive from the reference site text or the URL domain words).',
     'The JSON must follow the Site schema (meta, seo, theme, sections[]) and every section entry must include a props object with all copy, CTAs, lists, and imagePrompt text needed to render that block.',
     'Available sections and their behaviors:',
     buildSectionsInventory(),
@@ -28,10 +30,14 @@ const buildPrompt = ({ sourceUrl, description, businessDetails }) => {
     'Rules:',
     '- Include at least 8 sections covering hero, services/features, process, testimonials/social proof, FAQ, pricing, CTA, and stats/proof.',
     '- Each section needs 3+ sentences (>=80 words for hero/services) and vivid `imagePrompt` guidance where visual direction is relevant.',
-    '- Copy must be rewritten from the reference site and business details (no lorem ipsum).',
+    '- meta.brandName/headline/subheadline must reflect the real business (use businessDetails.businessName if provided; otherwise derive from sourceSummary/URL).',
+    '- Copy must be rewritten from the reference site text (sourceSummary) and business details; no placeholders or AI-SiteMaker messaging.',
+    '- Treat the sourceSummary as truth: mirror its offerings, tone, locations, and differentiators. If sourceSummary is empty, infer the business from the URL words and businessDetails rather than inventing an AI platform.',
+    '- Theme colors must reflect the real brand or industry palette—avoid default dark purple schemes; pick high-conversion, legible colors that match the reference site vibe.',
     '- Keywords array in seo must contain 5+ phrases.',
     '- Respond with compact JSON only; no commentary.',
     sourceUrl ? `Reference site to outperform: ${sourceUrl}` : '',
+    sourceSummary ? `Reference site text (truncated): ${sourceSummary}` : '',
     description ? `Additional instructions: ${description}` : '',
     details.length ? `Business context:\n- ${details.join('\n- ')}` : '',
   ]
@@ -199,11 +205,11 @@ const buildEditPrompt = ({ siteJson, instructions, assets }) =>
     .filter(Boolean)
     .join('\n');
 
-const generateSiteWithOpenAI = async ({ sourceUrl, description, businessDetails }) => {
+const generateSiteWithOpenAI = async ({ sourceUrl, description, businessDetails, sourceSummary }) => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY is required');
 
-  const prompt = buildPrompt({ sourceUrl, description, businessDetails });
+  const prompt = buildPrompt({ sourceUrl, description, businessDetails, sourceSummary });
   const body = {
     model: DEFAULT_MODEL,
     temperature: 0.4,
