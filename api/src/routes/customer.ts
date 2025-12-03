@@ -51,20 +51,6 @@ export const registerCustomerRoutes = (
 ) => {
   const { db, runner } = deps;
 
-  app.get('/me', { preHandler: app.authenticateUser }, async (request, reply) => {
-    if (!request.auth?.profile) {
-      return reply.code(404).send({ message: 'Profile not found' });
-    }
-    const { profile } = request.auth;
-    return {
-      userId: profile.id,
-      cognitoSub: profile.cognitoSub,
-      email: profile.email,
-      fullName: profile.fullName,
-      roles: request.auth.roles,
-    };
-  });
-
   app.get(
     '/customer/subscription',
     { preHandler: app.authenticateUser },

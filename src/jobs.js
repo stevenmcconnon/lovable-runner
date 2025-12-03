@@ -111,10 +111,3 @@ const handleSiteLaunchJob = async (event) => {
 };
 
 module.exports = { handleEditRequestJob, handleSiteLaunchJob };
-    await db.updateSiteGeneration(requestId, {
-      status: 'completed',
-      bucket: result.bucket,
-      prefix: result.prefix,
-      slug: result.slug,
-      publicUrl: result.publicUrl,
-    });

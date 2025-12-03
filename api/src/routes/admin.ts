@@ -250,7 +250,7 @@ export const registerAdminRoutes = (
         })
         .promise();
     }
-    const profile = await db.createProfileForAdmin({
+    const profile = await db.createProfileRecord({
       email: body.email,
       fullName: body.fullName,
       cognitoSub,
@@ -281,7 +281,7 @@ export const registerAdminRoutes = (
       const user = await db.getAdminUserById(params.userId);
       if (!user) return reply.code(404).send({ message: 'User not found' });
       if (body.email || body.fullName || body.accountId) {
-        await db.updateProfileForAdmin(params.userId, {
+        await db.updateProfileById(params.userId, {
           email: body.email,
           fullName: body.fullName,
           accountId: body.accountId,

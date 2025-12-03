@@ -26,6 +26,10 @@ SAM_TEMPLATE="${SAM_TEMPLATE:-infra/template.yaml}"
 SAM_CONFIG_ENV="${SAM_CONFIG_ENV:-default}"
 RUN_INSTALL=1
 RUN_TS_BUILD=1
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NPM_CACHE_DIR="${NPM_CACHE_DIR:-${PROJECT_ROOT}/.npm-cache}"
+mkdir -p "${NPM_CACHE_DIR}"
+export NPM_CONFIG_CACHE="${NPM_CACHE_DIR}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -97,12 +101,7 @@ else
 fi
 
 echo "Running sam build ($(basename "${SAM_TEMPLATE}"))..."
-TMP_NPM_CACHE="$(mktemp -d)"
-cleanup() {
-  rm -rf "${TMP_NPM_CACHE}"
-}
-trap cleanup EXIT
-NPM_CONFIG_CACHE="${TMP_NPM_CACHE}" sam build \
+sam build \
   --template-file "${SAM_TEMPLATE}" \
   --region "${REGION}" \
   --no-cached

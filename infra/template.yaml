@@ -238,6 +238,8 @@ Resources:
     Type: AWS::Serverless::Function
     DependsOn:
       - RunnerDatabase
+    Metadata:
+      BuildMethod: makefile
     Properties:
       CodeUri: ../
       Handler: dist/lambda.handler
