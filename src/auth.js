@@ -19,6 +19,7 @@ const getUserContext = (event) => {
     sub: claims.sub || claims['cognito:username'] || null,
     email: claims.email || null,
     name: claims.name || null,
+    accountId: claims['custom:accountId'] || claims.accountId || claims['account_id'] || null,
     groups,
   };
 };

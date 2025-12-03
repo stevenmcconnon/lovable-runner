@@ -5,9 +5,10 @@ const path = require('node:path');
 const { runLaunch, loadDotEnvIfPresent } = require('./launch');
 const { runUpdate, approveUpdate, listUpdates } = require('./update');
 const { updateSite } = require('./site-edit');
-const { loadSiteConfig } = require('./site-store');
+const { loadSiteConfig, listSitesForUser } = require('./site-store');
 const { generateSitePatchWithOpenAI } = require('./openai');
 const { createSiteAssetUpload, listSiteAssets } = require('./asset-store');
+const { listDomainsForUser, getDomainRecord, setPrimaryDomain } = require('./domain-store');
 
 loadDotEnvIfPresent();
 
@@ -61,10 +62,63 @@ const parseBody = (req) =>
     req.on('error', reject);
   });
 
+const buildUserFromHeaders = (headers = {}) => ({
+  email: headers['x-user-email'] || null,
+  sub: headers['x-user-id'] || headers['x-user-sub'] || null,
+  accountId: headers['x-account-id'] || null,
+  groups: headers['x-user-groups']
+    ? String(headers['x-user-groups'])
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : [],
+});
+
 const server = http.createServer(async (req, res) => {
   try {
     const urlObj = new URL(req.url, `http://localhost:${PORT}`);
     const { pathname } = urlObj;
+    const limitParam = urlObj.searchParams.get('limit');
+
+    if (req.method === 'GET' && pathname === '/domains') {
+      const user = buildUserFromHeaders(req.headers);
+      const items = await listDomainsForUser({ user });
+      send(res, 200, { items });
+      return;
+    }
+
+    const domainDetailMatch = pathname.match(/^\/domains\/([^/]+)$/);
+    if (req.method === 'GET' && domainDetailMatch) {
+      const user = buildUserFromHeaders(req.headers);
+      const domainName = decodeURIComponent(domainDetailMatch[1]);
+      const record = await getDomainRecord({ user, domain: domainName });
+      if (!record) {
+        send(res, 404, { error: 'Domain not found' });
+        return;
+      }
+      send(res, 200, { domain: record, dns: record.dnsSettings || null });
+      return;
+    }
+
+    const setPrimaryMatch = pathname.match(/^\/sites\/([^/]+)\/domains\/([^/]+)\/primary$/);
+    if (req.method === 'POST' && setPrimaryMatch) {
+      const slug = decodeURIComponent(setPrimaryMatch[1]);
+      const domainName = decodeURIComponent(setPrimaryMatch[2]);
+      const user = buildUserFromHeaders(req.headers);
+      const updated = await setPrimaryDomain({ slug, domain: domainName, user });
+      send(res, 200, { domain: updated, dns: updated.dnsSettings || null });
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/sites') {
+      const user = buildUserFromHeaders(req.headers);
+      const items = await listSitesForUser({
+        user,
+        limit: limitParam ? Number(limitParam) : undefined,
+      });
+      send(res, 200, { items });
+      return;
+    }
 
     if (req.method === 'GET' && pathname === '/openapi.json') {
       if (!openApiDocument) {
@@ -147,7 +201,6 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname.startsWith('/updates')) {
       const projectId = urlObj.searchParams.get('projectId');
-      const limitParam = urlObj.searchParams.get('limit');
       const drafts = await listUpdates({
         projectId,
         limit: limitParam ? Number(limitParam) : undefined,

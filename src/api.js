@@ -2,6 +2,8 @@ const { parseJsonBody, json } = require('./http');
 const { runLaunch } = require('./launch');
 const { runUpdate, approveUpdate, listUpdates } = require('./update');
 const { getUserContext, requireRole } = require('./auth');
+const { listSitesForUser } = require('./site-store');
+const { listDomainsForUser, getDomainRecord, setPrimaryDomain } = require('./domain-store');
 
 const ROUTES = {
   'POST /launch': async (event, user) => {
@@ -59,6 +61,17 @@ const ROUTES = {
     const drafts = await listUpdates({ projectId, limit });
     return json(200, { items: drafts });
   },
+  'GET /sites': async (event, user) => {
+    const limit = event?.queryStringParameters?.limit
+      ? Number(event.queryStringParameters.limit)
+      : undefined;
+    const items = await listSitesForUser({ user, limit });
+    return json(200, { items });
+  },
+  'GET /domains': async (event, user) => {
+    const items = await listDomainsForUser({ user });
+    return json(200, { items });
+  },
 };
 
 const buildRouteKey = (event) => {
@@ -73,13 +86,35 @@ const isApiGatewayEvent = (event) =>
   Boolean(event?.requestContext?.http?.method && event?.requestContext?.http?.path);
 
 const handleHttpEvent = async (event) => {
-  const routeKey = buildRouteKey(event);
-  if (!routeKey || !ROUTES[routeKey]) {
-    return json(404, { error: 'Not found' });
-  }
   const user = getUserContext(event);
+  const method = event?.requestContext?.http?.method || '';
+  const path = event?.requestContext?.http?.path || '';
+  const routeKey = buildRouteKey(event);
+
   try {
-    return await ROUTES[routeKey](event, user);
+    if (routeKey && ROUTES[routeKey]) {
+      return await ROUTES[routeKey](event, user);
+    }
+
+    if (method === 'GET' && /^\/domains\/[^/]+$/i.test(path)) {
+      const [, , domainValue] = path.split('/');
+      const domain = decodeURIComponent(domainValue || '');
+      const record = await getDomainRecord({ user, domain });
+      if (!record) {
+        return json(404, { error: 'Domain not found' });
+      }
+      return json(200, { domain: record, dns: record.dnsSettings || null });
+    }
+
+    if (method === 'POST' && /^\/sites\/[^/]+\/domains\/[^/]+\/primary$/i.test(path)) {
+      const [, , slugValue, , domainValue] = path.split('/');
+      const slug = decodeURIComponent(slugValue || '');
+      const domain = decodeURIComponent(domainValue || '');
+      const record = await setPrimaryDomain({ slug, domain, user });
+      return json(200, { domain: record, dns: record.dnsSettings || null });
+    }
+
+    return json(404, { error: 'Not found' });
   } catch (error) {
     const statusCode = error.statusCode || error.status || 500;
     return json(statusCode, { error: error.message || 'Request failed' });

@@ -229,7 +229,7 @@
   },
   "getDomain": {
     "auth": "customer",
-    "pathParams": { "domainId": "replace-with-domain-id" },
+    "pathParams": { "domain": "replace-with-domain" },
     "expectedStatus": [200, 404]
   },
   "listSites": {
@@ -238,13 +238,12 @@
   },
   "setPrimaryDomain": {
     "auth": "customer",
-    "pathParams": { "domainId": "replace-with-domain-id" },
-    "body": { "slug": "replace-with-real-slug" },
+    "pathParams": { "slug": "replace-with-real-slug", "domain": "replace-with-domain" },
     "expectedStatus": [200, 404]
   },
   "detachDomain": {
     "auth": "customer",
-    "pathParams": { "domainId": "replace-with-domain-id" },
+    "pathParams": { "slug": "replace-with-real-slug", "domain": "replace-with-domain" },
     "expectedStatus": [204, 404]
   }
 }
