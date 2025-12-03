@@ -35,7 +35,7 @@ export const registerLaunchRoutes = (
     let userError: any = null;
     try {
       await app.authenticateUser(request, reply);
-      await app.requireRoles(request, reply, ['admin', 'super-admin']);
+      await app.requireRoles(request, reply, ['customer', 'admin', 'super-admin']);
       request.launchAuthContext = 'user';
       return;
     } catch (error) {
