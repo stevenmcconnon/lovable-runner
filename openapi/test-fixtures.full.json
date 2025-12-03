@@ -1,0 +1,250 @@
+{
+  "//": "Fill in IDs where noted. Auth: customer/admin/machine/none.",
+  "launchSite": {
+    "auth": "customer",
+    "body": {
+      "url": "https://example.com",
+      "description": "OpenAPI full test launch",
+      "businessDetails": {
+        "businessName": "Test Launch Co"
+      }
+    },
+    "expectedStatus": [200, 201, 202, 429]
+  },
+  "getSite": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "expectedStatus": [200, 404]
+  },
+  "patchSite": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "body": {
+      "patch": {
+        "meta": {
+          "headline": "Patched by OpenAPI test"
+        }
+      }
+    },
+    "expectedStatus": [200, 202, 404]
+  },
+  "applyInstructions": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "body": {
+      "instructions": "Tighten hero copy for QA smoke test."
+    },
+    "expectedStatus": [200, 202, 404]
+  },
+  "listAssets": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "expectedStatus": [200, 404]
+  },
+  "createAssetUpload": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "body": { "filename": "openapi-smoke.png", "contentType": "image/png" },
+    "expectedStatus": [200, 404]
+  },
+  "deleteAsset": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug", "key": "replace-with-existing-key" },
+    "expectedStatus": [204, 404]
+  },
+  "transformAsset": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "query": { "key": "replace-with-existing-key", "width": 800, "format": "webp" },
+    "expectedStatus": [200, 404]
+  },
+  "queueUpdate": {
+    "auth": "customer",
+    "body": {
+      "projectId": "replace-with-project-id",
+      "url": "https://example.com",
+      "instructions": "Small content tweak via OpenAPI test"
+    },
+    "expectedStatus": [200, 202, 400]
+  },
+  "approveUpdate": {
+    "auth": "admin",
+    "body": {
+      "projectId": "replace-with-project-id",
+      "draftId": "replace-with-draft-id"
+    },
+    "expectedStatus": [200, 404]
+  },
+  "listUpdates": {
+    "auth": "customer",
+    "query": { "projectId": "replace-with-project-id", "limit": 5 },
+    "expectedStatus": [200]
+  },
+  "signup": {
+    "auth": "none",
+    "body": {
+      "email": "openapi+signup@example.com",
+      "password": "Test!12345",
+      "fullName": "OpenAPI Test"
+    },
+    "expectedStatus": [201, 400, 409]
+  },
+  "login": {
+    "auth": "none",
+    "body": {
+      "email": "openapi+signup@example.com",
+      "password": "Test!12345"
+    },
+    "expectedStatus": [200, 400, 401]
+  },
+  "forgotPassword": {
+    "auth": "none",
+    "body": { "email": "openapi+signup@example.com" },
+    "expectedStatus": [200, 400]
+  },
+  "getMe": {
+    "auth": "customer",
+    "expectedStatus": [200]
+  },
+  "updateMe": {
+    "auth": "customer",
+    "body": { "fullName": "OpenAPI Customer" },
+    "expectedStatus": [200]
+  },
+  "listAdminUsers": {
+    "auth": "admin",
+    "expectedStatus": [200]
+  },
+  "createAdminUser": {
+    "auth": "admin",
+    "body": {
+      "email": "openapi+admin@example.com",
+      "fullName": "OpenAPI Admin",
+      "roles": ["admin"]
+    },
+    "expectedStatus": [200, 201, 409],
+    "skip": "Lambda role lacks cognito-idp:AdminCreateUser permission"
+  },
+  "getAdminUser": {
+    "auth": "admin",
+    "pathParams": { "userId": "replace-with-user-id" },
+    "expectedStatus": [200, 404]
+  },
+  "updateAdminUser": {
+    "auth": "admin",
+    "pathParams": { "userId": "replace-with-user-id" },
+    "body": { "roles": ["admin"] },
+    "expectedStatus": [200, 404]
+  },
+  "deleteAdminUser": {
+    "auth": "admin",
+    "pathParams": { "userId": "replace-with-user-id" },
+    "expectedStatus": [204, 404],
+    "skip": "requires super-admin role; machine token not available"
+  },
+  "listAccounts": {
+    "auth": "admin",
+    "expectedStatus": [200],
+    "skip": "requires super-admin role; machine token not available"
+  },
+  "getAccount": {
+    "auth": "admin",
+    "pathParams": { "accountId": "replace-with-account-id" },
+    "expectedStatus": [200, 404],
+    "skip": "requires super-admin role; machine token not available"
+  },
+  "listAccountSites": {
+    "auth": "admin",
+    "pathParams": { "accountId": "replace-with-account-id" },
+    "expectedStatus": [200, 404],
+    "skip": "requires super-admin role; machine token not available"
+  },
+  "createCheckoutSession": {
+    "auth": "customer",
+    "body": { "priceId": "price_replace" },
+    "expectedStatus": [200, 400]
+  },
+  "getBillingStatus": {
+    "auth": "customer",
+    "expectedStatus": [200, 404]
+  },
+  "createBillingPortalSession": {
+    "auth": "customer",
+    "body": { "returnUrl": "https://example.com" },
+    "expectedStatus": [200, 400]
+  },
+  "searchDomains": {
+    "auth": "customer",
+    "body": { "query": "example.com" },
+    "expectedStatus": [200, 400]
+  },
+  "purchaseDomain": {
+    "auth": "customer",
+    "body": { "domain": "example.com", "slug": "replace-with-real-slug" },
+    "expectedStatus": [200, 400],
+    "skip": "requires real slug and purchasable domain"
+  },
+  "verifyDomain": {
+    "auth": "customer",
+    "pathParams": { "domainId": "replace-with-domain-id" },
+    "expectedStatus": [200, 404]
+  },
+  "attachDomain": {
+    "auth": "customer",
+    "body": { "slug": "replace-with-real-slug", "domain": "replace-with-domain" },
+    "expectedStatus": [200, 404, 409]
+  },
+  "listSiteDomains": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "expectedStatus": [200, 404]
+  },
+  "publishSite": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "body": { "target": "preview" },
+    "expectedStatus": [200, 202, 404]
+  },
+  "listDeployments": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug" },
+    "expectedStatus": [200, 404]
+  },
+  "getDeployment": {
+    "auth": "customer",
+    "pathParams": { "slug": "replace-with-real-slug", "deploymentId": "replace-with-deployment-id" },
+    "expectedStatus": [200, 404]
+  },
+  "getUsage": {
+    "auth": "customer",
+    "expectedStatus": [200]
+  },
+  "getUsageLimits": {
+    "auth": "customer",
+    "expectedStatus": [200]
+  },
+  "listDomains": {
+    "auth": "customer",
+    "expectedStatus": [200]
+  },
+  "getDomain": {
+    "auth": "customer",
+    "pathParams": { "domainId": "replace-with-domain-id" },
+    "expectedStatus": [200, 404]
+  },
+  "listSites": {
+    "auth": "customer",
+    "expectedStatus": [200]
+  },
+  "setPrimaryDomain": {
+    "auth": "customer",
+    "pathParams": { "domainId": "replace-with-domain-id" },
+    "body": { "slug": "replace-with-real-slug" },
+    "expectedStatus": [200, 404]
+  },
+  "detachDomain": {
+    "auth": "customer",
+    "pathParams": { "domainId": "replace-with-domain-id" },
+    "expectedStatus": [204, 404]
+  }
+}

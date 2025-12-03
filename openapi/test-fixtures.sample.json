@@ -1,0 +1,39 @@
+{
+  "//": "Copy this file to openapi/test-fixtures.full.json and fill in real values.",
+  "getUsage": {
+    "auth": "customer",
+    "expectedStatus": [200]
+  },
+  "getUsageLimits": {
+    "auth": "customer",
+    "expectedStatus": [200]
+  },
+  "launchSite": {
+    "auth": "customer",
+    "body": {
+      "url": "https://example.com",
+      "description": "Smoke launch via OpenAPI test harness"
+    },
+    "expectedStatus": [200, 201, 202],
+    "skip": "fill in safe launch payload and enable when ready"
+  },
+  "queueUpdate": {
+    "auth": "customer",
+    "body": {
+      "projectId": "replace-me",
+      "url": "https://example.com",
+      "instructions": "Minor content tweak"
+    },
+    "expectedStatus": [200, 202],
+    "skip": "requires valid projectId"
+  },
+  "approveUpdate": {
+    "auth": "admin",
+    "pathParams": {
+      "projectId": "replace-me",
+      "draftId": "replace-me"
+    },
+    "expectedStatus": [200],
+    "skip": "requires a real draft"
+  }
+}
