@@ -136,7 +136,22 @@ export class StripeService {
       (paymentIntent.metadata?.accountId as string | undefined) ||
       (paymentIntent.metadata?.account_id as string | undefined);
     if (!accountId) return;
-    const priceId = paymentIntent.metadata?.priceId as string | undefined;
+    let priceId = paymentIntent.metadata?.priceId as string | undefined;
+
+    // If priceId not supplied in metadata, try to look up via Checkout Session line items.
+    if (!priceId) {
+      const sessions = await this.stripe.checkout.sessions.list({
+        payment_intent: paymentIntent.id,
+        limit: 1,
+      });
+      const session = sessions.data[0];
+      if (session) {
+        const lineItems = await this.stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
+        const firstItem = lineItems.data[0];
+        priceId = (firstItem?.price as Stripe.Price | null)?.id;
+      }
+    }
+
     if (!priceId) return;
     const edits = BUNDLE_PRICE_MAP[priceId];
     if (!edits) return;
