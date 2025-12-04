@@ -41,6 +41,7 @@ BILLING_PLAN_KEY="${BILLING_PLAN_KEY:-starter}"
 CUSTOMER_TOKEN="${CUSTOMER_TOKEN:-}"
 CHECKOUT_SUCCESS_URL="${CHECKOUT_SUCCESS_URL:-https://example.com/success}"
 CHECKOUT_CANCEL_URL="${CHECKOUT_CANCEL_URL:-https://example.com/cancel}"
+RUN_MODE="${RUN_MODE:-full}" # full | subscription-only
 
 log() {
   echo "[$(date -u +"%H:%M:%S")] $*"
@@ -196,6 +197,26 @@ if [[ -n "${DOCS_TOKEN}" ]]; then
   api_request GET "/docs" "" "-H" "x-docs-token: ${DOCS_TOKEN}" >/dev/null
 else
   log "DOCS_TOKEN not provided; skipping doc endpoint checks."
+fi
+
+if [[ "${RUN_MODE}" == "subscription-only" ]]; then
+  if [[ -z "${CUSTOMER_TOKEN}" ]]; then
+    echo "CUSTOMER_TOKEN is required for subscription-only mode." >&2
+    exit 1
+  fi
+  log "Subscription-only mode: requesting checkout session for plan '${BILLING_PLAN_KEY}'"
+  checkout_payload=$(jq -n \
+    --arg planKey "${BILLING_PLAN_KEY}" \
+    --arg success "${CHECKOUT_SUCCESS_URL}" \
+    --arg cancel "${CHECKOUT_CANCEL_URL}" \
+    '{planKey: $planKey, successUrl: $success, cancelUrl: $cancel}')
+  checkout_response=$(curl -sfS -X POST "${API_BASE}/billing/create-checkout-session" \
+    -H "Content-Type: application/json" \
+    "${customer_header[@]}" \
+    -d "${checkout_payload}")
+  echo "${checkout_response}" | jq '.checkoutUrl'
+  log "Subscription checkout URL returned."
+  exit 0
 fi
 
 log "Launching new site from ${SOURCE_URL}"
