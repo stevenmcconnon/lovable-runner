@@ -92,6 +92,11 @@ export class StripeService {
         await this.syncSubscription(subscription, db);
         break;
       }
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        await this.handleBundlePayment(paymentIntent, db);
+        break;
+      }
       default:
         break;
     }
