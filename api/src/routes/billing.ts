@@ -61,6 +61,11 @@ export const registerBillingRoutes = (
     }
   );
 
+  app.get('/billing/plans', async (_request, reply) => {
+    const plans = await db.listSubscriptionPlans();
+    return { items: plans };
+  });
+
   app.get(
     '/billing/subscription-status',
     { preHandler: app.authenticateUser },

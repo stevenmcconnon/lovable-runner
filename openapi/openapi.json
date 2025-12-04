@@ -1037,6 +1037,32 @@
         }
       }
     },
+    "/billing/plans": {
+      "get": {
+        "summary": "List available subscription plans",
+        "operationId": "listBillingPlans",
+        "responses": {
+          "200": {
+            "description": "Plan catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SubscriptionPlan"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/billing/subscription-status": {
       "get": {
         "summary": "Fetch current subscription/usage state",

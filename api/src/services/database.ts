@@ -525,6 +525,23 @@ export class DatabaseService {
     };
   }
 
+  async listSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    const { rows } = await this.query(
+      `
+      SELECT plan_key, plan_name, price_monthly, monthly_edit_limit, stripe_price_id
+      FROM subscription_plans
+      ORDER BY price_monthly NULLS LAST, plan_key
+    `
+    );
+    return rows.map((row) => ({
+      planKey: row.plan_key,
+      planName: row.plan_name,
+      priceMonthly: Number(row.price_monthly ?? 0),
+      monthlyEditLimit: row.monthly_edit_limit ?? null,
+      stripePriceId: row.stripe_price_id,
+    }));
+  }
+
   async getUsage(accountId: string, fallbackLimit: number): Promise<UsageDetails> {
     const { rows } = await this.query(
       `
