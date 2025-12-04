@@ -1056,6 +1056,56 @@
                       }
                     }
                   }
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "items": [
+                        {
+                          "planKey": "starter",
+                          "planName": "Starter",
+                          "priceMonthly": 29,
+                          "monthlyEditLimit": 5,
+                          "stripePriceId": "price_1SaXZTFXG8DaUq7ULBoQPaNO"
+                        },
+                        {
+                          "planKey": "growth",
+                          "planName": "Growth",
+                          "priceMonthly": 69,
+                          "monthlyEditLimit": 20,
+                          "stripePriceId": "price_1SaXYyFXG8DaUq7UVHtS7y7l"
+                        },
+                        {
+                          "planKey": "scale",
+                          "planName": "Scale",
+                          "priceMonthly": 149,
+                          "monthlyEditLimit": 75,
+                          "stripePriceId": "price_1SaXXbFXG8DaUq7UzIYWq2ra"
+                        },
+                        {
+                          "planKey": "starter-annual",
+                          "planName": "Starter Annual",
+                          "priceMonthly": 290,
+                          "monthlyEditLimit": 5,
+                          "stripePriceId": "price_1SaXa9FXG8DaUq7UenwkRVPC"
+                        },
+                        {
+                          "planKey": "growth-annual",
+                          "planName": "Growth Annual",
+                          "priceMonthly": 690,
+                          "monthlyEditLimit": 20,
+                          "stripePriceId": "price_1SaXbmFXG8DaUq7U1b5cP1Bu"
+                        },
+                        {
+                          "planKey": "scale-annual",
+                          "planName": "Scale Annual",
+                          "priceMonthly": 1490,
+                          "monthlyEditLimit": 75,
+                          "stripePriceId": "price_1SaXcoFXG8DaUq7UAPZhufT5"
+                        }
+                      ]
+                    }
+                  }
                 }
               }
             }
