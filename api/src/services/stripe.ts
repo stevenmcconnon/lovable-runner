@@ -7,6 +7,12 @@ const stripeClient = new Stripe(config.stripe.secretKey, {
   apiVersion: '2024-06-20',
 });
 
+const BUNDLE_PRICE_MAP: Record<string, number> = {
+  // One-time edit bundles
+  'price_1SaY0EFXG8DaUq7UTK7arNsz': 20,
+  'price_1SaY0yFXG8DaUq7UhhmMRGM3': 100,
+};
+
 export class StripeService {
   private stripe = stripeClient;
 
@@ -118,5 +124,18 @@ export class StripeService {
         : null,
       currentPeriodEnd: subscription.current_period_end ? subscription.current_period_end * 1000 : null,
     });
+  }
+
+  async handleBundlePayment(paymentIntent: Stripe.PaymentIntent, db: DatabaseService) {
+    const accountId =
+      (paymentIntent.metadata?.accountId as string | undefined) ||
+      (paymentIntent.metadata?.account_id as string | undefined);
+    if (!accountId) return;
+    const priceId = paymentIntent.metadata?.priceId as string | undefined;
+    if (!priceId) return;
+    const edits = BUNDLE_PRICE_MAP[priceId];
+    if (!edits) return;
+    const usage = await db.getUsage(accountId, Number.MAX_SAFE_INTEGER);
+    await db.topUpEdits(accountId, edits * -1, usage.monthlyEditLimit);
   }
 }

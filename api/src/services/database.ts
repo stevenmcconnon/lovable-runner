@@ -548,6 +548,63 @@ export class DatabaseService {
     };
   }
 
+  async topUpEdits(accountId: string, amount: number, limit: number): Promise<void> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `
+        SELECT id
+        FROM edit_usage
+        WHERE account_id = $1
+        ORDER BY period_start DESC NULLS LAST, created_at DESC
+        LIMIT 1
+        FOR UPDATE
+      `,
+        [accountId]
+      );
+      if (rows[0]?.id) {
+        await client.query(
+          `
+          UPDATE edit_usage
+          SET edits_used = GREATEST(COALESCE(edits_used, 0) - $2, 0),
+              edits_used_this_period = GREATEST(COALESCE(edits_used_this_period, 0) - $2, 0),
+              monthly_edit_limit = $3
+          WHERE id = $1
+        `,
+          [rows[0].id, amount, limit]
+        );
+      } else {
+        await client.query(
+          `
+          INSERT INTO edit_usage (
+            account_id,
+            monthly_edit_limit,
+            edits_used,
+            edits_used_this_period,
+            period_start,
+            period_end
+          ) VALUES (
+            $1,
+            $3,
+            0,
+            0,
+            date_trunc('month', NOW()),
+            date_trunc('month', NOW()) + interval '1 month'
+          )
+        `,
+          [accountId, amount, limit]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async incrementUsage(accountId: string, limit: number, delta = 1): Promise<void> {
     const client = await this.getClient();
     try {
