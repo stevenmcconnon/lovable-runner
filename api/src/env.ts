@@ -23,11 +23,14 @@ const envSchema = z
     RUNNER_FUNCTION_NAME: z.string().optional(),
     TEMPLATE_UPLOAD_BUCKET: z.string().min(1, 'TEMPLATE_UPLOAD_BUCKET is required'),
     DEFAULT_TRIAL_EDIT_LIMIT: z.coerce.number().default(1),
+    SIGNED_IN_BONUS_EDITS: z.coerce.number().default(1),
+    ANONYMOUS_LAUNCH_LIMIT: z.coerce.number().default(1),
     AWS_REGION: z.string().optional(),
     FRONTEND_ORIGIN: z.string().optional(),
     AUTH_CALLBACK_URL: z.string().optional(),
     SITE_BUILDER_API_ENABLED: z.string().optional(),
     SITE_DOCS_TOKEN: z.string().optional(),
+    THUMBNAIL_SERVICE_BASE: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -68,11 +71,14 @@ const rawEnv = envSchema.parse({
   RUNNER_FUNCTION_NAME: process.env.RUNNER_FUNCTION_NAME,
   TEMPLATE_UPLOAD_BUCKET: process.env.TEMPLATE_UPLOAD_BUCKET,
   DEFAULT_TRIAL_EDIT_LIMIT: process.env.DEFAULT_TRIAL_EDIT_LIMIT,
+  SIGNED_IN_BONUS_EDITS: process.env.SIGNED_IN_BONUS_EDITS,
+  ANONYMOUS_LAUNCH_LIMIT: process.env.ANONYMOUS_LAUNCH_LIMIT,
   AWS_REGION: process.env.AWS_REGION,
   FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN,
   AUTH_CALLBACK_URL: process.env.AUTH_CALLBACK_URL,
   SITE_BUILDER_API_ENABLED: process.env.SITE_BUILDER_API_ENABLED,
   SITE_DOCS_TOKEN: process.env.SITE_DOCS_TOKEN,
+  THUMBNAIL_SERVICE_BASE: process.env.THUMBNAIL_SERVICE_BASE,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -126,6 +132,8 @@ export const config = {
   },
   limits: {
     trialEditLimit: rawEnv.DEFAULT_TRIAL_EDIT_LIMIT,
+    signedInBonusEdits: rawEnv.SIGNED_IN_BONUS_EDITS,
+    anonymousLaunchLimit: rawEnv.ANONYMOUS_LAUNCH_LIMIT,
   },
   awsRegion: rawEnv.AWS_REGION ?? rawEnv.COGNITO_USER_POOL_REGION,
   frontend: {
@@ -135,5 +143,8 @@ export const config = {
   siteBuilder: {
     enabled: rawEnv.SITE_BUILDER_API_ENABLED !== 'false',
     docsToken: rawEnv.SITE_DOCS_TOKEN ?? '',
+  },
+  thumbnail: {
+    serviceBase: rawEnv.THUMBNAIL_SERVICE_BASE ?? '',
   },
 } as const;

@@ -5,6 +5,16 @@ import { config } from '../env';
 import { RunnerService } from '../services/runner';
 import { DatabaseService } from '../services/database';
 import { UserRole } from '../types';
+import { buildSlugCandidate, ensureUniqueSlug, buildPublicUrl } from './launch';
+
+const rootRequire = (relativePath: string): any => {
+  // eslint-disable-next-line global-require, import/no-dynamic-require
+  return require(require('node:path').join(process.cwd(), relativePath));
+};
+
+const { loadSiteConfig } = rootRequire('src/site-store.js') as {
+  loadSiteConfig: (slug: string) => Promise<any>;
+};
 
 const businessDetailsSchema = z
   .object({
@@ -27,6 +37,16 @@ const siteLaunchInput = z.object({
   description: z.string().max(2000).optional(),
   business: businessDetailsSchema,
 });
+
+const trialAllowance = () => config.limits.trialEditLimit + config.limits.signedInBonusEdits;
+
+const buildThumbnailUrl = (publicUrl: string, refresh?: boolean) => {
+  const base = (config.thumbnail.serviceBase || '').trim();
+  if (!base || !publicUrl) return null;
+  const ts = refresh ? `&ts=${Date.now()}` : '';
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}url=${encodeURIComponent(publicUrl)}${ts}`;
+};
 
 const ensureCustomerAccess = (request: FastifyRequest) => {
   if (!request.auth || !request.auth.profile) {
@@ -67,7 +87,7 @@ export const registerCustomerRoutes = (
   app.get('/customer/usage', { preHandler: app.authenticateUser }, async (request, reply) => {
     const profile = ensureCustomerAccess(request);
     const subscription = await db.getSubscription(profile.accountId);
-    const limit = subscription?.monthlyEditLimit ?? config.limits.trialEditLimit;
+    const limit = subscription?.monthlyEditLimit ?? trialAllowance();
     const usage = await db.getUsage(profile.accountId, limit);
     return usage;
   });
@@ -97,19 +117,17 @@ export const registerCustomerRoutes = (
       const body = parsed.data;
       const subscription = await db.getSubscription(profile.accountId);
       const isActive = subscription && subscription.status === 'active';
-      const limit = isActive
-        ? subscription.monthlyEditLimit ?? config.limits.trialEditLimit
-        : config.limits.trialEditLimit;
+      const limit = subscription?.monthlyEditLimit ?? trialAllowance();
       const usage = await db.getUsage(profile.accountId, limit);
       const remaining = isActive
         ? usage.remainingEdits
-        : profile.hasUsedTrial
-        ? 0
-        : Math.max(config.limits.trialEditLimit - usage.editsUsedThisPeriod, 0);
+        : Math.max(limit - usage.editsUsedThisPeriod, 0);
       if (remaining <= 0) {
-        return reply.code(403).send({
+        return reply.code(402).send({
           message: 'Edit limit exceeded',
           code: 'LIMIT_EXCEEDED',
+          limits: db.buildUsageLimits(subscription, limit),
+          usage,
         });
       }
 
@@ -119,6 +137,9 @@ export const registerCustomerRoutes = (
         description: body.description,
         siteId: body.siteId,
         businessDetails: body.business,
+      });
+      await db.incrementUsage(profile.accountId, limit, 1).catch((error) => {
+        request.log.warn({ err: error }, '[customer] Failed to increment usage');
       });
       const job = await db.createJobForRequest(editRequest.id);
       await runner.enqueueEditJob({
@@ -130,7 +151,7 @@ export const registerCustomerRoutes = (
         businessDetails: body.business,
       });
 
-      if (!isActive && !profile.hasUsedTrial) {
+      if (!isActive && usage.editsUsedThisPeriod === 0 && !profile.hasUsedTrial) {
         await db.markTrialUsed(profile.id);
         profile.hasUsedTrial = true;
       }
@@ -153,6 +174,51 @@ export const registerCustomerRoutes = (
     }
     const body = parsed.data;
     const requestId = randomUUID();
+    const subscription = await db.getSubscription(profile.accountId);
+    const limit = subscription?.monthlyEditLimit ?? trialAllowance();
+    const usage = await db.getUsage(profile.accountId, limit);
+    const remaining = subscription?.status === 'active'
+      ? usage.remainingEdits
+      : Math.max(limit - usage.editsUsedThisPeriod, 0);
+    if (remaining <= 0) {
+      return reply.code(402).send({
+        message: 'Edit limit exceeded',
+        code: 'LIMIT_EXCEEDED',
+        limits: db.buildUsageLimits(subscription, limit),
+        usage,
+      });
+    }
+    const limits = db.buildUsageLimits(subscription, limit);
+    const existingSites = await db.listSiteGenerations(profile.accountId);
+    if (existingSites.length >= limits.freeSiteLimit) {
+      return reply.code(402).send({
+        message: 'Site limit exceeded',
+        code: 'SITE_LIMIT_EXCEEDED',
+        limits,
+        sites: existingSites.length,
+      });
+    }
+    const resolvedBucket =
+      process.env.LOVABLE_DEPLOY_BUCKET ||
+      process.env.DEPLOY_BUCKET ||
+      process.env.TEMPLATE_UPLOAD_BUCKET;
+    if (!resolvedBucket) {
+      return reply.code(500).send({ message: 'Deploy bucket not configured' });
+    }
+    const basePrefix =
+      process.env.LOVABLE_DEPLOY_PREFIX || process.env.DEPLOY_PREFIX || process.env.PREVIEW_ROOT_PREFIX || '';
+    const desiredSlug = buildSlugCandidate({
+      businessDetails: body.business,
+      url: body.url,
+      description: body.description,
+      requestId,
+    });
+    const { slug, prefixPath } = await ensureUniqueSlug({
+      bucket: resolvedBucket,
+      basePrefix,
+      slugCandidate: desiredSlug,
+    });
+    const publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
     await db.createSiteGenerationRequest({
       requestId,
       accountId: profile.accountId,
@@ -160,6 +226,12 @@ export const registerCustomerRoutes = (
       sourceUrl: body.url,
       description: body.description,
       businessDetails: body.business,
+      slug,
+      prefix: prefixPath,
+      bucket: resolvedBucket,
+    });
+    await db.incrementUsage(profile.accountId, limit, 1).catch((error) => {
+      request.log.warn({ err: error }, '[customer] Failed to increment usage for launch');
     });
     try {
       await runner.runLaunchDirect({
@@ -167,9 +239,19 @@ export const registerCustomerRoutes = (
         description: body.description,
         businessDetails: body.business,
         requestId,
+        slug,
+        prefix: prefixPath,
+        bucket: resolvedBucket,
       });
       await db.touchSiteGenerationStage(requestId, 'running');
-      return reply.code(202).send({ requestId, status: 'running' });
+      return reply.code(202).send({
+        requestId,
+        status: 'running',
+        slug,
+        prefix: prefixPath,
+        bucket: resolvedBucket,
+        publicUrl,
+      });
     } catch (error: any) {
       await db.updateSiteGeneration(requestId, {
         status: 'failed',
@@ -189,6 +271,30 @@ export const registerCustomerRoutes = (
     const profile = ensureCustomerAccess(request);
     const items = await db.listSiteGenerations(profile.accountId);
     return { items };
+  });
+
+  app.get('/sites/:slug/thumbnail', { preHandler: app.authenticateUser }, async (request, reply) => {
+    const profile = ensureCustomerAccess(request);
+    const slug = (request.params as any).slug;
+    const refresh =
+      (request.query as Record<string, string | undefined> | undefined)?.refresh === 'true';
+    const record = await loadSiteConfig(slug);
+    if (!record?.metadata?.publicUrl) {
+      return reply.code(404).send({ message: 'Site not found' });
+    }
+    // Basic guard: ensure the account matches when present.
+    if (record.metadata?.accountId && record.metadata.accountId !== profile.accountId) {
+      return reply.code(404).send({ message: 'Site not found' });
+    }
+    const thumbnailUrl = buildThumbnailUrl(record.metadata.publicUrl, refresh);
+    if (!thumbnailUrl) {
+      return reply.code(503).send({ message: 'Thumbnail service not configured' });
+    }
+    return {
+      slug,
+      publicUrl: record.metadata.publicUrl,
+      thumbnailUrl,
+    };
   });
 
   app.get(

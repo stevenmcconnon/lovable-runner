@@ -62,5 +62,21 @@
     "requiredProps": ["title", "subtitle", "stats"],
     "minWordCount": 40,
     "group": "proof"
+  },
+  {
+    "id": "gallery-carousel",
+    "label": "Gallery carousel",
+    "description": "Horizontal scrolling gallery with captioned images and optional badges.",
+    "requiredProps": ["title", "subtitle", "items"],
+    "minWordCount": 40,
+    "group": "media"
+  },
+  {
+    "id": "contact-form",
+    "label": "Contact form",
+    "description": "Warm contact form with short reassurance copy and email/CTA buttons.",
+    "requiredProps": ["title", "subtitle", "fields", "submitLabel"],
+    "minWordCount": 40,
+    "group": "support"
   }
 ]

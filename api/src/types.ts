@@ -93,6 +93,8 @@ export interface UsageLimits {
   allowLivePublishing: boolean;
   allowAiImages: boolean;
   allowSeoTools: boolean;
+   allowOverage: boolean;
+   coupons: string[];
 }
 
 export type EditRequestStatus = 'pending' | 'in_progress' | 'completed' | 'rejected';

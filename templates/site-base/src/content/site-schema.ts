@@ -6,7 +6,9 @@ export type SectionComponentId =
   | 'pricing-table'
   | 'cta-banner'
   | 'process-timeline'
-  | 'stats-showcase';
+  | 'stats-showcase'
+  | 'gallery-carousel'
+  | 'contact-form';
 
 export type SectionConfig<TProps = Record<string, unknown>> = {
   id: string;
@@ -36,6 +38,12 @@ export type SiteTheme = {
   vibe: 'luxury' | 'tech' | 'playful' | 'earthy';
 };
 
+export type SiteIntegrations = {
+  analytics?: Array<{ type?: 'ga' | 'meta' | 'gtm' | 'other'; id?: string }>;
+  chat?: { provider?: string; key?: string };
+  newsletter?: { provider?: string; listId?: string; formAction?: string };
+};
+
 export type SiteSEO = {
   title: string;
   description: string;
@@ -46,5 +54,15 @@ export type SiteContent = {
   meta: SiteMeta;
   seo: SiteSEO;
   theme: SiteTheme;
-  sections: SectionConfig[];
+  canonical?: string;
+  redirects?: Array<{ from?: string; to?: string; type?: number }>;
+  openGraph?: { title?: string; description?: string; imagePrompt?: string };
+  schemaMarkup?: string;
+  integrations?: SiteIntegrations;
+  sections?: SectionConfig[];
+  pages?: Array<{
+    path: string;
+    title: string;
+    sections: SectionConfig[];
+  }>;
 };

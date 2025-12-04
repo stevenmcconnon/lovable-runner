@@ -548,6 +548,63 @@ export class DatabaseService {
     };
   }
 
+  async incrementUsage(accountId: string, limit: number, delta = 1): Promise<void> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `
+        SELECT id
+        FROM edit_usage
+        WHERE account_id = $1
+        ORDER BY period_start DESC NULLS LAST, created_at DESC
+        LIMIT 1
+        FOR UPDATE
+      `,
+        [accountId]
+      );
+      if (rows[0]?.id) {
+        await client.query(
+          `
+          UPDATE edit_usage
+          SET edits_used = COALESCE(edits_used, 0) + $2,
+              edits_used_this_period = COALESCE(edits_used_this_period, 0) + $2,
+              monthly_edit_limit = $3
+          WHERE id = $1
+        `,
+          [rows[0].id, delta, limit]
+        );
+      } else {
+        await client.query(
+          `
+          INSERT INTO edit_usage (
+            account_id,
+            monthly_edit_limit,
+            edits_used,
+            edits_used_this_period,
+            period_start,
+            period_end
+          ) VALUES (
+            $1,
+            $3,
+            $2,
+            $2,
+            date_trunc('month', NOW()),
+            date_trunc('month', NOW()) + interval '1 month'
+          )
+        `,
+          [accountId, delta, limit]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listCustomerEditRequests(accountId: string): Promise<EditRequestRecord[]> {
     const { rows } = await this.query(
       `
@@ -1363,20 +1420,65 @@ export class DatabaseService {
   }
 
   buildUsageLimits(subscription: SubscriptionDetails | null, fallbackLimit: number): UsageLimits {
-    const planKey = subscription?.planKey ?? 'trial';
+    const planKey = (subscription?.planKey ?? 'trial').toLowerCase();
     const planName = subscription?.planName ?? 'Trial';
     const monthlyEditLimit = subscription?.monthlyEditLimit ?? fallbackLimit;
     const isPaid = Boolean(subscription && subscription.status === 'active');
+    const freeSiteLimit =
+      planKey === 'scale' ? 10 : planKey === 'growth' ? 5 : 1; // starter/trial: 1 site; growth/scale: multiple
     return {
       planKey,
       planName,
       monthlyEditLimit,
-      freeSiteLimit: isPaid ? 10 : 1,
+      freeSiteLimit,
       dailyRebuildLimit: isPaid ? 20 : 3,
       allowCustomDomains: isPaid,
       allowLivePublishing: isPaid,
       allowAiImages: isPaid,
       allowSeoTools: isPaid,
+      allowOverage: false,
+      coupons: [],
+    };
+  }
+
+  async recordSiteMetric(slug: string, event: 'view' | 'cta'): Promise<void> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      const column = event === 'cta' ? 'cta_clicks' : 'views';
+      await client.query(
+        `
+        INSERT INTO site_metrics (slug, event_date, ${column})
+        VALUES ($1, CURRENT_DATE, 1)
+        ON CONFLICT (slug, event_date)
+        DO UPDATE SET ${column} = site_metrics.${column} + 1, updated_at = NOW()
+      `,
+        [slug]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getSiteMetrics(slug: string, days = 30): Promise<{ views: number; ctaClicks: number }> {
+    const { rows } = await this.query(
+      `
+      SELECT
+        COALESCE(SUM(views), 0) AS views,
+        COALESCE(SUM(cta_clicks), 0) AS cta_clicks
+      FROM site_metrics
+      WHERE slug = $1
+        AND event_date >= (CURRENT_DATE - ($2 || ' days')::interval)
+    `,
+      [slug, days]
+    );
+    return {
+      views: Number(rows[0]?.views ?? 0),
+      ctaClicks: Number(rows[0]?.cta_clicks ?? 0),
     };
   }
 }

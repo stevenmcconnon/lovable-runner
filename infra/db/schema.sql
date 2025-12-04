@@ -198,6 +198,17 @@ CREATE INDEX IF NOT EXISTS site_deployments_slug_idx ON site_deployments(slug);
 ALTER TABLE site_generations ALTER COLUMN account_id DROP NOT NULL;
 ALTER TABLE site_generations ALTER COLUMN user_id DROP NOT NULL;
 
+CREATE TABLE IF NOT EXISTS site_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL,
+  event_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  views INTEGER NOT NULL DEFAULT 0,
+  cta_clicks INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (slug, event_date)
+);
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

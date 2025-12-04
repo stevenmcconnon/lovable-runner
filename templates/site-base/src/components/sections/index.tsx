@@ -6,6 +6,8 @@ import { PricingTable } from './pricing-table';
 import { CTABanner } from './cta-banner';
 import { ProcessTimeline } from './process-timeline';
 import { StatsShowcase } from './stats-showcase';
+import { GalleryCarousel } from './gallery-carousel';
+import { ContactForm } from './contact-form';
 import type { SectionComponentId, SectionConfig } from '../../content/site-schema';
 
 const REGISTRY: Record<SectionComponentId, (props: any) => JSX.Element | null> = {
@@ -17,6 +19,8 @@ const REGISTRY: Record<SectionComponentId, (props: any) => JSX.Element | null> =
   'cta-banner': CTABanner,
   'process-timeline': ProcessTimeline,
   'stats-showcase': StatsShowcase,
+  'gallery-carousel': GalleryCarousel,
+  'contact-form': ContactForm,
 };
 
 export const SectionRenderer = ({ sections }: { sections: SectionConfig[] }) => (

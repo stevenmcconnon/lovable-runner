@@ -22,8 +22,12 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
   return [
     'You are a senior marketing copywriter rebuilding the referenced business website. Return ONLY JSON (no Markdown) describing a premium marketing site layout for our Vite + shadcn template.',
     'Do NOT mention AI SiteMaker or any AI generator. All copy must stay grounded in the reference business and the provided businessDetails.',
+    'Default to bright, friendly, high-contrast palettes; only deliver a dark theme when explicitly requested.',
+    'When cloning an existing site, lightly remix the copy instead of inventing new messaging—preserve the offers, voice, and structure from the reference text.',
+    'Reuse strong hero/services language from the source; avoid generic AI boilerplate.',
+    'If the reference spans multiple pages or the user asks, emit up to 5 pages (path/title/sections). Otherwise, use a single-page sections array.',
     'Set meta.brandName/headline/subheadline to the real business (prefer businessDetails.businessName; otherwise derive from the reference site text or the URL domain words).',
-    'The JSON must follow the Site schema (meta, seo, theme, sections[]) and every section entry must include a props object with all copy, CTAs, lists, and imagePrompt text needed to render that block.',
+    'The JSON must follow the Site schema (meta, seo, theme, sections[] or pages[]) and every section entry must include a props object with all copy, CTAs, lists, and imagePrompt text needed to render that block.',
     'Available sections and their behaviors:',
     buildSectionsInventory(),
     '',
@@ -31,9 +35,13 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     '- Include at least 8 sections covering hero, services/features, process, testimonials/social proof, FAQ, pricing, CTA, and stats/proof.',
     '- Each section needs 3+ sentences (>=80 words for hero/services) and vivid `imagePrompt` guidance where visual direction is relevant.',
     '- meta.brandName/headline/subheadline must reflect the real business (use businessDetails.businessName if provided; otherwise derive from sourceSummary/URL).',
+    '- Always generate SEO fields: write seo.title/seo.description from the source text and add 5+ specific seo.keywords; if the user provided overrides in the instructions, honor those overrides.',
     '- Copy must be rewritten from the reference site text (sourceSummary) and business details; no placeholders or AI-SiteMaker messaging.',
     '- Treat the sourceSummary as truth: mirror its offerings, tone, locations, and differentiators. If sourceSummary is empty, infer the business from the URL words and businessDetails rather than inventing an AI platform.',
     '- Theme colors must reflect the real brand or industry palette—avoid default dark purple schemes; pick high-conversion, legible colors that match the reference site vibe.',
+    '- Include a gallery-carousel when imagery is important and a contact-form with relevant fields; set contactEmail when given so the form can mailto the business.',
+    '- Add SEO/perf details: canonical URL, redirects if applicable, OG/social preview (title/description/imagePrompt), and schemaMarkup (JSON-LD string) when the business type is clear.',
+    '- Add integrations when requested: analytics pixels (GA/Meta), chat widget slot, and newsletter signup settings.',
     '- Keywords array in seo must contain 5+ phrases.',
     '- Respond with compact JSON only; no commentary.',
     sourceUrl ? `Reference site to outperform: ${sourceUrl}` : '',
@@ -52,7 +60,7 @@ const buildTextFormat = () => ({
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['meta', 'seo', 'theme', 'sections'],
+    required: ['meta', 'seo', 'theme'],
     properties: {
       meta: {
         type: 'object',
@@ -89,9 +97,66 @@ const buildTextFormat = () => ({
           vibe: { type: 'string', enum: ['luxury', 'tech', 'playful', 'earthy'] },
         },
       },
+      canonical: { type: 'string' },
+      redirects: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            from: { type: 'string' },
+            to: { type: 'string' },
+            type: { type: 'number', enum: [301, 302] },
+          },
+        },
+      },
+      openGraph: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          title: { type: 'string' },
+          description: { type: 'string' },
+          imagePrompt: { type: 'string' },
+        },
+      },
+      schemaMarkup: { type: 'string' },
+      integrations: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          analytics: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                type: { type: 'string', enum: ['ga', 'meta', 'gtm', 'other'] },
+                id: { type: 'string' },
+              },
+            },
+          },
+          chat: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {
+              provider: { type: 'string' },
+              key: { type: 'string' },
+            },
+          },
+          newsletter: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {
+              provider: { type: 'string' },
+              listId: { type: 'string' },
+              formAction: { type: 'string' },
+            },
+          },
+        },
+      },
       sections: {
         type: 'array',
-        minItems: 8,
+        minItems: 6,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -104,6 +169,33 @@ const buildTextFormat = () => ({
               description:
                 'All copy, CTAs, and prompts needed for this component. Include imagePrompt text where visuals are expected.',
               additionalProperties: true,
+            },
+          },
+        },
+      },
+      pages: {
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['path', 'title', 'sections'],
+          properties: {
+            path: { type: 'string', minLength: 1 },
+            title: { type: 'string', minLength: 2 },
+            sections: {
+              type: 'array',
+              minItems: 4,
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['id', 'componentId', 'props'],
+                properties: {
+                  id: { type: 'string', minLength: 2 },
+                  componentId: { type: 'string', enum: SECTION_IDS },
+                  props: { type: 'object', additionalProperties: true },
+                },
+              },
             },
           },
         },

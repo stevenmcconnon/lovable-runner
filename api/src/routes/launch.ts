@@ -1,5 +1,5 @@
-import { FastifyInstance } from 'fastify';
-import { randomUUID } from 'node:crypto';
+import { FastifyInstance, FastifyRequest } from 'fastify';
+import { randomUUID, createHash } from 'node:crypto';
 import { z } from 'zod';
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { RunnerService } from '../services/runner';
@@ -37,7 +37,7 @@ const slugify = (input?: string | null) =>
     .replace(/^-+|-+$/g, '')
     .replace(/-+/g, '-');
 
-const buildSlugCandidate = (params: {
+export const buildSlugCandidate = (params: {
   businessDetails?: { businessName?: string | null; businessType?: string | null; phone?: string | null };
   url?: string | null;
   description?: string | null;
@@ -50,7 +50,7 @@ const buildSlugCandidate = (params: {
   return slugify(`site-${Date.now()}`);
 };
 
-const ensureUniqueSlug = async ({
+export const ensureUniqueSlug = async ({
   bucket,
   basePrefix,
   slugCandidate,
@@ -87,11 +87,24 @@ const ensureUniqueSlug = async ({
   return { slug: fallback, prefixPath: buildPrefixPath(fallback) };
 };
 
-const buildPublicUrl = ({ bucket, prefix }: { bucket: string; prefix: string }) => {
+export const buildPublicUrl = ({ bucket, prefix }: { bucket: string; prefix: string }) => {
   const normalizedPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : '';
   const previewDomain = (process.env.PREVIEW_DOMAIN || '').trim().replace(/\/+$/, '');
   if (previewDomain) return `https://${previewDomain}/${normalizedPrefix}`;
   return `https://${bucket}.s3.amazonaws.com/${normalizedPrefix}`;
+};
+
+const toUuidFromHash = (hash: string) =>
+  `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+
+export const deriveAnonymousAccountId = (request: FastifyRequest) => {
+  const forwarded = (request.headers['x-forwarded-for'] as string | undefined)?.split(',')?.[0]?.trim();
+  const visitorHeader =
+    (request.headers['x-visitor-id'] as string | undefined) ||
+    (request.headers['x-visitor-token'] as string | undefined);
+  const raw = visitorHeader || forwarded || request.ip || randomUUID();
+  const hash = createHash('sha256').update(raw).digest('hex');
+  return toUuidFromHash(hash);
 };
 
 export const registerLaunchRoutes = (
@@ -101,20 +114,18 @@ export const registerLaunchRoutes = (
   const { db, runner } = deps;
 
   const launchPreHandler = async (request: any, reply: any) => {
-    let userError: any = null;
     try {
       await app.authenticateUser(request, reply);
-      await app.requireRoles(request, reply, ['customer', 'admin', 'super-admin']);
       request.launchAuthContext = 'user';
       return;
-    } catch (error) {
-      userError = error;
+    } catch {
+      /* continue */
     }
     try {
       await app.authenticateMachine(request, reply);
       request.launchAuthContext = 'machine';
-    } catch (machineError) {
-      throw userError || machineError;
+    } catch {
+      request.launchAuthContext = 'anonymous';
     }
   };
 
@@ -146,14 +157,48 @@ export const registerLaunchRoutes = (
       slugCandidate: desiredSlug,
     });
     const publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
+    const launchContext = (request as any).launchAuthContext || 'anonymous';
     const profileAccountId = request.auth?.profile?.accountId ?? null;
     const profileUserId = request.auth?.profile?.id ?? null;
-    const accountId = body.accountId ?? profileAccountId ?? null;
+    const accountId =
+      body.accountId ??
+      profileAccountId ??
+      (launchContext === 'anonymous' ? deriveAnonymousAccountId(request) : null);
     const userId = profileUserId;
     const testMode = Boolean(body.testMode);
-    const launchContext = (request as any).launchAuthContext;
     if (testMode && launchContext !== 'machine') {
       return reply.code(403).send({ message: 'testMode is only available for machine credentials' });
+    }
+    let subscription = null;
+    let usage: any = null;
+    let usageLimit = launchContext === 'anonymous'
+      ? config.limits.anonymousLaunchLimit
+      : config.limits.trialEditLimit + config.limits.signedInBonusEdits;
+    if (launchContext !== 'machine' && accountId) {
+      subscription = await db.getSubscription(accountId);
+      usageLimit = subscription?.monthlyEditLimit ?? usageLimit;
+      const limits = db.buildUsageLimits(subscription, usageLimit);
+      const existingSites = await db.listSiteGenerations(accountId);
+      if (existingSites.length >= limits.freeSiteLimit) {
+        return reply.code(402).send({
+          message: 'Site limit exceeded',
+          code: 'SITE_LIMIT_EXCEEDED',
+          limits,
+          sites: existingSites.length,
+        });
+      }
+      usage = await db.getUsage(accountId, usageLimit);
+      const remaining = subscription?.status === 'active'
+        ? usage.remainingEdits
+        : Math.max(usageLimit - usage.editsUsedThisPeriod, 0);
+      if (remaining <= 0) {
+        return reply.code(402).send({
+          message: 'Edit limit exceeded',
+          code: 'LIMIT_EXCEEDED',
+          limits: db.buildUsageLimits(subscription, usageLimit),
+          usage,
+        });
+      }
     }
     await db.createSiteGenerationRequest({
       requestId,
@@ -166,6 +211,11 @@ export const registerLaunchRoutes = (
       prefix: prefixPath,
       bucket: resolvedBucket,
     });
+    if (launchContext !== 'machine' && accountId) {
+      await db.incrementUsage(accountId, usageLimit, 1).catch((error) => {
+        request.log.warn({ err: error }, '[launch] Failed to increment usage');
+      });
+    }
     try {
       await runner.runLaunchDirect({
         url: body.url,

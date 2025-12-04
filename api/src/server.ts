@@ -18,6 +18,7 @@ import { registerDomainRoutes } from './routes/domains';
 import { DomainService } from './services/domain';
 import { registerPublishingRoutes } from './routes/publishing';
 import { registerUsageRoutes } from './routes/usage';
+import { registerTrackingRoutes } from './routes/tracking';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -74,6 +75,7 @@ export const buildServer = (): FastifyInstance => {
     registerLaunchRoutes(instance, { db: database, runner });
     registerAuthRoutes(instance, { db: database });
     registerSiteBuilderRoutes(instance, { db: database, runner });
+    registerTrackingRoutes(instance, { db: database });
   });
 
   app.get('/health', async () => ({ status: 'ok' }));

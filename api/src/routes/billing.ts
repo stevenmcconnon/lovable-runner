@@ -20,6 +20,8 @@ const ensureCustomerAccess = (roles: UserRole[]) => {
   return allowed.some((role) => roles.includes(role));
 };
 
+const trialAllowance = () => config.limits.trialEditLimit + config.limits.signedInBonusEdits;
+
 export const registerBillingRoutes = (
   app: FastifyInstance,
   deps: { db: DatabaseService; stripe: StripeService }
@@ -70,9 +72,9 @@ export const registerBillingRoutes = (
         return reply.code(403).send({ message: 'Forbidden' });
       }
       const subscription = await db.getSubscription(request.auth.profile.accountId);
-      const limit = subscription?.monthlyEditLimit ?? config.limits.trialEditLimit;
+      const limit = subscription?.monthlyEditLimit ?? trialAllowance();
       const usage = await db.getUsage(request.auth.profile.accountId, limit);
-      const limits = db.buildUsageLimits(subscription, config.limits.trialEditLimit);
+      const limits = db.buildUsageLimits(subscription, limit);
       return {
         subscription: subscription ?? { status: 'none' },
         usage,
