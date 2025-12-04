@@ -37,6 +37,10 @@ COGNITO_M2M_CLIENT_ID="${COGNITO_M2M_CLIENT_ID:-}"
 COGNITO_M2M_CLIENT_SECRET="${COGNITO_M2M_CLIENT_SECRET:-}"
 USER_POOL_ID="${USER_POOL_ID:-}"
 DEPLOY_BUCKET="${DEPLOY_BUCKET:-}"
+BILLING_PLAN_KEY="${BILLING_PLAN_KEY:-starter}"
+CUSTOMER_TOKEN="${CUSTOMER_TOKEN:-}"
+CHECKOUT_SUCCESS_URL="${CHECKOUT_SUCCESS_URL:-https://example.com/success}"
+CHECKOUT_CANCEL_URL="${CHECKOUT_CANCEL_URL:-https://example.com/cancel}"
 
 log() {
   echo "[$(date -u +"%H:%M:%S")] $*"
@@ -100,6 +104,10 @@ raw_auth_headers=()
 if [[ -n "${ACCESS_TOKEN}" ]]; then
   auth_header=(-H "Authorization: Bearer ${ACCESS_TOKEN}")
   raw_auth_headers=(-H "Authorization: Bearer ${ACCESS_TOKEN}")
+fi
+customer_header=()
+if [[ -n "${CUSTOMER_TOKEN}" ]]; then
+  customer_header=(-H "Authorization: Bearer ${CUSTOMER_TOKEN}")
 fi
 
 api_request() {
@@ -263,6 +271,22 @@ api_request GET "/sites/${slug}/assets" "" | jq '.items | length' >/dev/null
 
 log "Re-fetching site config to confirm edits"
 api_request GET "/sites/${slug}" "" | jq '.site.theme, (.site.sections | length)' >/dev/null
+
+if [[ -n "${CUSTOMER_TOKEN}" ]]; then
+  log "Requesting checkout session for plan '${BILLING_PLAN_KEY}'"
+  checkout_payload=$(jq -n \
+    --arg planKey "${BILLING_PLAN_KEY}" \
+    --arg success "${CHECKOUT_SUCCESS_URL}" \
+    --arg cancel "${CHECKOUT_CANCEL_URL}" \
+    '{planKey: $planKey, successUrl: $success, cancelUrl: $cancel}')
+  checkout_response=$(curl -sfS -X POST "${API_BASE}/billing/create-checkout-session" \
+    -H "Content-Type: application/json" \
+    "${customer_header[@]}" \
+    -d "${checkout_payload}")
+  echo "${checkout_response}" | jq '.checkoutUrl' >/dev/null
+else
+  log "CUSTOMER_TOKEN not provided; skipping checkout session request."
+fi
 
 log "All API endpoints validated successfully."
 log "Final preview URL: ${instruction_preview:-$public_url}"
