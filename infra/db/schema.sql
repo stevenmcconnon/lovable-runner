@@ -209,6 +209,17 @@ CREATE TABLE IF NOT EXISTS site_metrics (
   UNIQUE (slug, event_date)
 );
 
+-- Seed subscription plans (idempotent)
+INSERT INTO subscription_plans (plan_key, plan_name, price_monthly, monthly_edit_limit, stripe_price_id)
+VALUES
+  ('starter', 'Starter', 29.00, 5, 'price_1SaXZTFXG8DaUq7ULBoQPaNO'),
+  ('growth', 'Growth', 69.00, 20, 'price_1SaXYyFXG8DaUq7UVHtS7y7l'),
+  ('scale', 'Scale', 149.00, 75, 'price_1SaXXbFXG8DaUq7UzIYWq2ra'),
+  ('starter-annual', 'Starter Annual', 290.00, 5, 'price_1SaXa9FXG8DaUq7UenwkRVPC'),
+  ('growth-annual', 'Growth Annual', 690.00, 20, 'price_1SaXbmFXG8DaUq7U1b5cP1Bu'),
+  ('scale-annual', 'Scale Annual', 1490.00, 75, 'price_1SaXcoFXG8DaUq7UAPZhufT5')
+ON CONFLICT (plan_key) DO NOTHING;
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
