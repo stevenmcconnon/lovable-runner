@@ -6,18 +6,38 @@ import { useEffect } from 'react';
 
 const siteContent = site as SiteContent;
 
-const Background = () => (
-  <div className="pointer-events-none fixed inset-0 -z-10">
-    <div
-      className="absolute inset-0"
-      style={{
-        background:
-          'radial-gradient(circle at 15% 20%, hsl(var(--brand) / 0.22), transparent 35%), radial-gradient(circle at 80% 10%, hsl(var(--brand-accent) / 0.18), transparent 30%), radial-gradient(circle at 50% 70%, rgba(255,255,255,0.8), transparent 45%)',
-      }}
-    />
-    <div className="absolute inset-0 bg-gradient-to-b from-white via-white to-slate-50" />
-  </div>
-);
+const backgroundLayers: Record<
+  'gradient' | 'mesh' | 'texture',
+  { glow: string; base: string }
+> = {
+  gradient: {
+    glow:
+      'radial-gradient(circle at 18% 20%, hsl(var(--brand) / 0.28), transparent 45%), radial-gradient(circle at 80% 8%, hsl(var(--brand-accent) / 0.22), transparent 35%), radial-gradient(circle at 45% 70%, rgba(255,255,255,0.75), transparent 45%)',
+    base: 'linear-gradient(180deg, #f8fafc 0%, #eef2ff 45%, #f8fafc 100%)',
+  },
+  mesh: {
+    glow:
+      'radial-gradient(circle at 25% 25%, hsl(var(--brand) / 0.2), transparent 40%), radial-gradient(circle at 70% 20%, hsl(var(--brand-accent) / 0.18), transparent 45%), radial-gradient(circle at 50% 75%, rgba(255,255,255,0.7), transparent 40%)',
+    base:
+      'linear-gradient(120deg, hsl(var(--brand) / 0.08), hsl(var(--brand-accent) / 0.08))',
+  },
+  texture: {
+    glow:
+      'radial-gradient(circle at 20% 30%, hsl(var(--brand) / 0.18), transparent 40%), radial-gradient(circle at 80% 25%, hsl(var(--brand-accent) / 0.18), transparent 45%)',
+    base:
+      'linear-gradient(180deg, #fdf7f2 0%, #fff8f4 50%, #f2f7ff 100%)',
+  },
+};
+
+const Background = ({ mode }: { mode: 'gradient' | 'mesh' | 'texture' }) => {
+  const layers = backgroundLayers[mode] || backgroundLayers.gradient;
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-10">
+      <div className="absolute inset-0 opacity-90" style={{ background: layers.glow }} />
+      <div className="absolute inset-0" style={{ background: layers.base }} />
+    </div>
+  );
+};
 
 const App = () => {
   useEffect(() => {
@@ -26,7 +46,7 @@ const App = () => {
 
   return (
     <div className="relative min-h-screen">
-      <Background />
+      <Background mode={siteContent.theme.backgroundStyle} />
       <header className="sticky top-0 z-10 border-b border-white/60 bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 text-slate-900">
           <div>

@@ -1498,6 +1498,21 @@ export class DatabaseService {
     const planName = subscription?.planName ?? 'Trial';
     const monthlyEditLimit = subscription?.monthlyEditLimit ?? fallbackLimit;
     const isPaid = Boolean(subscription && subscription.status === 'active');
+    if (planKey === 'infinite') {
+      return {
+        planKey,
+        planName,
+        monthlyEditLimit: monthlyEditLimit ?? 1000000,
+        freeSiteLimit: 100000,
+        dailyRebuildLimit: 100,
+        allowCustomDomains: true,
+        allowLivePublishing: true,
+        allowAiImages: true,
+        allowSeoTools: true,
+        allowOverage: true,
+        coupons: [],
+      };
+    }
     const freeSiteLimit =
       planKey === 'scale' ? 10 : planKey === 'growth' ? 5 : 1; // starter/trial: 1 site; growth/scale: multiple
     return {

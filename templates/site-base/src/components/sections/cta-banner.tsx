@@ -15,14 +15,14 @@ export const CTABanner = ({ title, body, primaryCta, secondaryCta, imagePrompt, 
     <div className="section-card bg-gradient-to-r from-[hsl(var(--brand))]/30 to-[hsl(var(--brand-accent))]/20">
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div>
-          <h2 className="text-4xl font-bold text-white">{title}</h2>
-          <p className="mt-4 text-lg text-white/80">{body}</p>
+          <h2 className="text-4xl font-bold text-[hsl(var(--surface-foreground))]">{title}</h2>
+          <p className="mt-4 text-lg text-[hsl(var(--surface-foreground)/0.8)]">{body}</p>
           <div className="mt-8 flex flex-wrap gap-4">
             <Button>{primaryCta.label}</Button>
             {secondaryCta ? <Button variant="secondary">{secondaryCta.label}</Button> : null}
           </div>
         </div>
-        {(image?.src || imagePrompt) ? (
+        {image?.src || imagePrompt ? (
           <div className="rounded-2xl border border-white/20 bg-black/30 p-4 text-sm text-white/70">
             {image?.src ? (
               <figure>

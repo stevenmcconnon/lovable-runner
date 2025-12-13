@@ -36,6 +36,7 @@ export type SiteTheme = {
   accentColor: string;
   backgroundStyle: 'gradient' | 'mesh' | 'texture';
   vibe: 'luxury' | 'tech' | 'playful' | 'earthy';
+  textColor?: string;
 };
 
 export type SiteIntegrations = {

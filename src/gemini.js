@@ -120,6 +120,8 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     '- When multiple pages are requested, include a pages array with up to 5 entries (each path/title/sections); otherwise use the sections array.',
     '- Use `componentId` values exactly as listed. Use unique `id` strings per section.',
     '- Keywords array must include at least 5 SEO phrases.',
+    '- Absolute rule: every foreground color must meet WCAG AA contrast against its background. If background is light, use dark text (#0f172a–#1f2937); if background is dark, use light text (#f8fafc–#e2e8f0). Never white text on white or light gray. Adjust the palette until AA contrast is satisfied for text, buttons, and links. Include visible hover/focus states (underline or darker background) for links/buttons.',
+    '- After selecting the palette, quickly self-check contrast for hero, body, buttons, and links; if any fail AA, tweak colors and only then return the JSON.',
     '- Respond with valid, minified JSON. No comments or backticks.',
     sourceUrl ? `Study this reference and beat it: ${sourceUrl}` : '',
     sourceSummary ? `Reference site text (truncated): ${sourceSummary}` : '',

@@ -17,34 +17,38 @@ export const FeaturesGrid = ({ title, subtitle, features, imagePrompt, image }: 
   <section className="section-shell" id="services">
     <div className="mx-auto max-w-5xl text-center">
       <p className="text-sm uppercase tracking-[0.3em] text-[hsl(var(--brand-accent))]">Capabilities</p>
-      <h2 className="mt-3 text-4xl font-semibold text-white">{title}</h2>
-      <p className="mt-4 text-lg text-white/70">{subtitle}</p>
+      <h2 className="mt-3 text-4xl font-semibold text-[hsl(var(--surface-foreground))]">{title}</h2>
+      <p className="mt-4 text-lg text-[hsl(var(--surface-foreground)/0.75)]">{subtitle}</p>
     </div>
     <div className="mt-12 grid gap-6 md:grid-cols-2">
       {features.map((feature) => (
         <Card key={feature.name} className="h-full">
-          <h3 className="text-2xl font-semibold text-white">{feature.name}</h3>
-          <p className="mt-3 text-white/70">{feature.description}</p>
+          <h3 className="text-2xl font-semibold text-[hsl(var(--surface-foreground))]">{feature.name}</h3>
+          <p className="mt-3 text-[hsl(var(--surface-foreground)/0.75)]">{feature.description}</p>
           <p className="mt-4 text-sm font-semibold text-[hsl(var(--brand))]">Outcome · {feature.benefit}</p>
         </Card>
       ))}
     </div>
-    {(image?.src || imagePrompt) ? (
-      <div className="mx-auto mt-10 max-w-4xl rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
+    {image?.src || imagePrompt ? (
+      <div className="mx-auto mt-10 max-w-4xl rounded-2xl border border-[hsl(var(--brand)/0.4)] bg-[hsl(var(--brand)/0.12)]/70 p-6 text-sm text-[hsl(var(--surface-foreground)/0.85)] shadow-lg shadow-[hsl(var(--brand)/0.25)]/40">
         {image?.src ? (
           <figure>
             <img
               src={image.src}
               alt={image.alt || title}
-              className="max-h-80 w-full rounded-xl border border-white/10 object-cover"
+              className="max-h-80 w-full rounded-xl border border-[hsl(var(--surface-foreground)/0.15)] object-cover"
               loading="lazy"
             />
-            {image.alt ? <figcaption className="mt-3 text-xs uppercase tracking-[0.2em] text-white/50">{image.alt}</figcaption> : null}
+            {image.alt ? (
+              <figcaption className="mt-3 text-xs uppercase tracking-[0.2em] text-[hsl(var(--surface-foreground)/0.6)]">
+                {image.alt}
+              </figcaption>
+            ) : null}
           </figure>
         ) : (
           <>
-            <p className="mt-4 text-xs uppercase tracking-[0.3em] text-white/50">Imagery brief</p>
-            <p className="mt-3 leading-relaxed">{imagePrompt}</p>
+            <p className="mt-4 text-xs uppercase tracking-[0.3em] text-[hsl(var(--surface-foreground)/0.6)]">Imagery brief</p>
+            <p className="mt-3 leading-relaxed text-[hsl(var(--surface-foreground)/0.85)]">{imagePrompt}</p>
           </>
         )}
       </div>

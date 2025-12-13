@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { URL } from 'node:url';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { config } from '../env';
@@ -14,6 +15,14 @@ const rootRequire = (relativePath: string): any => {
 
 const { loadSiteConfig } = rootRequire('src/site-store.js') as {
   loadSiteConfig: (slug: string) => Promise<any>;
+};
+const { ensurePreviewPlaceholder } = rootRequire('src/preview-placeholder.js') as {
+  ensurePreviewPlaceholder: (params: {
+    bucket?: string | null;
+    prefix?: string | null;
+    brandName?: string | null;
+    requestId?: string;
+  }) => Promise<boolean>;
 };
 
 const businessDetailsSchema = z
@@ -47,6 +56,22 @@ const buildThumbnailUrl = (publicUrl: string, refresh?: boolean) => {
   const separator = base.includes('?') ? '&' : '?';
   return `${base}${separator}url=${encodeURIComponent(publicUrl)}${ts}`;
 };
+
+const extractHostname = (value?: string | null) => {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname.replace(/^www\./i, '');
+  } catch {
+    return null;
+  }
+};
+
+const derivePlaceholderLabel = (params: {
+  business?: { businessName?: string | null } | null;
+  url?: string | null;
+  fallback?: string;
+}) => params.business?.businessName || extractHostname(params.url) || params.fallback || 'Preview site';
 
 const ensureCustomerAccess = (request: FastifyRequest) => {
   if (!request.auth || !request.auth.profile) {
@@ -219,6 +244,12 @@ export const registerCustomerRoutes = (
       slugCandidate: desiredSlug,
     });
     const publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
+    await ensurePreviewPlaceholder({
+      bucket: resolvedBucket,
+      prefix: prefixPath,
+      brandName: derivePlaceholderLabel({ business: body.business, url: body.url, fallback: slug }),
+      requestId,
+    });
     await db.createSiteGenerationRequest({
       requestId,
       accountId: profile.accountId,

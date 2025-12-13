@@ -7,11 +7,32 @@
   --font-body: 'Inter';
   --brand: 222 100% 60%;
   --brand-accent: 255 70% 65%;
+  --surface-foreground: 224 25% 16%;
+  --on-brand-foreground: 0 0% 100%;
+  --panel-surface: hsla(0, 0%, 100%, 0.78);
+  --panel-border: hsla(224, 25%, 16%, 0.08);
   color-scheme: light;
 }
 
 body {
-  @apply bg-slate-900 text-slate-50 min-h-screen antialiased;
+  @apply min-h-screen antialiased;
+  color: hsl(var(--surface-foreground));
+  background-color: #f8fafc;
+}
+
+:root[data-surface='gradient'] {
+  --panel-surface: hsl(var(--brand) / 0.1);
+  --panel-border: hsl(var(--brand) / 0.25);
+}
+
+:root[data-surface='mesh'] {
+  --panel-surface: linear-gradient(135deg, hsl(var(--brand) / 0.13), hsl(var(--brand-accent) / 0.12));
+  --panel-border: hsl(var(--brand-accent) / 0.25);
+}
+
+:root[data-surface='texture'] {
+  --panel-surface: linear-gradient(120deg, hsl(var(--brand) / 0.12), hsla(0, 0%, 100%, 0.7));
+  --panel-border: hsl(var(--surface-foreground) / 0.12);
 }
 
 .section-shell {
@@ -19,5 +40,7 @@ body {
 }
 
 .section-card {
-  @apply relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-10 shadow-2xl backdrop-blur;
+  @apply relative overflow-hidden rounded-3xl border p-10 shadow-2xl backdrop-blur;
+  background: var(--panel-surface);
+  border-color: var(--panel-border);
 }

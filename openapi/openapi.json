@@ -1771,6 +1771,9 @@
               "accentColor": {
                 "type": "string"
               },
+              "textColor": {
+                "type": "string"
+              },
               "backgroundStyle": {
                 "type": "string",
                 "enum": [
@@ -2066,8 +2069,8 @@
           },
           "regenerateImages": {
             "type": "boolean",
-            "default": true,
-            "description": "If false, skips new Google Imagen calls."
+            "default": false,
+            "description": "Set true to regenerate AI images; default is false to reuse existing assets."
           },
           "requestId": {
             "type": "string"
@@ -2205,7 +2208,8 @@
           },
           "regenerateImages": {
             "type": "boolean",
-            "default": true
+            "default": false,
+            "description": "Set true to regenerate AI images; default is false to reuse existing assets."
           },
           "requestId": {
             "type": "string"

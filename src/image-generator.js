@@ -4,7 +4,22 @@ const crypto = require('node:crypto');
 
 const fetch = global.fetch;
 
-const DEFAULT_MODEL = process.env.GOOGLE_IMAGE_MODEL || 'gemini-3-pro-image-preview';
+const FALLBACK_IMAGE_MODEL = 'imagen-3.0-generate-1';
+const DEPRECATED_MODELS = new Set(['nano-banana-2']);
+
+const resolveImageModel = () => {
+  const candidate = (process.env.GOOGLE_IMAGE_MODEL || '').trim();
+  if (!candidate) return FALLBACK_IMAGE_MODEL;
+  if (DEPRECATED_MODELS.has(candidate)) {
+    console.warn('[images] Provided GOOGLE_IMAGE_MODEL is deprecated; defaulting to imagen-3.0-generate-1', {
+      providedModel: candidate,
+    });
+    return FALLBACK_IMAGE_MODEL;
+  }
+  return candidate;
+};
+
+const DEFAULT_MODEL = resolveImageModel();
 const DEFAULT_ASPECT_RATIO = process.env.GOOGLE_IMAGE_ASPECT_RATIO || '5:4';
 const DEFAULT_IMAGE_SIZE = process.env.GOOGLE_IMAGE_SIZE || '2K';
 const MAX_IMAGES = Number(process.env.GOOGLE_IMAGE_MAX || 8);

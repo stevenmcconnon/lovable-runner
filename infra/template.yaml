@@ -101,8 +101,8 @@ Parameters:
     Description: OpenAI model identifier (e.g., gpt-5.1, gpt-4.1)
   GoogleImageModel:
     Type: String
-    Default: 'gemini-3-pro-image-preview'
-    Description: Google Generative Image model identifier (e.g., gemini-3-pro-image-preview)
+    Default: 'imagen-3.0-generate-1'
+    Description: Image model used for asset generation (e.g., imagen-3.0-generate-1)
   RunnerApiBase:
     Type: String
     Default: https://api.ai-sitemaker.com
@@ -140,6 +140,10 @@ Parameters:
     NoEcho: true
     Default: ''
     Description: Optional shared secret required to view /openapi.json and /docs.
+  ThumbnailServiceBase:
+    Type: String
+    Default: 'https://image.thum.io/get/png/width/1200/noanimate'
+    Description: Base URL for screenshot service (appends ?url=...; leave blank to disable thumbnails).
 
 Conditions:
   HasCustomDomain: !And
@@ -281,6 +285,7 @@ Resources:
           COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
           SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
           SITE_DOCS_TOKEN: !Ref SiteDocsToken
+          THUMBNAIL_SERVICE_BASE: !Ref ThumbnailServiceBase
       Events:
         RootProxy:
           Type: HttpApi

@@ -5,12 +5,14 @@ const AWS = require('aws-sdk');
 const { randomUUID } = require('node:crypto');
 const fetch = global.fetch;
 const { generateSiteWithOpenAI } = require('./openai');
+const { refineThemePalette } = require('./color-agent');
 const { uploadToS3, buildProject } = require('./deploy');
 const { exportProjectToGit } = require('./git-archive');
 const { copyTemplateTo, writeSiteJson } = require('./site-template');
 const { enhanceSiteWithImages } = require('./image-generator');
 const { saveSiteConfig } = require('./site-store');
 const { uploadGeneratedAssets, hydrateExistingGeneratedAssets } = require('./generated-assets');
+const { ensurePreviewPlaceholder } = require('./preview-placeholder');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -88,6 +90,23 @@ const buildSlugCandidate = ({ businessDetails, url, description, requestId }) =>
   if (requestId) return slugify(requestId);
   return slugify(`site-${Date.now()}`);
 };
+
+const extractHostname = (value) => {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname.replace(/^www\./i, '');
+  } catch {
+    return null;
+  }
+};
+
+const derivePlaceholderLabel = ({ site, businessDetails, url, fallback }) =>
+  site?.meta?.brandName ||
+  businessDetails?.businessName ||
+  extractHostname(url) ||
+  fallback ||
+  'Preview site';
 
 const fetchSourceContext = async (url) => {
   if (!url) return null;
@@ -578,7 +597,14 @@ const runLaunch = async ({
       businessDetails,
       sourceSummary,
     });
-    siteConfig = result.site;
+    siteConfig =
+      (await refineThemePalette({
+        site: result.site,
+        sourceUrl: url,
+        sourceSummary,
+        description,
+        businessDetails,
+      })) || result.site;
     console.log('[launch] Gemini generation complete', {
       requestId,
       sectionCount: siteConfig.sections?.length || 0,
@@ -606,6 +632,18 @@ const runLaunch = async ({
   }
 
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
+  const placeholderLabel = derivePlaceholderLabel({
+    site: siteConfig,
+    businessDetails,
+    url,
+    fallback: finalSlug,
+  });
+  await ensurePreviewPlaceholder({
+    bucket: resolvedBucket,
+    prefix: targetPrefix,
+    brandName: placeholderLabel,
+    requestId,
+  });
 
   return deploySiteFromConfig({
     slug: finalSlug,

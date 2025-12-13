@@ -19,8 +19,8 @@ export const HeroWithImage = ({ eyebrow, title, subtitle, primaryCta, secondaryC
     <div className="section-card grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-6">
         <Badge>{eyebrow}</Badge>
-        <h1 className="text-4xl font-bold leading-tight text-white md:text-5xl lg:text-6xl">{title}</h1>
-        <p className="text-lg text-white/70 md:text-xl">{subtitle}</p>
+        <h1 className="text-4xl font-bold leading-tight text-[hsl(var(--surface-foreground))] md:text-5xl lg:text-6xl">{title}</h1>
+        <p className="text-lg text-[hsl(var(--surface-foreground)/0.75)] md:text-xl">{subtitle}</p>
         <div className="flex flex-wrap gap-4">
           <Button>{primaryCta.label}</Button>
           {secondaryCta ? (
@@ -30,8 +30,8 @@ export const HeroWithImage = ({ eyebrow, title, subtitle, primaryCta, secondaryC
         <div className="flex flex-wrap gap-6">
           {stats.map((stat) => (
             <div key={stat.label}>
-              <p className="text-3xl font-semibold text-white">{stat.value}</p>
-              <p className="text-sm text-white/60">{stat.label}</p>
+              <p className="text-3xl font-semibold text-[hsl(var(--surface-foreground))]">{stat.value}</p>
+              <p className="text-sm text-[hsl(var(--surface-foreground)/0.6)]">{stat.label}</p>
             </div>
           ))}
         </div>

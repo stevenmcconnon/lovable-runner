@@ -138,7 +138,7 @@ const updateSite = async ({
   slug,
   patch,
   site,
-  regenerateImages = true,
+  regenerateImages = false,
   requestId,
   onProgress,
   description,
@@ -171,7 +171,7 @@ const updateSite = async ({
     sourceUrl: sourceUrl || patch?.sourceUrl || stored.metadata?.sourceUrl,
     description: description || patch?.description || stored.metadata?.description,
     onProgress,
-    generateImages: regenerateImages !== false,
+    generateImages: regenerateImages === true,
   });
 };
 

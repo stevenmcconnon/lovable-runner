@@ -97,7 +97,7 @@ export class RunnerService {
       slug: params.slug,
       patch: params.patch ?? null,
       site: params.site ?? null,
-      regenerateImages: params.regenerateImages ?? true,
+      regenerateImages: params.regenerateImages ?? false,
       description: params.description ?? null,
       sourceUrl: params.sourceUrl ?? null,
     };

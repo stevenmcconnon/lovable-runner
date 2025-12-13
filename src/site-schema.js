@@ -59,6 +59,7 @@ const SiteSchema = z.object({
     accentColor: z.string().min(4),
     backgroundStyle: z.enum(['gradient', 'mesh', 'texture']),
     vibe: z.enum(['luxury', 'tech', 'playful', 'earthy']),
+    textColor: z.string().min(4).optional(),
   }),
   canonical: z.string().url().optional(),
   redirects: z

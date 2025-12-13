@@ -8,11 +8,13 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
 };
 
-const baseStyles = 'inline-flex items-center justify-center rounded-full font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
+const baseStyles =
+  'inline-flex items-center justify-center rounded-full font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
 const variants: Record<Variant, string> = {
-  default: 'bg-[hsl(var(--brand))] text-white shadow-lg hover:brightness-110 px-6 py-3',
-  secondary: 'bg-white/10 text-white border border-white/20 px-6 py-3 hover:bg-white/20',
-  ghost: 'bg-transparent text-white hover:text-[hsl(var(--brand))] px-4 py-2',
+  default: 'bg-[hsl(var(--brand))] text-[hsl(var(--on-brand-foreground))] shadow-lg hover:brightness-110 px-6 py-3',
+  secondary:
+    'bg-transparent border border-[hsl(var(--surface-foreground)/0.2)] text-[hsl(var(--surface-foreground))] px-6 py-3 hover:bg-[hsl(var(--surface-foreground)/0.08)]',
+  ghost: 'bg-transparent text-[hsl(var(--surface-foreground))] hover:text-[hsl(var(--brand))] px-4 py-2',
 };
 
 export const Button = ({ variant = 'default', className, children, ...props }: ButtonProps) => (

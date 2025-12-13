@@ -1,10 +1,26 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { randomUUID, createHash } from 'node:crypto';
+import { URL } from 'node:url';
+import path from 'node:path';
 import { z } from 'zod';
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { RunnerService } from '../services/runner';
 import { DatabaseService } from '../services/database';
 import { config } from '../env';
+
+const rootRequire = (relativePath: string): any => {
+  // eslint-disable-next-line global-require, import/no-dynamic-require
+  return require(path.join(process.cwd(), relativePath));
+};
+
+const { ensurePreviewPlaceholder } = rootRequire('src/preview-placeholder.js') as {
+  ensurePreviewPlaceholder: (params: {
+    bucket?: string | null;
+    prefix?: string | null;
+    brandName?: string | null;
+    requestId?: string;
+  }) => Promise<boolean>;
+};
 
 const launchPayload = z
   .object({
@@ -49,6 +65,23 @@ export const buildSlugCandidate = (params: {
   if (params.requestId) return slugify(params.requestId);
   return slugify(`site-${Date.now()}`);
 };
+
+const extractHostname = (value?: string | null) => {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname.replace(/^www\./i, '');
+  } catch {
+    return null;
+  }
+};
+
+const derivePlaceholderLabel = (params: {
+  businessDetails?: { businessName?: string | null } | null;
+  url?: string | null;
+  fallback?: string;
+}) =>
+  params.businessDetails?.businessName || extractHostname(params.url) || params.fallback || 'Preview site';
 
 export const ensureUniqueSlug = async ({
   bucket,
@@ -200,6 +233,16 @@ export const registerLaunchRoutes = (
         });
       }
     }
+    await ensurePreviewPlaceholder({
+      bucket: resolvedBucket,
+      prefix: prefixPath,
+      brandName: derivePlaceholderLabel({
+        businessDetails: body.businessDetails,
+        url: body.url,
+        fallback: slug,
+      }),
+      requestId,
+    });
     await db.createSiteGenerationRequest({
       requestId,
       accountId,

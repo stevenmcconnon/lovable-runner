@@ -5,8 +5,20 @@ export const applyThemeToDocument = (theme: SiteTheme) => {
   const root = document.documentElement;
   root.style.setProperty('--brand', hexToHSL(theme.primaryColor));
   root.style.setProperty('--brand-accent', hexToHSL(theme.accentColor));
+  root.style.setProperty('--surface-foreground', hexToHSL(resolveSurfaceTextColor(theme)));
+  root.style.setProperty('--on-brand-foreground', hexToHSL(resolveOnBrandTextColor(theme)));
   root.dataset.vibe = theme.vibe;
   root.dataset.surface = theme.backgroundStyle;
+};
+
+const DEFAULT_SURFACE_TEXT = '#0f172a';
+const DEFAULT_ON_BRAND_TEXT = '#f8fafc';
+
+const normalizeHex = (hex?: string | null) => {
+  if (!hex) return null;
+  const trimmed = hex.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
 };
 
 const hexToHSL = (hex: string) => {
@@ -46,4 +58,38 @@ const rgbToHsl = (r: number, g: number, b: number) => {
     h /= 6;
   }
   return { h: h * 360, s: s * 100, l: l * 100 };
+};
+
+const hexToRgb = (hex?: string | null) => {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return null;
+  const value = normalized.slice(1);
+  const bigint = Number.parseInt(value, 16);
+  if (Number.isNaN(bigint)) return null;
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255,
+  };
+};
+
+const getLuminance = (hex?: string | null) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  const channel = (value: number) => {
+    const normalized = value / 255;
+    return normalized <= 0.03928 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
+  };
+  const r = channel(rgb.r);
+  const g = channel(rgb.g);
+  const b = channel(rgb.b);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+const resolveSurfaceTextColor = (theme: SiteTheme) => normalizeHex(theme.textColor) || DEFAULT_SURFACE_TEXT;
+
+const resolveOnBrandTextColor = (theme: SiteTheme) => {
+  const luminance = getLuminance(theme.primaryColor);
+  if (luminance == null) return DEFAULT_ON_BRAND_TEXT;
+  return luminance > 0.6 ? DEFAULT_SURFACE_TEXT : DEFAULT_ON_BRAND_TEXT;
 };
