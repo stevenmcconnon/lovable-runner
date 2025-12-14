@@ -423,7 +423,12 @@ const attachPexelsImages = async ({ site, slug }) => {
 
   const maybeAttach = (section) => {
     if (!section?.props) return section;
-    if (section.componentId === 'hero-with-image' && !section.props.image?.src) {
+    const needsImage =
+      section.componentId === 'hero-with-image' ||
+      section.componentId === 'cta-banner' ||
+      section.componentId === 'testimonials-cards' ||
+      section.componentId === 'process-timeline';
+    if ((needsImage || section.props.imagePrompt) && !section.props.image?.src) {
       const photo = nextPhoto();
       section.props.image = {
         src: photo.src,
@@ -450,11 +455,26 @@ const attachPexelsImages = async ({ site, slug }) => {
     return section;
   };
 
+  const flattenSections = (siteObj) => {
+    const arr = [];
+    if (Array.isArray(siteObj.sections)) arr.push(...siteObj.sections);
+    if (Array.isArray(siteObj.pages)) {
+      siteObj.pages.forEach((page) => {
+        if (Array.isArray(page.sections)) arr.push(...page.sections);
+      });
+    }
+    return arr;
+  };
+
   let hasGallery = false;
+  let imagesAssigned = 0;
+
   if (Array.isArray(site.sections)) {
     site.sections = site.sections.map((section) => {
       if (section.componentId === 'gallery-carousel') hasGallery = true;
-      return maybeAttach({ ...section });
+      const updated = maybeAttach({ ...section });
+      if (updated.props?.image?.src) imagesAssigned += 1;
+      return updated;
     });
   }
   if (Array.isArray(site.pages)) {
@@ -463,7 +483,9 @@ const attachPexelsImages = async ({ site, slug }) => {
       sections: Array.isArray(page.sections)
         ? page.sections.map((section) => {
             if (section.componentId === 'gallery-carousel') hasGallery = true;
-            return maybeAttach({ ...section });
+            const updated = maybeAttach({ ...section });
+            if (updated.props?.image?.src) imagesAssigned += 1;
+            return updated;
           })
         : page.sections,
     }));
@@ -491,6 +513,35 @@ const attachPexelsImages = async ({ site, slug }) => {
         items: galleryItems,
       },
     });
+  }
+
+  // Ensure at least 3 images are sprinkled across sections by attaching to eligible sections lacking imagery.
+  const eligibleForImages = new Set([
+    'hero-with-image',
+    'cta-banner',
+    'testimonials-cards',
+    'process-timeline',
+    'features-grid',
+    'pricing-table',
+    'stats-showcase',
+    'faq-accordion',
+  ]);
+  const allSections = flattenSections(site);
+  for (const section of allSections) {
+    if (imagesAssigned >= 3) break;
+    if (!eligibleForImages.has(section.componentId)) continue;
+    if (section.props?.image?.src) continue;
+    const photo = nextPhoto();
+    section.props = {
+      ...(section.props || {}),
+      image: {
+        src: photo.src,
+        alt: photo.alt,
+        credit: photo.photographer,
+        creditUrl: photo.creditUrl,
+      },
+    };
+    imagesAssigned += 1;
   }
 
   return site;
