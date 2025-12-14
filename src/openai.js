@@ -5,6 +5,7 @@ const { validateSiteQuality } = require('./site-schema');
 const { SECTION_MANIFEST, SECTION_IDS } = require('./sections/registry');
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini-2024-07-18';
+const FALLBACK_MODEL = process.env.OPENAI_FALLBACK_MODEL || 'gpt-5.1';
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
 
 const TEMPLATE_INDEX_PATH = path.join(__dirname, '..', 'templates', 'template-library.json');
@@ -344,64 +345,75 @@ const generateSiteWithOpenAI = async ({ sourceUrl, description, businessDetails,
   if (!apiKey) throw new Error('OPENAI_API_KEY is required');
 
   const prompt = buildPrompt({ sourceUrl, description, businessDetails, sourceSummary });
-  const body = {
-    model: DEFAULT_MODEL,
-    temperature: 0.4,
-    input: [
-      {
-        role: 'system',
-        content:
-          'You produce elite marketing site layouts. Output must be valid JSON matching the provided schema and include props for every section.',
+  const runModel = async (modelName) => {
+    const body = {
+      model: modelName,
+      temperature: 0.4,
+      input: [
+        {
+          role: 'system',
+          content:
+            'You produce elite marketing site layouts. Output must be valid JSON matching the provided schema and include props for every section.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      text: {
+        format: buildTextFormat(),
       },
-      {
-        role: 'user',
-        content: prompt,
+    };
+
+    const response = await fetch(OPENAI_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
       },
-    ],
-    text: {
-      format: buildTextFormat(),
-    },
+      body: JSON.stringify(body),
+    });
+
+    const json = await response.json();
+    if (!response.ok) {
+      const error = new Error(`OpenAI request failed: ${response.status} ${response.statusText}`);
+      error.body = json;
+      throw error;
+    }
+
+    const text = extractOutputText(json);
+    let parsed = null;
+    try {
+      parsed = JSON.parse(text);
+    } catch (error) {
+      const err = new Error('OpenAI response was not valid JSON');
+      err.body = text;
+      throw err;
+    }
+
+    const allowedVibes = new Set(['luxury', 'tech', 'playful', 'earthy']);
+    if (parsed?.theme && !allowedVibes.has(parsed.theme.vibe)) {
+      parsed.theme.vibe = 'tech';
+    }
+
+    const validation = validateSiteQuality(parsed);
+    return { validation, rawText: text };
   };
 
-  const response = await fetch(OPENAI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  const json = await response.json();
-  if (!response.ok) {
-    const error = new Error(`OpenAI request failed: ${response.status} ${response.statusText}`);
-    error.body = json;
-    throw error;
+  const primary = await runModel(DEFAULT_MODEL);
+  if (primary.validation.valid && primary.validation.site) {
+    return { site: primary.validation.site, rawText: primary.rawText };
   }
 
-  const text = extractOutputText(json);
-  let parsed = null;
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    const err = new Error('OpenAI response was not valid JSON');
-    err.body = text;
+  const fallback = await runModel(FALLBACK_MODEL);
+  if (!fallback.validation.valid || !fallback.validation.site) {
+    const err = new Error(
+      `Site JSON failed validation after fallback: ${JSON.stringify(fallback.validation.errors || [], null, 2)}`
+    );
+    err.body = fallback.rawText;
     throw err;
   }
-
-  const allowedVibes = new Set(['luxury', 'tech', 'playful', 'earthy']);
-  if (parsed?.theme && !allowedVibes.has(parsed.theme.vibe)) {
-    parsed.theme.vibe = 'tech';
-  }
-
-  const validation = validateSiteQuality(parsed);
-  if (!validation.valid || !validation.site) {
-    const err = new Error(`Site JSON failed validation: ${JSON.stringify(validation.errors || [], null, 2)}`);
-    err.body = text;
-    throw err;
-  }
-
-  return { site: validation.site, rawText: text };
+  return { site: fallback.validation.site, rawText: fallback.rawText };
 };
 
 const generateSitePatchWithOpenAI = async ({ site, instructions, assets }) => {
