@@ -361,6 +361,10 @@ const buildTestSiteConfig = ({ url, description }) => {
 const BASE_BUNDLE_DIR =
   process.env.BASE_BUNDLE_DIR ||
   path.join(__dirname, '..', 'templates', 'site-base', 'dist');
+const BASE_BUNDLE_CANONICAL_PREFIX = (process.env.BASE_BUNDLE_PREFIX || 'site-base/latest').replace(
+  /\/+$/,
+  ''
+);
 
 const buildJsonKeys = ({ prefix }) => {
   const base = (prefix || '').replace(/\/+$/, '');
@@ -679,6 +683,60 @@ const ensureBaseBundleUploaded = async ({ bucket, prefix }) => {
   const s3 = new AWS.S3();
   const normalizedPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : '';
   const indexKey = `${normalizedPrefix}index.html`;
+  const canonicalPrefix = BASE_BUNDLE_CANONICAL_PREFIX ? `${BASE_BUNDLE_CANONICAL_PREFIX}/` : '';
+  const canonicalIndex = `${canonicalPrefix}index.html`;
+
+  const listBundleFiles = () => {
+    const files = [];
+    const walk = (dir, base = '') => {
+      fs.readdirSync(dir).forEach((entry) => {
+        const full = path.join(dir, entry);
+        const rel = base ? `${base}/${entry}` : entry;
+        const stat = fs.statSync(full);
+        if (stat.isDirectory()) {
+          walk(full, rel);
+        } else {
+          files.push(rel);
+        }
+      });
+    };
+    walk(BASE_BUNDLE_DIR, '');
+    return files;
+  };
+
+  const copyBundleFromCanonical = async () => {
+    const files = listBundleFiles();
+    await Promise.all(
+      files.map((file) =>
+        s3
+          .copyObject({
+            Bucket: bucket,
+            CopySource: `/${bucket}/${canonicalPrefix}${file}`,
+            Key: `${normalizedPrefix}${file}`,
+            MetadataDirective: 'COPY',
+          })
+          .promise()
+      )
+    );
+  };
+
+  const canonicalExists = async () => {
+    try {
+      await s3
+        .headObject({
+          Bucket: bucket,
+          Key: canonicalIndex,
+        })
+        .promise();
+      return true;
+    } catch (error) {
+      if (error.code && ['NotFound', 'NoSuchKey'].includes(error.code)) return false;
+      throw error;
+    }
+  };
+
+  const uploadCanonical = async () => uploadToS3(BASE_BUNDLE_DIR, { bucket, prefix: canonicalPrefix });
+
   try {
     await s3
       .headObject({
@@ -693,7 +751,10 @@ const ensureBaseBundleUploaded = async ({ bucket, prefix }) => {
     }
   }
 
-  await uploadToS3(BASE_BUNDLE_DIR, { bucket, prefix });
+  if (!(await canonicalExists())) {
+    await uploadCanonical();
+  }
+  await copyBundleFromCanonical();
   return true;
 };
 
