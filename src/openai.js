@@ -4,7 +4,7 @@ const path = require('node:path');
 const { validateSiteQuality } = require('./site-schema');
 const { SECTION_MANIFEST, SECTION_IDS } = require('./sections/registry');
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-5.1';
+const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini-2024-07-18';
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
 
 const TEMPLATE_INDEX_PATH = path.join(__dirname, '..', 'templates', 'template-library.json');

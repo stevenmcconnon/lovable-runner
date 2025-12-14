@@ -856,14 +856,8 @@ const runLaunch = async ({
       businessDetails,
       sourceSummary,
     });
-    siteConfig =
-      (await refineThemePalette({
-        site: result.site,
-        sourceUrl: url,
-        sourceSummary,
-        description,
-        businessDetails,
-      })) || result.site;
+    // Skip async palette refinement to keep launch latency low; use generated theme directly.
+    siteConfig = result.site;
     if (!siteConfig.templateId) {
       siteConfig.templateId = 'consulting-b2b';
     }
