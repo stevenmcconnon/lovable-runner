@@ -382,7 +382,7 @@ const attachPexelsImages = async ({ site, slug }) => {
   const photos = await pickPexelsImages({ query, count: 6, seedValue: seed });
   const fallback = {
     id: 'placeholder',
-    src: '/placeholder.svg',
+    src: 'placeholder.svg',
     alt: query,
     photographer: 'Placeholder',
     creditUrl: '',
@@ -456,6 +456,9 @@ const normalizeSiteSections = (site = {}) => {
   const normalize = (sections = []) =>
     enforceSingleStatsBlock(
       sections.map((section) => {
+        if (section.componentId === 'hero-with-image' && section.props?.stats) {
+          return { ...section, props: { ...section.props, stats: [] } };
+        }
         if (section.componentId === 'stats-showcase' && Array.isArray(section.props?.stats)) {
           return {
             ...section,
