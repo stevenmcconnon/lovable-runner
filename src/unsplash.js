@@ -60,6 +60,10 @@ const pickUnsplashImages = async ({ query, count = 4, seedValue = '' }) => {
         photo.urls?.thumb ||
         null,
       alt: photo.alt_description || photo.description || query,
+      description: photo.description || null,
+      tags: Array.isArray(photo.tags)
+        ? photo.tags.map((tag) => tag?.title).filter(Boolean)
+        : undefined,
       creditUrl: photo.links?.html,
     }));
   } catch (error) {

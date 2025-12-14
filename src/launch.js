@@ -403,6 +403,73 @@ const tokenizeKeywords = (text = '') =>
     .split(/\s+/)
     .filter((word) => word.length > 2 && !IMAGE_STOP_WORDS.has(word));
 
+const buildKeywordSet = (...phrases) => {
+  const keywords = new Set();
+  phrases
+    .filter((phrase) => typeof phrase === 'string' && phrase.trim().length > 0)
+    .forEach((phrase) => {
+      tokenizeKeywords(phrase).forEach((token) => keywords.add(token));
+    });
+  return keywords;
+};
+
+const ABSTRACT_IMAGE_TERMS = [
+  'abstract',
+  'gradient',
+  'pattern',
+  'texture',
+  'render',
+  'rendered',
+  '3d',
+  'digital art',
+  'wallpaper',
+  'background',
+  'mesh',
+  'illustration',
+  'graphic',
+  'vector',
+  'shape',
+];
+
+const OFF_TOPIC_IMAGE_TERMS = [
+  'cat',
+  'kitten',
+  'dog',
+  'puppy',
+  'animal',
+  'pet',
+  'horse',
+  'bird',
+  'space',
+  'galaxy',
+  'nebula',
+  'anime',
+  'cartoon',
+];
+
+const describePhotoText = (photo) => {
+  if (!photo) return '';
+  return [
+    photo.alt || '',
+    photo.description || '',
+    Array.isArray(photo.tags) ? photo.tags.join(' ') : '',
+  ]
+    .join(' ')
+    .toLowerCase();
+};
+
+const isAbstractImage = (photo) => {
+  const text = describePhotoText(photo);
+  if (!text.trim()) return false;
+  return ABSTRACT_IMAGE_TERMS.some((term) => text.includes(term));
+};
+
+const isOffTopicPhoto = (photo) => {
+  const text = describePhotoText(photo);
+  if (!text.trim()) return false;
+  return OFF_TOPIC_IMAGE_TERMS.some((term) => text.includes(term));
+};
+
 const buildGeneralImageQuery = ({ site = {}, businessDetails = {}, slug = '', description = '' }) => {
   const phrases = [];
   const push = (value) => {
@@ -478,6 +545,102 @@ const estimateImageDemand = (site = {}) => {
   return Math.max(count, 8);
 };
 
+const findHeroSection = (site = {}) => {
+  if (Array.isArray(site.sections)) {
+    const hero = site.sections.find((section) => section.componentId === 'hero-with-image');
+    if (hero) return hero;
+  }
+  if (Array.isArray(site.pages)) {
+    for (const page of site.pages) {
+      if (!Array.isArray(page.sections)) continue;
+      const hero = page.sections.find((section) => section.componentId === 'hero-with-image');
+      if (hero) return hero;
+    }
+  }
+  return null;
+};
+
+const scoreHeroPhoto = (photo, { heroKeywords, serviceKeywords }) => {
+  if (!photo) return -Infinity;
+  const text = describePhotoText(photo);
+  let score = 0;
+  heroKeywords.forEach((keyword) => {
+    if (text.includes(keyword)) score += 4;
+  });
+  serviceKeywords.forEach((keyword) => {
+    if (text.includes(keyword)) score += 2;
+  });
+  if (isAbstractImage(photo)) score -= 10;
+  if (isOffTopicPhoto(photo)) score -= 8;
+  if (photo.alt && /team|crew|people|family|project|studio/.test(photo.alt.toLowerCase())) {
+    score += 1;
+  }
+  return score;
+};
+
+const selectHeroPhotoIndex = (photos, { heroKeywords, serviceKeywords }) => {
+  if (!photos.length) return 0;
+  let bestIdx = 0;
+  let bestScore = -Infinity;
+  photos.forEach((photo, idx) => {
+    const score = scoreHeroPhoto(photo, { heroKeywords, serviceKeywords });
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  });
+  if (bestScore <= 0) {
+    const nonAbstractIdx = photos.findIndex((photo) => !isAbstractImage(photo));
+    if (nonAbstractIdx !== -1) return nonAbstractIdx;
+  }
+  return bestIdx;
+};
+
+const scorePhotoForSite = (photo, { heroKeywords, serviceKeywords }) => {
+  if (!photo) return -Infinity;
+  const text = describePhotoText(photo);
+  let score = 0;
+  serviceKeywords.forEach((keyword) => {
+    if (text.includes(keyword)) score += 3;
+  });
+  heroKeywords.forEach((keyword) => {
+    if (text.includes(keyword)) score += 2;
+  });
+  if (isAbstractImage(photo)) score -= 6;
+  if (isOffTopicPhoto(photo)) score -= 10;
+  return score;
+};
+
+const filterRelevantPhotos = (photos, { heroKeywords, serviceKeywords }) => {
+  if (!photos.length) return photos;
+  const keywordWeight = heroKeywords.size + serviceKeywords.size;
+  const threshold = keywordWeight > 0 ? 1 : -2;
+  const evaluated = photos
+    .map((photo, idx) => ({
+      photo,
+      idx,
+      score: scorePhotoForSite(photo, { heroKeywords, serviceKeywords }),
+    }))
+    .filter((entry) => entry.score >= threshold);
+  if (!evaluated.length) {
+    const nonAbstract = photos.filter((photo) => !isAbstractImage(photo) && !isOffTopicPhoto(photo));
+    return nonAbstract.length ? nonAbstract : photos;
+  }
+  evaluated.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  return evaluated.map((entry) => entry.photo);
+};
+
+const elevateGallerySection = (sections = []) => {
+  if (!Array.isArray(sections)) return sections;
+  const galleryIdx = sections.findIndex((section) => section.componentId === 'gallery-carousel');
+  if (galleryIdx > 0 && galleryIdx > 3) {
+    const [gallery] = sections.splice(galleryIdx, 1);
+    const targetIndex = Math.min(3, sections.length);
+    sections.splice(targetIndex, 0, gallery);
+  }
+  return sections;
+};
+
 const attachStockImages = async ({ site, slug, businessDetails, description }) => {
   if (!site || !slug) return site;
   const bucket =
@@ -486,8 +649,10 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
     process.env.TEMPLATE_UPLOAD_BUCKET;
   const s3 = bucket ? new AWS.S3() : null;
 
-  const downloadAndCache = async (url) => {
-    if (!s3 || !bucket || !url) return url;
+  const downloadAndCache = async (src) => {
+    if (!s3 || !bucket) return src;
+    const url = typeof src === 'string' ? src.trim() : '';
+    if (!url || !/^https?:/i.test(url)) return url;
     try {
       const extMatch = url.match(/\.(jpg|jpeg|png|webp)(\?.*)?$/i);
       const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
@@ -540,6 +705,24 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
   const generalQuery = buildGeneralImageQuery({ site, businessDetails, slug, description });
   const promptQueries = collectImagePrompts(site);
   const estimatedNeed = estimateImageDemand(site);
+  const heroSourceSection = findHeroSection(site);
+  const heroKeywords = buildKeywordSet(
+    heroSourceSection?.props?.title,
+    heroSourceSection?.props?.subtitle,
+    heroSourceSection?.props?.eyebrow,
+    site.meta?.brandName,
+    businessDetails?.businessName,
+    description
+  );
+  const serviceKeywords = buildKeywordSet(
+    generalQuery,
+    site.meta?.headline,
+    site.meta?.subheadline,
+    site.meta?.location,
+    businessDetails?.businessType,
+    businessDetails?.additionalDetails,
+    slug ? slug.replace(/-/g, ' ') : ''
+  );
 
   const collectedPhotos = [];
   const seen = new Set();
@@ -573,12 +756,14 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
     addPhotos(generalPhotos);
   }
 
-  const photos = collectedPhotos.length ? collectedPhotos : [];
+  const rawPhotos = collectedPhotos.length ? collectedPhotos : [];
+  const photos = filterRelevantPhotos(rawPhotos, { heroKeywords, serviceKeywords });
   const fallbackPool = [
     {
       id: 'outdoor-1',
       src: 'https://images.pexels.com/photos/953249/pexels-photo-953249.jpeg?auto=compress&cs=tinysrgb&w=1600',
       alt: 'Crew using chainsaw on a fallen tree trunk',
+      description: 'Arbor crew cutting a tree trunk outdoors',
       photographer: 'Pexels',
       creditUrl: 'https://www.pexels.com/photo/person-cutting-tree-953249/',
     },
@@ -586,6 +771,7 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
       id: 'outdoor-2',
       src: 'https://images.pexels.com/photos/1782268/pexels-photo-1782268.jpeg?auto=compress&cs=tinysrgb&w=1600',
       alt: 'Worker grinding a stump in a backyard',
+      description: 'Outdoor crew using a stump grinder in a backyard',
       photographer: 'Pexels',
       creditUrl: 'https://www.pexels.com/photo/person-using-stump-grinder-1782268/',
     },
@@ -593,6 +779,7 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
       id: 'outdoor-3',
       src: 'https://images.pexels.com/photos/953219/pexels-photo-953219.jpeg?auto=compress&cs=tinysrgb&w=1600',
       alt: 'Hands holding work gloves and small tool outdoors',
+      description: 'Hands holding work gloves and tools outside',
       photographer: 'Pexels',
       creditUrl: 'https://www.pexels.com/photo/person-holding-gray-gloves-953219/',
     },
@@ -600,6 +787,7 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
       id: 'outdoor-4',
       src: 'https://images.pexels.com/photos/442297/pexels-photo-442297.jpeg?auto=compress&cs=tinysrgb&w=1600',
       alt: 'Palm trees under a clear sky',
+      description: 'Palm trees and sunshine',
       photographer: 'Pexels',
       creditUrl: 'https://www.pexels.com/photo/green-palm-trees-under-blue-sky-442297/',
     },
@@ -607,6 +795,7 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
       id: 'outdoor-5',
       src: 'https://images.pexels.com/photos/629158/pexels-photo-629158.jpeg?auto=compress&cs=tinysrgb&w=1600',
       alt: 'Cut wood stacked on the ground',
+      description: 'Freshly cut firewood stacked neatly',
       photographer: 'Pexels',
       creditUrl: 'https://www.pexels.com/photo/stack-of-firewoods-629158/',
     },
@@ -614,41 +803,65 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
       id: 'outdoor-6',
       src: 'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&w=1600',
       alt: 'Sunlit path through greenery',
+      description: 'Sunlit garden pathway surrounded by greenery',
       photographer: 'Pexels',
       creditUrl: 'https://www.pexels.com/photo/landscape-photo-of-pathway-surrounded-by-green-leaf-trees-1301856/',
     },
   ];
 
   const pool = photos.length ? photos : fallbackPool;
+  let availablePhotos = [...pool];
+  let recycledPhotos = [];
+  const takePhoto = (selectIndexFn, options = {}) => {
+    if (!availablePhotos.length) {
+      availablePhotos = recycledPhotos;
+      recycledPhotos = [];
+    }
+    if (!availablePhotos.length) return null;
+    let index = 0;
+    if (typeof selectIndexFn === 'function') {
+      index = selectIndexFn(availablePhotos);
+    }
+    if (!Number.isFinite(index)) index = 0;
+    index = Math.max(0, Math.min(index, availablePhotos.length - 1));
+    const [photo] = availablePhotos.splice(index, 1);
+    if (!options.preventReuse) {
+      recycledPhotos.push(photo);
+    }
+    return photo;
+  };
 
-  const nextPhoto = (() => {
-    let idx = 0;
-    return () => {
-      const photo = pool[idx % pool.length];
-      idx += 1;
-      return photo;
-    };
-  })();
-
+  let heroFilled = false;
   const maybeAttach = (section) => {
     if (!section?.props) return section;
+    const updated = { ...section, props: { ...(section.props || {}) } };
+    const isHero = section.componentId === 'hero-with-image' && !heroFilled;
     const needsImage =
-      section.componentId === 'hero-with-image' ||
-      section.componentId === 'cta-banner' ||
-      section.componentId === 'process-timeline';
-    if ((needsImage || section.props.imagePrompt) && !section.props.image?.src) {
-      const photo = nextPhoto();
-      section.props.image = {
-        src: photo.src,
-        alt: photo.alt,
-        credit: photo.photographer,
-        creditUrl: photo.creditUrl,
-      };
+      isHero || section.componentId === 'cta-banner' || section.componentId === 'process-timeline';
+    if ((needsImage || updated.props.imagePrompt) && !updated.props.image?.src) {
+      const photo = isHero
+        ? takePhoto(
+            (list) => selectHeroPhotoIndex(list, { heroKeywords, serviceKeywords }),
+            { preventReuse: true }
+          )
+        : takePhoto();
+      if (photo) {
+        updated.props.image = {
+          src: photo.src,
+          alt: isHero
+            ? updated.props.title || updated.props.subtitle || photo.alt
+            : photo.alt,
+          credit: photo.photographer,
+          creditUrl: photo.creditUrl,
+        };
+        if (isHero) heroFilled = true;
+      }
     }
-    if (section.componentId === 'gallery-carousel' && Array.isArray(section.props.items)) {
-      section.props.items = section.props.items.map((item) => {
+    if (updated.componentId === 'gallery-carousel' && Array.isArray(updated.props.items)) {
+      updated.props.items = updated.props.items.map((item) => {
         if (item?.image?.src) return item;
-        const photo = nextPhoto();
+        const photo = takePhoto();
+        if (!photo) return item;
         return {
           ...item,
           image: {
@@ -660,7 +873,27 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
         };
       });
     }
-    return section;
+    return updated;
+  };
+
+  const harvestGalleryItems = (count = 4) => {
+    const items = [];
+    for (let i = 0; i < count; i += 1) {
+      const photo = takePhoto();
+      if (!photo) break;
+      items.push({
+        title: `Snapshot ${i + 1}`,
+        description: 'Recent work and client moments.',
+        badge: 'Highlights',
+        image: {
+          src: photo.src,
+          alt: photo.alt,
+          credit: photo.photographer,
+          creditUrl: photo.creditUrl,
+        },
+      });
+    }
+    return items;
   };
 
   const flattenSections = (siteObj) => {
@@ -680,7 +913,7 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
   if (Array.isArray(site.sections)) {
     site.sections = site.sections.map((section) => {
       if (section.componentId === 'gallery-carousel') hasGallery = true;
-      const updated = maybeAttach({ ...section });
+      const updated = maybeAttach(section);
       if (updated.props?.image?.src) imagesAssigned += 1;
       return updated;
     });
@@ -691,7 +924,7 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
       sections: Array.isArray(page.sections)
         ? page.sections.map((section) => {
             if (section.componentId === 'gallery-carousel') hasGallery = true;
-            const updated = maybeAttach({ ...section });
+            const updated = maybeAttach(section);
             if (updated.props?.image?.src) imagesAssigned += 1;
             return updated;
           })
@@ -699,28 +932,21 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
     }));
   }
 
-    if (!hasGallery && pool.length) {
-      const galleryItems = pool.slice(0, 4).map((photo, idx) => ({
-        title: `Snapshot ${idx + 1}`,
-        description: 'Recent work and client moments.',
-        badge: 'Highlights',
-      image: {
-        src: photo.src,
-        alt: photo.alt,
-        credit: photo.photographer,
-        creditUrl: photo.creditUrl,
-      },
-    }));
-    site.sections = site.sections || [];
-    site.sections.push({
-      id: 'gallery',
-      componentId: 'gallery-carousel',
-      props: {
-        title: 'Recent highlights',
-        subtitle: 'A few glimpses from recent client work and planning sessions.',
-        items: galleryItems,
-      },
-    });
+  if (!hasGallery && pool.length) {
+    const galleryItems = harvestGalleryItems(4);
+    if (galleryItems.length) {
+      site.sections = site.sections || [];
+      site.sections.push({
+        id: 'gallery',
+        componentId: 'gallery-carousel',
+        props: {
+          title: 'Recent highlights',
+          subtitle: 'A few glimpses from recent client work and planning sessions.',
+          items: galleryItems,
+        },
+      });
+      imagesAssigned += galleryItems.length;
+    }
   }
 
   // Ensure at least 3 images are sprinkled across sections by attaching to eligible sections lacking imagery.
@@ -739,7 +965,8 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
     if (imagesAssigned >= MIN_IMAGES) break;
     if (!eligibleForImages.has(section.componentId)) continue;
     if (section.props?.image?.src) continue;
-    const photo = nextPhoto();
+    const photo = takePhoto();
+    if (!photo) break;
     section.props = {
       ...(section.props || {}),
       image: {
@@ -755,6 +982,7 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
   // Rehost images into canonical bundle to avoid hotlink failures.
   const rewriteImage = async (image) => {
     if (!image?.src) return image;
+    if (!/^https?:/i.test(image.src)) return image;
     const cachedSrc = await downloadAndCache(image.src);
     return { ...image, src: cachedSrc };
   };
@@ -877,12 +1105,14 @@ const normalizeSiteSections = (site = {}) => {
       })
     );
   if (Array.isArray(site.sections)) {
-    site.sections = normalize(site.sections);
+    site.sections = elevateGallerySection(normalize(site.sections));
   }
   if (Array.isArray(site.pages)) {
     site.pages = site.pages.map((page) => ({
       ...page,
-      sections: Array.isArray(page.sections) ? normalize(page.sections) : page.sections,
+      sections: Array.isArray(page.sections)
+        ? elevateGallerySection(normalize(page.sections))
+        : page.sections,
     }));
   }
   const allowedVibes = new Set(['luxury', 'tech', 'playful', 'earthy']);
