@@ -678,68 +678,10 @@ const deriveTemplateSummary = (site = {}) => {
 };
 
 const ensureBaseBundleUploaded = async ({ bucket, prefix }) => {
+  // No per-slug bundle uploads; rely on canonical bundle being present at BASE_BUNDLE_CANONICAL_PREFIX
   const s3 = new AWS.S3();
-  const normalizedPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : '';
-  const indexKey = `${normalizedPrefix}index.html`;
   const canonicalPrefix = BASE_BUNDLE_CANONICAL_PREFIX ? `${BASE_BUNDLE_CANONICAL_PREFIX}/` : '';
   const canonicalIndex = `${canonicalPrefix}index.html`;
-
-  const listBundleFilesLocal = () => {
-    const files = [];
-    const walk = (dir, base = '') => {
-      fs.readdirSync(dir).forEach((entry) => {
-        const full = path.join(dir, entry);
-        const rel = base ? `${base}/${entry}` : entry;
-        const stat = fs.statSync(full);
-        if (stat.isDirectory()) {
-          walk(full, rel);
-        } else {
-          files.push(rel);
-        }
-      });
-    };
-    walk(BASE_BUNDLE_DIR, '');
-    return files;
-  };
-
-  const listBundleFilesFromS3 = async () => {
-    const files = [];
-    let ContinuationToken;
-    do {
-      const resp = await s3
-        .listObjectsV2({
-          Bucket: bucket,
-          Prefix: canonicalPrefix,
-          ContinuationToken,
-        })
-        .promise();
-      (resp.Contents || []).forEach((obj) => {
-        const rel = obj.Key.replace(canonicalPrefix, '');
-        if (rel && !rel.endsWith('/')) files.push(rel);
-      });
-      ContinuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
-    } while (ContinuationToken);
-    return files;
-  };
-
-  const copyBundleFromCanonical = async ({ useLocal }) => {
-    const files = useLocal ? listBundleFilesLocal() : await listBundleFilesFromS3();
-    if (!files.length) {
-      throw new Error('Canonical bundle is empty; cannot copy base bundle.');
-    }
-    await Promise.all(
-      files.map((file) =>
-        s3
-          .copyObject({
-            Bucket: bucket,
-            CopySource: `/${bucket}/${canonicalPrefix}${file}`,
-            Key: `${normalizedPrefix}${file}`,
-            MetadataDirective: 'COPY',
-          })
-          .promise()
-      )
-    );
-  };
 
   const canonicalExists = async () => {
     try {
@@ -756,36 +698,17 @@ const ensureBaseBundleUploaded = async ({ bucket, prefix }) => {
     }
   };
 
-  const uploadCanonical = async () => uploadToS3(BASE_BUNDLE_DIR, { bucket, prefix: canonicalPrefix });
-
-  const localBundlePresent = fs.existsSync(BASE_BUNDLE_DIR);
-
-  try {
-    await s3
-      .headObject({
-        Bucket: bucket,
-        Key: indexKey,
-      })
-      .promise();
-    return false;
-  } catch (error) {
-    if (error.code && !['NotFound', 'NoSuchKey'].includes(error.code)) {
-      throw error;
+  const uploadCanonical = async () => {
+    if (!fs.existsSync(BASE_BUNDLE_DIR)) {
+      throw new Error(`Base bundle not found locally at ${BASE_BUNDLE_DIR}. Build site-base first.`);
     }
-  }
+    await uploadToS3(BASE_BUNDLE_DIR, { bucket, prefix: BASE_BUNDLE_CANONICAL_PREFIX });
+  };
 
   const canonicalReady = await canonicalExists();
-  if (!localBundlePresent && !canonicalReady) {
-    throw new Error(
-      `Base bundle not found locally (${BASE_BUNDLE_DIR}) and canonical copy missing. Build site-base or upload canonical bundle first.`
-    );
-  }
-
-  if (!canonicalReady && localBundlePresent) {
+  if (!canonicalReady) {
     await uploadCanonical();
   }
-
-  await copyBundleFromCanonical({ useLocal: localBundlePresent });
   return true;
 };
 
