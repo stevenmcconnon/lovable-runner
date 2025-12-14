@@ -630,12 +630,6 @@ const normalizeSiteSections = (site = {}) => {
       sections: Array.isArray(page.sections) ? normalize(page.sections) : page.sections,
     }));
   }
-  const allowedVibes = new Set(['luxury', 'tech', 'playful', 'earthy']);
-  if (site.theme) {
-    if (!allowedVibes.has(site.theme.vibe)) {
-      site.theme.vibe = 'tech';
-    }
-  }
   return site;
 };
 
