@@ -1,25 +1,7 @@
-const { runLaunch } = require('./src/launch');
+const { randomUUID } = require('node:crypto');
 const { handleEditRequestJob, handleSiteLaunchJob } = require('./src/jobs');
 const { parseJsonBody, json } = require('./src/http');
 const { handleHttpEvent, isApiGatewayEvent } = require('./src/api');
-
-const handleLegacyLaunch = async (event = {}) => {
-  const parsedBody = parseJsonBody(event);
-  const body =
-    parsedBody && Object.keys(parsedBody).length
-      ? parsedBody
-      : typeof event === 'object' && event !== null
-      ? event
-      : {};
-  const result = await runLaunch({
-    url: body.url,
-    prefix: body.prefix || process.env.LOVABLE_DEPLOY_PREFIX,
-    slug: body.slug,
-    description: body.description,
-    businessDetails: body.businessDetails || body.business,
-  });
-  return json(200, result);
-};
 
 exports.handler = async (event) => {
   try {
@@ -40,7 +22,27 @@ exports.handler = async (event) => {
       const result = await handleSiteLaunchJob(event);
       return json(200, result);
     }
-    return await handleLegacyLaunch(event);
+
+    // Fallback: treat any legacy invocation as a JSON-only launch (no build path).
+    const parsedBody = parseJsonBody(event);
+    const body =
+      parsedBody && Object.keys(parsedBody).length
+        ? parsedBody
+        : typeof event === 'object' && event !== null
+        ? event
+        : {};
+
+    const legacyEvent = {
+      action: 'RUN_SITE_LAUNCH',
+      requestId: body.requestId || body.id || randomUUID(),
+      url: body.url,
+      description: body.description,
+      businessDetails: body.businessDetails || body.business || null,
+      prefix: body.prefix || process.env.LOVABLE_DEPLOY_PREFIX,
+      slug: body.slug,
+    };
+    const result = await handleSiteLaunchJob(legacyEvent);
+    return json(200, result);
   } catch (error) {
     if (isApiGatewayEvent(event)) {
       return json(error.statusCode || 400, { error: error.message || 'Launch failed' });
