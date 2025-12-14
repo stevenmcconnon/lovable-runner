@@ -453,7 +453,21 @@ const enforceSingleStatsBlock = (sections = []) => {
 };
 
 const normalizeSiteSections = (site = {}) => {
-  const normalize = (sections = []) => enforceSingleStatsBlock(sections);
+  const normalize = (sections = []) =>
+    enforceSingleStatsBlock(
+      sections.map((section) => {
+        if (section.componentId === 'stats-showcase' && Array.isArray(section.props?.stats)) {
+          return {
+            ...section,
+            props: {
+              ...section.props,
+              stats: section.props.stats.slice(0, 3),
+            },
+          };
+        }
+        return section;
+      })
+    );
   if (Array.isArray(site.sections)) {
     site.sections = normalize(site.sections);
   }
