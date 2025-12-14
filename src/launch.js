@@ -441,6 +441,31 @@ const attachPexelsImages = async ({ site, slug }) => {
   return site;
 };
 
+const enforceSingleStatsBlock = (sections = []) => {
+  let seenStats = false;
+  return sections.filter((section) => {
+    if (section.componentId === 'stats-showcase') {
+      if (seenStats) return false;
+      seenStats = true;
+    }
+    return true;
+  });
+};
+
+const normalizeSiteSections = (site = {}) => {
+  const normalize = (sections = []) => enforceSingleStatsBlock(sections);
+  if (Array.isArray(site.sections)) {
+    site.sections = normalize(site.sections);
+  }
+  if (Array.isArray(site.pages)) {
+    site.pages = site.pages.map((page) => ({
+      ...page,
+      sections: Array.isArray(page.sections) ? normalize(page.sections) : page.sections,
+    }));
+  }
+  return site;
+};
+
 const buildPublicUrlFromKey = ({ bucket, key }) => {
   const previewDomain = (process.env.PREVIEW_DOMAIN || '').replace(/\/+$/, '');
   const cleanedKey = key.replace(/^\/+/, '');
@@ -634,8 +659,9 @@ const runLaunch = async ({
 
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
 
-  // Attach stock imagery from Pexels (if available) before saving
+  // Attach stock imagery from Pexels (if available) and normalize sections before saving
   siteConfig = await attachPexelsImages({ site: siteConfig, slug: finalSlug });
+  siteConfig = normalizeSiteSections(siteConfig);
 
   return deploySiteFromConfig({
     slug: finalSlug,
