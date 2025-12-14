@@ -12,6 +12,7 @@ const REQUIRED_GROUPS = ['hero', 'services', 'social-proof', 'process', 'support
 const MIN_SECTIONS_TOTAL = 8;
 const MIN_TOTAL_WORDS = 600;
 const BANNED_PHRASES = ['ai sitemaker', 'ai site maker', 'ai-sitemaker', 'lovable'];
+const MAX_STATS_ITEMS = 3;
 
 const SectionSchema = z.object({
   id: z.string().min(2),
@@ -136,6 +137,13 @@ const flattenStrings = (value) => {
 const validateSectionQuality = (section) => {
   const manifest = SECTION_MANIFEST.find((item) => item.id === section.componentId);
   if (!manifest) return `Unknown section component: ${section.componentId}`;
+  if (
+    section.componentId === 'stats-showcase' &&
+    Array.isArray(section.props?.stats) &&
+    section.props.stats.length > MAX_STATS_ITEMS
+  ) {
+    return `stats-showcase should include at most ${MAX_STATS_ITEMS} metrics by default`;
+  }
   const strings = flattenStrings(section.props);
   const totalWords = strings.reduce((acc, str) => acc + countWords(str), 0);
   if (totalWords < manifest.minWordCount) {
