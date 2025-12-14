@@ -131,6 +131,9 @@ const deriveImageSlots = (section = {}) => {
 };
 
 const buildTemplateSummary = (site = {}, metadata = {}) => {
+  // Summaries (component + field map) are kept for quick menus,
+  // but we also preserve full sections/pages with props so the renderer
+  // can hydrate without losing data.
   const mapSections = (sections = []) =>
     sections
       .map((section) => ({
@@ -141,7 +144,7 @@ const buildTemplateSummary = (site = {}, metadata = {}) => {
       }))
       .filter((entry) => entry.componentId);
 
-  const pages = Array.isArray(site.pages)
+  const pageSummaries = Array.isArray(site.pages)
     ? site.pages.map((page) => ({
         path: page?.path,
         title: page?.title,
@@ -150,30 +153,27 @@ const buildTemplateSummary = (site = {}, metadata = {}) => {
     : null;
 
   const sectionSummary = mapSections(site.sections || []);
-  const pageSummary = Array.isArray(site.pages)
-    ? site.pages.map((page) => ({
-        path: page?.path,
-        title: page?.title,
-        sections: mapSections(page?.sections || []),
-      }))
-    : null;
 
   const components = new Set();
   sectionSummary.forEach((item) => components.add(item.componentId));
-  (pageSummary || []).forEach((page) => {
-    (page.sections || []).forEach((section) => {
-      components.add(section.componentId);
-    });
+  (pageSummaries || []).forEach((page) => {
+    (page.sections || []).forEach((section) => components.add(section.componentId));
   });
 
   return {
     templateId: site.templateId || metadata.templateId || null,
-    sections: sectionSummary,
-    pages: pageSummary || undefined,
+    // Full definitions (including props) for rendering/hydration
+    sections: site.sections || [],
+    pages: site.pages || [],
+    // Summaries remain for selection/menus
+    summary: {
+      sections: sectionSummary,
+      pages: pageSummaries || undefined,
+    },
     components: Array.from(components),
     layout: {
       sections: sectionSummary,
-      pages: pageSummary || undefined,
+      pages: pageSummaries || undefined,
     },
   };
 };

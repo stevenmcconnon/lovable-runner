@@ -144,6 +144,11 @@ Parameters:
     Type: String
     Default: 'https://image.thum.io/get/png/width/1200/noanimate'
     Description: Base URL for screenshot service (appends ?url=...; leave blank to disable thumbnails).
+  UnsplashAccessKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Access key for the Unsplash API (used for stock imagery).
 
 Conditions:
   HasCustomDomain: !And
@@ -286,6 +291,7 @@ Resources:
           SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
           SITE_DOCS_TOKEN: !Ref SiteDocsToken
           THUMBNAIL_SERVICE_BASE: !Ref ThumbnailServiceBase
+          UNSPLASH_ACCESS_KEY: !Ref UnsplashAccessKey
       Events:
         RootProxy:
           Type: HttpApi

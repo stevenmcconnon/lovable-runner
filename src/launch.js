@@ -7,7 +7,8 @@ const { generateSiteWithOpenAI } = require('./openai');
 const { refineThemePalette } = require('./color-agent');
 const { saveSiteConfig } = require('./site-store');
 const { uploadToS3 } = require('./deploy');
-const { pickPexelsImages } = require('./pexels');
+const { pickUnsplashImages } = require('./unsplash');
+const crypto = require('node:crypto');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -373,17 +374,206 @@ const buildJsonKeys = ({ prefix }) => {
   return { contentKey, templateKey };
 };
 
-const attachPexelsImages = async ({ site, slug }) => {
-  if (!site || !slug) return site;
-  const seed = `${slug}-${site.meta?.brandName || site.meta?.headline || ''}`;
-  const query =
-    site.meta?.brandName ||
-    site.meta?.headline ||
-    site.meta?.subheadline ||
-    site.seo?.title ||
-    slug;
+const IMAGE_STOP_WORDS = new Set([
+  'and',
+  'the',
+  'with',
+  'your',
+  'from',
+  'into',
+  'that',
+  'this',
+  'their',
+  'best',
+  'more',
+  'than',
+  'are',
+  'our',
+  'you',
+  'for',
+  'near',
+  'area',
+  'local',
+]);
 
-  const photos = await pickPexelsImages({ query, count: 10, seedValue: seed });
+const tokenizeKeywords = (text = '') =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/gi, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !IMAGE_STOP_WORDS.has(word));
+
+const buildGeneralImageQuery = ({ site = {}, businessDetails = {}, slug = '', description = '' }) => {
+  const phrases = [];
+  const push = (value) => {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      phrases.push(value.trim());
+    }
+  };
+
+  push(businessDetails.businessType);
+  push(businessDetails.additionalDetails);
+  push(site.meta?.headline);
+  push(site.meta?.subheadline);
+  push(site.meta?.location);
+  push(site.seo?.title);
+  push(site.seo?.description);
+  push(site.theme?.vibe ? `${site.theme.vibe} aesthetic` : '');
+  push(description);
+  if (slug) push(slug.replace(/-/g, ' '));
+
+  const tokens = [];
+  const seen = new Set();
+  for (const phrase of phrases) {
+    tokenizeKeywords(phrase).forEach((token) => {
+      if (!seen.has(token)) {
+        seen.add(token);
+        tokens.push(token);
+      }
+    });
+  }
+
+  if (tokens.length >= 3) {
+    return tokens.slice(0, 8).join(' ');
+  }
+  const fallback = phrases.find((value) => value && value.length > 3);
+  return fallback || slug || null;
+};
+
+const collectImagePrompts = (site = {}) => {
+  const prompts = new Set();
+  const collectFromSection = (section) => {
+    if (!section?.props) return;
+    if (typeof section.props.imagePrompt === 'string' && section.props.imagePrompt.trim().length) {
+      prompts.add(section.props.imagePrompt.trim());
+    }
+    ['items', 'features', 'tiers'].forEach((key) => {
+      const arr = section.props[key];
+      if (Array.isArray(arr)) {
+        arr.forEach((entry) => {
+          if (typeof entry?.imagePrompt === 'string' && entry.imagePrompt.trim().length) {
+            prompts.add(entry.imagePrompt.trim());
+          }
+        });
+      }
+    });
+  };
+  (site.sections || []).forEach(collectFromSection);
+  (site.pages || []).forEach((page) => (page.sections || []).forEach(collectFromSection));
+  return Array.from(prompts);
+};
+
+const estimateImageDemand = (site = {}) => {
+  let count = 0;
+  const inspect = (section) => {
+    if (!section?.props) return;
+    if (section.props.image) count += 1;
+    if (Array.isArray(section.props.items)) count += section.props.items.length;
+    if (Array.isArray(section.props.features)) count += section.props.features.length;
+    if (Array.isArray(section.props.tiers)) count += section.props.tiers.length;
+    if (section.componentId === 'gallery-carousel') count += 4;
+  };
+  (site.sections || []).forEach(inspect);
+  (site.pages || []).forEach((page) => (page.sections || []).forEach(inspect));
+  return Math.max(count, 8);
+};
+
+const attachStockImages = async ({ site, slug, businessDetails, description }) => {
+  if (!site || !slug) return site;
+  const bucket =
+    process.env.LOVABLE_DEPLOY_BUCKET ||
+    process.env.DEPLOY_BUCKET ||
+    process.env.TEMPLATE_UPLOAD_BUCKET;
+  const s3 = bucket ? new AWS.S3() : null;
+
+  const downloadAndCache = async (url) => {
+    if (!s3 || !bucket || !url) return url;
+    try {
+      const extMatch = url.match(/\.(jpg|jpeg|png|webp)(\?.*)?$/i);
+      const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+      const hash = crypto.createHash('sha1').update(url).digest('hex').slice(0, 20);
+      const key = `${BASE_BUNDLE_CANONICAL_PREFIX}/assets/stock/${hash}.${ext}`;
+
+      try {
+        await s3
+          .headObject({
+            Bucket: bucket,
+            Key: key,
+          })
+          .promise();
+        return `/assets/stock/${hash}.${ext}`;
+      } catch (err) {
+        if (err.code && !['NotFound', 'NoSuchKey'].includes(err.code)) throw err;
+      }
+
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Fetch failed ${resp.status}`);
+      const arrayBuffer = await resp.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const contentType =
+        resp.headers.get('content-type') ||
+        (ext === 'png'
+          ? 'image/png'
+          : ext === 'webp'
+          ? 'image/webp'
+          : 'image/jpeg');
+
+      await s3
+        .putObject({
+          Bucket: bucket,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+          CacheControl: 'public, max-age=31536000, immutable',
+        })
+        .promise();
+
+      return `/assets/stock/${hash}.${ext}`;
+    } catch (error) {
+      console.warn('[images] Failed to cache stock image', { url, err: error?.message });
+      // Fallback to a local placeholder so the UI never shows broken images.
+      return '/placeholder.svg';
+    }
+  };
+
+  const seed = `${slug}-${site.meta?.brandName || site.meta?.headline || ''}`;
+  const generalQuery = buildGeneralImageQuery({ site, businessDetails, slug, description });
+  const promptQueries = collectImagePrompts(site);
+  const estimatedNeed = estimateImageDemand(site);
+
+  const collectedPhotos = [];
+  const seen = new Set();
+  const addPhotos = (items = []) => {
+    items.forEach((photo) => {
+      if (!photo?.src) return;
+      const key = photo.id || photo.src;
+      if (key && seen.has(key)) return;
+      if (key) seen.add(key);
+      collectedPhotos.push(photo);
+    });
+  };
+
+  let promptIndex = 0;
+  for (const prompt of promptQueries.slice(0, 6)) {
+    promptIndex += 1;
+    const promptPhotos = await pickUnsplashImages({
+      query: prompt,
+      count: 4,
+      seedValue: `${seed}-prompt-${promptIndex}`,
+    });
+    addPhotos(promptPhotos);
+  }
+
+  if (generalQuery) {
+    const generalPhotos = await pickUnsplashImages({
+      query: generalQuery,
+      count: Math.min(Math.max(estimatedNeed * 2, 12), 24),
+      seedValue: `${seed}-general`,
+    });
+    addPhotos(generalPhotos);
+  }
+
+  const photos = collectedPhotos.length ? collectedPhotos : [];
   const fallbackPool = [
     {
       id: 'outdoor-1',
@@ -509,11 +699,11 @@ const attachPexelsImages = async ({ site, slug }) => {
     }));
   }
 
-  if (!hasGallery && pool.length) {
-    const galleryItems = pool.slice(0, 4).map((photo, idx) => ({
-      title: `Snapshot ${idx + 1}`,
-      description: 'Recent work and client moments.',
-      badge: 'Highlights',
+    if (!hasGallery && pool.length) {
+      const galleryItems = pool.slice(0, 4).map((photo, idx) => ({
+        title: `Snapshot ${idx + 1}`,
+        description: 'Recent work and client moments.',
+        badge: 'Highlights',
       image: {
         src: photo.src,
         alt: photo.alt,
@@ -560,6 +750,66 @@ const attachPexelsImages = async ({ site, slug }) => {
       },
     };
     imagesAssigned += 1;
+  }
+
+  // Rehost images into canonical bundle to avoid hotlink failures.
+  const rewriteImage = async (image) => {
+    if (!image?.src) return image;
+    const cachedSrc = await downloadAndCache(image.src);
+    return { ...image, src: cachedSrc };
+  };
+
+  const rewriteSectionImages = async (section) => {
+    if (!section?.props) return section;
+    const updated = { ...section, props: { ...(section.props || {}) } };
+    if (updated.props.image) {
+      updated.props.image = await rewriteImage(updated.props.image);
+    }
+    if (Array.isArray(updated.props.items)) {
+      updated.props.items = await Promise.all(
+        updated.props.items.map(async (item) => {
+          if (item?.image) {
+            return { ...item, image: await rewriteImage(item.image) };
+          }
+          return item;
+        })
+      );
+    }
+    if (Array.isArray(updated.props.features)) {
+      updated.props.features = await Promise.all(
+        updated.props.features.map(async (item) => {
+          if (item?.image) {
+            return { ...item, image: await rewriteImage(item.image) };
+          }
+          return item;
+        })
+      );
+    }
+    if (Array.isArray(updated.props.tiers)) {
+      updated.props.tiers = await Promise.all(
+        updated.props.tiers.map(async (item) => {
+          if (item?.image) {
+            return { ...item, image: await rewriteImage(item.image) };
+          }
+          return item;
+        })
+      );
+    }
+    return updated;
+  };
+
+  if (Array.isArray(site.sections)) {
+    site.sections = await Promise.all(site.sections.map(rewriteSectionImages));
+  }
+  if (Array.isArray(site.pages)) {
+    site.pages = await Promise.all(
+      site.pages.map(async (page) => ({
+        ...page,
+        sections: Array.isArray(page.sections)
+          ? await Promise.all(page.sections.map(rewriteSectionImages))
+          : page.sections,
+      }))
+    );
   }
 
   return site;
@@ -640,6 +890,9 @@ const normalizeSiteSections = (site = {}) => {
     if (!allowedVibes.has(site.theme.vibe)) {
       site.theme.vibe = 'tech';
     }
+  }
+  if ((!site.sections || site.sections.length === 0) && Array.isArray(site.pages) && site.pages[0]?.sections) {
+    site.sections = site.pages[0].sections;
   }
   return site;
 };
@@ -842,7 +1095,12 @@ const runLaunch = async ({
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
 
   // Attach stock imagery from Pexels (if available) and normalize sections before saving
-  siteConfig = await attachPexelsImages({ site: siteConfig, slug: finalSlug });
+  siteConfig = await attachStockImages({
+    site: siteConfig,
+    slug: finalSlug,
+    businessDetails,
+    description,
+  });
   siteConfig = normalizeSiteSections(siteConfig);
 
   return deploySiteFromConfig({
