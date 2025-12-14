@@ -380,12 +380,19 @@ const attachPexelsImages = async ({ site, slug }) => {
     slug;
 
   const photos = await pickPexelsImages({ query, count: 6, seedValue: seed });
-  if (!photos.length) return site;
+  const fallback = {
+    id: 'placeholder',
+    src: '/placeholder.svg',
+    alt: query,
+    photographer: 'Placeholder',
+    creditUrl: '',
+  };
+  const pool = photos.length ? photos : [fallback];
 
   const nextPhoto = (() => {
     let idx = 0;
     return () => {
-      const photo = photos[idx % photos.length];
+      const photo = pool[idx % pool.length];
       idx += 1;
       return photo;
     };
