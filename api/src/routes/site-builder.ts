@@ -84,24 +84,7 @@ const patchSchema = z
     path: ['patch'],
   });
 
-const instructionSchema = z.object({
-  instructions: z.string().min(5, 'instructions must contain at least 5 characters'),
-  assets: z
-    .array(
-      z.object({
-        name: z.string().optional(),
-        url: z.string().url(),
-        description: z.string().optional(),
-      })
-    )
-    .optional(),
-  regenerateImages: z.boolean().optional(),
-  requestId: z.string().optional(),
-  description: z.string().optional(),
-  sourceUrl: z.string().optional(),
-});
-
-const editSchema = z
+const instructionSchema = z
   .object({
     instructions: z.string().min(5).optional(),
     patch: z.unknown().optional(),
@@ -377,51 +360,6 @@ export const registerSiteBuilderRoutes = (
     async (request, reply) => {
       const params = slugParamsSchema.parse(request.params);
       const body = instructionSchema.parse(request.body);
-      const record = await loadSiteConfig(params.slug);
-      if (!record?.site) {
-        return reply.code(404).send({ error: 'Site not found' });
-      }
-
-      let assetContext = body.assets ? [...body.assets] : [];
-      try {
-        const listed = await listSiteAssets({ slug: params.slug, limit: 50 });
-        const derived = listed.items.map((item) => ({
-          name: item.key.split('/').pop(),
-          url: item.url,
-          description: item.size ? `${Math.round(item.size / 1024)} KB` : undefined,
-        }));
-        assetContext = [...assetContext, ...derived];
-      } catch (error) {
-        request.log.warn({ err: error }, '[site-builder] Failed to list assets for instructions');
-      }
-
-      const patchResult = await generateSitePatchWithOpenAI({
-        site: record.site,
-        instructions: body.instructions,
-        assets: assetContext,
-      });
-
-      await enqueueSiteUpdate({
-        request,
-        reply,
-        slug: params.slug,
-        patch: patchResult.patch,
-        regenerateImages: body.regenerateImages,
-        description: body.description || patchResult.summary,
-        sourceUrl: body.sourceUrl,
-        requestId: body.requestId,
-        existingRecord: record,
-      });
-    }
-  );
-
-  // Generic edit endpoint (LLM or caller-provided patch)
-  app.post(
-    '/sites/:slug/edits',
-    { preHandler: builderPreHandler },
-    async (request, reply) => {
-      const params = slugParamsSchema.parse(request.params);
-      const body = editSchema.parse(request.body);
       const record = await loadSiteConfig(params.slug);
       if (!record?.site) {
         return reply.code(404).send({ error: 'Site not found' });
