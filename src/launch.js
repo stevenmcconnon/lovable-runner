@@ -574,7 +574,11 @@ const enforceSingleStatsBlock = (sections = []) => {
 const normalizeSiteSections = (site = {}) => {
   const normalizePrice = (value) => {
     if (typeof value !== 'string') return value;
-    return value.replace(/^[\\s]*[£€¥₽₩₹₫₱₦₴]|USD?|CAD|AUD|EUR|GBP|JPY|CHF|CNY|HKD|SGD|NZD/gi, '$').trim();
+    return value
+      .replace(/[£€¥₽₩₹₫₱₦₴]/g, '$')
+      .replace(/\b(USD?|CAD|AUD|EUR|GBP|JPY|CHF|CNY|HKD|SGD|NZD)\b/gi, '$')
+      .replace(/^\s*\$/, '$')
+      .trim();
   };
 
   const normalize = (sections = []) =>
@@ -625,6 +629,12 @@ const normalizeSiteSections = (site = {}) => {
       ...page,
       sections: Array.isArray(page.sections) ? normalize(page.sections) : page.sections,
     }));
+  }
+  const allowedVibes = new Set(['luxury', 'tech', 'playful', 'earthy']);
+  if (site.theme) {
+    if (!allowedVibes.has(site.theme.vibe)) {
+      site.theme.vibe = 'tech';
+    }
   }
   return site;
 };
