@@ -379,35 +379,49 @@ const attachPexelsImages = async ({ site, slug }) => {
     site.seo?.title ||
     slug;
 
-  const photos = await pickPexelsImages({ query, count: 8, seedValue: seed });
+  const photos = await pickPexelsImages({ query, count: 10, seedValue: seed });
   const fallbackPool = [
     {
-      id: 'advisor-1',
+      id: 'work-1',
       src: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Advisor meeting with clients',
+      alt: 'Conversation with clients',
       photographer: 'Pexels',
       creditUrl: 'https://www.pexels.com/photo/man-and-woman-having-a-conversation-3184292/',
     },
     {
-      id: 'advisor-2',
-      src: 'https://images.pexels.com/photos/8349774/pexels-photo-8349774.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Financial planner reviewing charts',
+      id: 'work-2',
+      src: 'https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Team collaborating with laptop',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/a-person-using-a-laptop-while-holding-a-pen-8349774/',
+      creditUrl: 'https://www.pexels.com/photo/two-women-sitting-on-sofa-while-looking-at-macbook-1181406/',
     },
     {
-      id: 'advisor-3',
-      src: 'https://images.pexels.com/photos/7693147/pexels-photo-7693147.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Couple discussing finances with advisor',
+      id: 'work-3',
+      src: 'https://images.pexels.com/photos/3182774/pexels-photo-3182774.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Advisor with notebook and coffee',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/man-in-black-suit-jacket-sitting-beside-woman-in-black-shirt-7693147/',
+      creditUrl: 'https://www.pexels.com/photo/person-holding-white-ceramic-teacup-saucer-on-brown-wooden-table-3182774/',
     },
     {
-      id: 'advisor-4',
-      src: 'https://images.pexels.com/photos/4792289/pexels-photo-4792289.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Advisor at desk with laptop and notes',
+      id: 'work-4',
+      src: 'https://images.pexels.com/photos/3771097/pexels-photo-3771097.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Hands with tablet and charts',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/crop-people-making-deal-in-office-4792289/',
+      creditUrl: 'https://www.pexels.com/photo/crop-people-using-digital-tablet-at-table-3771097/',
+    },
+    {
+      id: 'work-5',
+      src: 'https://images.pexels.com/photos/936137/pexels-photo-936137.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Notebook, glasses, and laptop on desk',
+      photographer: 'Pexels',
+      creditUrl: 'https://www.pexels.com/photo/turned-off-macbook-pro-beside-iphone-936137/',
+    },
+    {
+      id: 'work-6',
+      src: 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Group discussion in office',
+      photographer: 'Pexels',
+      creditUrl: 'https://www.pexels.com/photo/colleagues-talking-at-table-3184465/',
     },
   ];
   const pool = photos.length ? photos : fallbackPool;
@@ -426,7 +440,6 @@ const attachPexelsImages = async ({ site, slug }) => {
     const needsImage =
       section.componentId === 'hero-with-image' ||
       section.componentId === 'cta-banner' ||
-      section.componentId === 'testimonials-cards' ||
       section.componentId === 'process-timeline';
     if ((needsImage || section.props.imagePrompt) && !section.props.image?.src) {
       const photo = nextPhoto();
@@ -516,10 +529,10 @@ const attachPexelsImages = async ({ site, slug }) => {
   }
 
   // Ensure at least 3 images are sprinkled across sections by attaching to eligible sections lacking imagery.
+  const MIN_IMAGES = 4;
   const eligibleForImages = new Set([
     'hero-with-image',
     'cta-banner',
-    'testimonials-cards',
     'process-timeline',
     'features-grid',
     'pricing-table',
@@ -528,7 +541,7 @@ const attachPexelsImages = async ({ site, slug }) => {
   ]);
   const allSections = flattenSections(site);
   for (const section of allSections) {
-    if (imagesAssigned >= 3) break;
+    if (imagesAssigned >= MIN_IMAGES) break;
     if (!eligibleForImages.has(section.componentId)) continue;
     if (section.props?.image?.src) continue;
     const photo = nextPhoto();
