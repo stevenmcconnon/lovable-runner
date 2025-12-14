@@ -7,6 +7,7 @@ const { generateSiteWithOpenAI } = require('./openai');
 const { refineThemePalette } = require('./color-agent');
 const { saveSiteConfig } = require('./site-store');
 const { uploadToS3 } = require('./deploy');
+const { pickPexelsImages } = require('./pexels');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -368,6 +369,71 @@ const buildJsonKeys = ({ prefix }) => {
   return { contentKey, templateKey };
 };
 
+const attachPexelsImages = async ({ site, slug }) => {
+  if (!site || !slug) return site;
+  const seed = `${slug}-${site.meta?.brandName || site.meta?.headline || ''}`;
+  const query =
+    site.meta?.brandName ||
+    site.meta?.headline ||
+    site.meta?.subheadline ||
+    site.seo?.title ||
+    slug;
+
+  const photos = await pickPexelsImages({ query, count: 6, seedValue: seed });
+  if (!photos.length) return site;
+
+  const nextPhoto = (() => {
+    let idx = 0;
+    return () => {
+      const photo = photos[idx % photos.length];
+      idx += 1;
+      return photo;
+    };
+  })();
+
+  const maybeAttach = (section) => {
+    if (!section?.props) return section;
+    if (section.componentId === 'hero-with-image' && !section.props.image?.src) {
+      const photo = nextPhoto();
+      section.props.image = {
+        src: photo.src,
+        alt: photo.alt,
+        credit: photo.photographer,
+        creditUrl: photo.creditUrl,
+      };
+    }
+    if (section.componentId === 'gallery-carousel' && Array.isArray(section.props.items)) {
+      section.props.items = section.props.items.map((item) => {
+        if (item?.image?.src) return item;
+        const photo = nextPhoto();
+        return {
+          ...item,
+          image: {
+            src: photo.src,
+            alt: item?.title || photo.alt,
+            credit: photo.photographer,
+            creditUrl: photo.creditUrl,
+          },
+        };
+      });
+    }
+    return section;
+  };
+
+  if (Array.isArray(site.sections)) {
+    site.sections = site.sections.map((section) => maybeAttach({ ...section }));
+  }
+  if (Array.isArray(site.pages)) {
+    site.pages = site.pages.map((page) => ({
+      ...page,
+      sections: Array.isArray(page.sections)
+        ? page.sections.map((section) => maybeAttach({ ...section }))
+        : page.sections,
+    }));
+  }
+  return site;
+};
+
 const buildPublicUrlFromKey = ({ bucket, key }) => {
   const previewDomain = (process.env.PREVIEW_DOMAIN || '').replace(/\/+$/, '');
   const cleanedKey = key.replace(/^\/+/, '');
@@ -560,6 +626,9 @@ const runLaunch = async ({
   targetPrefix = resolvedPrefix;
 
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
+
+  // Attach stock imagery from Pexels (if available) before saving
+  siteConfig = await attachPexelsImages({ site: siteConfig, slug: finalSlug });
 
   return deploySiteFromConfig({
     slug: finalSlug,
