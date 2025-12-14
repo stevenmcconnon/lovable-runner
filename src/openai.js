@@ -67,6 +67,7 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     'Rules:',
     '- Choose a templateId from the library above, set site.templateId to it, and follow its section order. If it has fewer than 12 sections, add CTA/FAQ/stats/testimonials/gallery/contact to reach a full-length page.',
     '- Always include a CTA banner (`cta-banner`) near the end in addition to the contact form.',
+    '- Assume a US audience: use US spellings, US phone/address formatting, and price everything in USD with the $ symbol (no other currencies).',
     '- Match the templateId to the business type inferred from sourceSummary and businessDetails (e.g., plumber/roofer/home-services, blue-collar trades, photographers/artists, ecommerce/online store, personal brand/portfolio, hospitality/restaurant, SaaS).',
     '- For trades/blue-collar/home-services/photography/personal brand/ecommerce templates, avoid B2B SaaS tone/structure; make the layout and copy feel like that industry (service areas, offers, packages, galleries/portfolios, trust, hours, location).',
     '- Include 8–10 rich sections covering hero, services/features, process, testimonials/social proof, FAQ, pricing or CTA, stats/proof, gallery/media, and contact. Add more only when the source text is long.',

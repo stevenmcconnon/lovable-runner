@@ -572,6 +572,11 @@ const enforceSingleStatsBlock = (sections = []) => {
 };
 
 const normalizeSiteSections = (site = {}) => {
+  const normalizePrice = (value) => {
+    if (typeof value !== 'string') return value;
+    return value.replace(/^[\\s]*[£€¥₽₩₹₫₱₦₴]|USD?|CAD|AUD|EUR|GBP|JPY|CHF|CNY|HKD|SGD|NZD/gi, '$').trim();
+  };
+
   const normalize = (sections = []) =>
     enforceSingleStatsBlock(
       sections.map((section) => {
@@ -593,6 +598,19 @@ const normalizeSiteSections = (site = {}) => {
             props: {
               ...section.props,
               features: section.props.features.slice(0, 4),
+            },
+          };
+        }
+        if (section.componentId === 'pricing-table' && Array.isArray(section.props?.tiers)) {
+          return {
+            ...section,
+            props: {
+              ...section.props,
+              currency: 'USD',
+              tiers: section.props.tiers.map((tier) => ({
+                ...tier,
+                price: normalizePrice(tier.price),
+              })),
             },
           };
         }
