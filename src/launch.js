@@ -386,48 +386,49 @@ const attachPexelsImages = async ({ site, slug }) => {
   const photos = await pickPexelsImages({ query, count: 10, seedValue: seed });
   const fallbackPool = [
     {
-      id: 'work-1',
-      src: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Conversation with clients',
+      id: 'outdoor-1',
+      src: 'https://images.pexels.com/photos/953249/pexels-photo-953249.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Crew using chainsaw on a fallen tree trunk',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/man-and-woman-having-a-conversation-3184292/',
+      creditUrl: 'https://www.pexels.com/photo/person-cutting-tree-953249/',
     },
     {
-      id: 'work-2',
-      src: 'https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Team collaborating with laptop',
+      id: 'outdoor-2',
+      src: 'https://images.pexels.com/photos/1782268/pexels-photo-1782268.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Worker grinding a stump in a backyard',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/two-women-sitting-on-sofa-while-looking-at-macbook-1181406/',
+      creditUrl: 'https://www.pexels.com/photo/person-using-stump-grinder-1782268/',
     },
     {
-      id: 'work-3',
-      src: 'https://images.pexels.com/photos/3182774/pexels-photo-3182774.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Advisor with notebook and coffee',
+      id: 'outdoor-3',
+      src: 'https://images.pexels.com/photos/953219/pexels-photo-953219.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Hands holding work gloves and small tool outdoors',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/person-holding-white-ceramic-teacup-saucer-on-brown-wooden-table-3182774/',
+      creditUrl: 'https://www.pexels.com/photo/person-holding-gray-gloves-953219/',
     },
     {
-      id: 'work-4',
-      src: 'https://images.pexels.com/photos/3771097/pexels-photo-3771097.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Hands with tablet and charts',
+      id: 'outdoor-4',
+      src: 'https://images.pexels.com/photos/442297/pexels-photo-442297.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Palm trees under a clear sky',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/crop-people-using-digital-tablet-at-table-3771097/',
+      creditUrl: 'https://www.pexels.com/photo/green-palm-trees-under-blue-sky-442297/',
     },
     {
-      id: 'work-5',
-      src: 'https://images.pexels.com/photos/936137/pexels-photo-936137.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Notebook, glasses, and laptop on desk',
+      id: 'outdoor-5',
+      src: 'https://images.pexels.com/photos/629158/pexels-photo-629158.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Cut wood stacked on the ground',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/turned-off-macbook-pro-beside-iphone-936137/',
+      creditUrl: 'https://www.pexels.com/photo/stack-of-firewoods-629158/',
     },
     {
-      id: 'work-6',
-      src: 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Group discussion in office',
+      id: 'outdoor-6',
+      src: 'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Sunlit path through greenery',
       photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/colleagues-talking-at-table-3184465/',
+      creditUrl: 'https://www.pexels.com/photo/landscape-photo-of-pathway-surrounded-by-green-leaf-trees-1301856/',
     },
   ];
+
   const pool = photos.length ? photos : fallbackPool;
 
   const nextPhoto = (() => {
