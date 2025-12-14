@@ -10,7 +10,7 @@ const ImageSchema = z.object({
 const MIN_IMAGE_PROMPTS = 2;
 const REQUIRED_GROUPS = ['hero', 'services', 'social-proof', 'process', 'support', 'cta', 'proof'];
 const MIN_SECTIONS_TOTAL = 8;
-const MIN_TOTAL_WORDS = 600;
+const MIN_TOTAL_WORDS = 400;
 const BANNED_PHRASES = ['ai sitemaker', 'ai site maker', 'ai-sitemaker', 'lovable'];
 const MAX_STATS_ITEMS = 3;
 
