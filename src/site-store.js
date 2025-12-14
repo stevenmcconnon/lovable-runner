@@ -60,12 +60,84 @@ const writeJson = async ({ bucket, key, payload }) => {
     .promise();
 };
 
+const deriveImageSlots = (section = {}) => {
+  const slots = [];
+  const sectionId = section.id || section.componentId || 'section';
+  const addSlot = (slot) => slots.push(slot);
+
+  switch (section.componentId) {
+    case 'hero-with-image':
+      addSlot({
+        id: `${sectionId}-image`,
+        type: 'image',
+        path: 'props.image',
+        prompt: section.props?.imagePrompt,
+        required: true,
+      });
+      break;
+    case 'gallery-carousel':
+      addSlot({
+        id: `${sectionId}-items`,
+        type: 'image',
+        path: 'props.items[].image',
+        mode: 'scroll',
+        required: true,
+      });
+      break;
+    case 'cta-banner':
+      addSlot({
+        id: `${sectionId}-image`,
+        type: 'image',
+        path: 'props.image',
+        prompt: section.props?.imagePrompt,
+      });
+      break;
+    case 'process-timeline':
+      addSlot({
+        id: `${sectionId}-supporting`,
+        type: 'image',
+        path: 'props.image',
+        prompt: section.props?.imagePrompt,
+      });
+      break;
+    case 'features-grid':
+      addSlot({
+        id: `${sectionId}-features`,
+        type: 'image',
+        path: 'props.features[].image',
+      });
+      break;
+    case 'pricing-table':
+      addSlot({
+        id: `${sectionId}-tiers`,
+        type: 'image',
+        path: 'props.tiers[].image',
+      });
+      break;
+    default:
+      break;
+  }
+
+  if (section.props?.imagePrompt && !slots.length) {
+    addSlot({
+      id: `${sectionId}-image`,
+      type: 'image',
+      path: 'props.image',
+      prompt: section.props.imagePrompt,
+    });
+  }
+
+  return slots;
+};
+
 const buildTemplateSummary = (site = {}, metadata = {}) => {
   const mapSections = (sections = []) =>
     sections
       .map((section) => ({
         id: section?.id || null,
         componentId: section?.componentId || null,
+        slots: deriveImageSlots(section),
+        fields: Object.keys(section?.props || {}),
       }))
       .filter((entry) => entry.componentId);
 
@@ -99,6 +171,10 @@ const buildTemplateSummary = (site = {}, metadata = {}) => {
     sections: sectionSummary,
     pages: pageSummary || undefined,
     components: Array.from(components),
+    layout: {
+      sections: sectionSummary,
+      pages: pageSummary || undefined,
+    },
   };
 };
 
