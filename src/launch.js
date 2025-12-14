@@ -465,7 +465,16 @@ const normalizeSiteSections = (site = {}) => {
             ...section,
             props: {
               ...section.props,
-              stats: section.props.stats.slice(0, 3),
+              stats: section.props.stats.slice(0, 2),
+            },
+          };
+        }
+        if (section.componentId === 'features-grid' && Array.isArray(section.props?.features)) {
+          return {
+            ...section,
+            props: {
+              ...section.props,
+              features: section.props.features.slice(0, 4),
             },
           };
         }
