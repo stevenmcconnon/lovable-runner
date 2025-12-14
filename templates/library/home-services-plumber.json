@@ -1,0 +1,49 @@
+{
+  "id": "home-services-plumber",
+  "name": "Local Plumber Lead Gen",
+  "vertical": "home-services",
+  "subcategory": "plumbing",
+  "useCases": [
+    "emergency calls",
+    "quote requests",
+    "maintenance plans"
+  ],
+  "tone": "trustworthy, urgent",
+  "vibe": "earthy",
+  "tags": [
+    "local",
+    "phone-forward",
+    "emergency",
+    "quick-quote"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "24/7 emergency CTA with phone and badge"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "response time, jobs completed, warranties"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "services like leaks, water heaters, drains"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "inspect → quote → fix → follow-up"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "local proof and neighborhoods served"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "pricing, licensing, availability"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "request service form with emergency note"
+    }
+  ]
+}

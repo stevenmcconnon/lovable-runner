@@ -1,0 +1,58 @@
+{
+  "id": "coffee-shop",
+  "name": "Coffee Shop",
+  "vertical": "hospitality",
+  "subcategory": "coffee",
+  "useCases": [
+    "foot traffic",
+    "loyalty",
+    "catering"
+  ],
+  "tone": "cozy, upbeat",
+  "vibe": "playful",
+  "tags": [
+    "menu",
+    "loyalty",
+    "wifi",
+    "events"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "community hero with visit CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "drinks, space, people"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "beans, brew methods, vibes, merch"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "roast dates, sourcing regions, wifi speed"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "order → brew → enjoy → rewards"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "regulars and reviews"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "hours, parking, wifi, pets"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "catering or wholesale inquiries"
+    }
+  ],
+  "needsComponents": [
+    "menu-grid",
+    "hours/location-block",
+    "loyalty-promo"
+  ]
+}

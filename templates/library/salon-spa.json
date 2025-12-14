@@ -1,0 +1,53 @@
+{
+  "id": "salon-spa",
+  "name": "Salon & Spa",
+  "vertical": "beauty",
+  "subcategory": "salon-spa",
+  "useCases": [
+    "bookings",
+    "packages",
+    "memberships"
+  ],
+  "tone": "warm, polished",
+  "vibe": "luxury",
+  "tags": [
+    "booking",
+    "packages",
+    "before-after"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "style-focused hero with booking CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "hair/skin before-afters"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "cuts, color, facials, nails"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "packages or memberships"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "client praise"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "cancellations, products, parking"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book appointment"
+    }
+  ],
+  "needsComponents": [
+    "service-menu",
+    "stylist-bios",
+    "booking-widget"
+  ]
+}

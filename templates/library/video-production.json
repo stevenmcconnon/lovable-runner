@@ -1,0 +1,52 @@
+{
+  "id": "video-production",
+  "name": "Video Production Studio",
+  "vertical": "creative",
+  "subcategory": "video",
+  "useCases": [
+    "brand films",
+    "product explainers",
+    "event recaps"
+  ],
+  "tone": "bold, strategic",
+  "vibe": "tech",
+  "tags": [
+    "portfolio",
+    "packages",
+    "timeline"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "impact hero with reel CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "stills or video thumbnails"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "pre-pro, production, post, distribution"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "views, lift, turnaround"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "discover → script → shoot → edit"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "client outcomes"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "project brief intake"
+    }
+  ],
+  "needsComponents": [
+    "video-embed-grid",
+    "case-study-cards"
+  ]
+}

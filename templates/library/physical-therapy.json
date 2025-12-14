@@ -1,0 +1,52 @@
+{
+  "id": "physical-therapy",
+  "name": "Physical Therapy Clinic",
+  "vertical": "healthcare",
+  "subcategory": "physical-therapy",
+  "useCases": [
+    "post-op rehab",
+    "sports performance",
+    "telehealth"
+  ],
+  "tone": "clinical, encouraging",
+  "vibe": "tech",
+  "tags": [
+    "insurance",
+    "telehealth",
+    "programs"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "mobility hero with booking CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "manual therapy, sports, post-op, telehealth"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "evaluate → plan → sessions → progress"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "return-to-play, visit count, outcomes"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "athlete and patient stories"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "insurance, referrals, home programs"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book evaluation"
+    }
+  ],
+  "needsComponents": [
+    "schedule-picker",
+    "clinician-bios"
+  ]
+}

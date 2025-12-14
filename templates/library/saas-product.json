@@ -1,0 +1,58 @@
+{
+  "id": "saas-product",
+  "name": "SaaS Product Landing",
+  "vertical": "software",
+  "subcategory": "saas",
+  "useCases": [
+    "signups",
+    "demo requests",
+    "waitlists"
+  ],
+  "tone": "crisp, product-led",
+  "vibe": "tech",
+  "tags": [
+    "product-led",
+    "social-proof",
+    "pricing",
+    "integrations"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "value prop hero with CTA and product visual"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "pillars and outcomes"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "usage, uptime, ROI stats"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "plans with CTA buttons"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "social proof and logos"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "security, integrations, billing"
+    },
+    {
+      "componentId": "cta-banner",
+      "purpose": "secondary signup push"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "demo request"
+    }
+  ],
+  "needsComponents": [
+    "logo-grid",
+    "integration-list",
+    "feature-tabs"
+  ]
+}

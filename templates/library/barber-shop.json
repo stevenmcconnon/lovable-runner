@@ -1,0 +1,51 @@
+{
+  "id": "barber-shop",
+  "name": "Barber Shop",
+  "vertical": "beauty",
+  "subcategory": "barber",
+  "useCases": [
+    "walk-ins",
+    "online booking",
+    "memberships"
+  ],
+  "tone": "confident, straightforward",
+  "vibe": "earthy",
+  "tags": [
+    "walk-in",
+    "booking",
+    "membership"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "classic hero with walk-in/booking CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "cuts, shaves, beard care, kids"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "cuts vs shaves vs memberships"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "styles and shop vibe"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "regulars and neighborhood proof"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "appointments, payments, parking"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book or ask a question"
+    }
+  ],
+  "needsComponents": [
+    "booking-widget"
+  ]
+}

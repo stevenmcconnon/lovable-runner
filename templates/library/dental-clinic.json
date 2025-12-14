@@ -1,0 +1,57 @@
+{
+  "id": "dental-clinic",
+  "name": "Dental Practice",
+  "vertical": "healthcare",
+  "subcategory": "dentist",
+  "useCases": [
+    "new patients",
+    "membership plans",
+    "cosmetic focus"
+  ],
+  "tone": "friendly, clinical",
+  "vibe": "luxury",
+  "tags": [
+    "new-patient-offer",
+    "insurance",
+    "membership",
+    "before-after"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "smile-focused hero with booking CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "patients served, same-day crowns"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "general, cosmetic, ortho, implants"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "before/after smiles"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "membership or whitening plans"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "patient stories"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "insurance, payment, sedation"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book appointment"
+    }
+  ],
+  "needsComponents": [
+    "appointment-picker",
+    "insurance-logos"
+  ]
+}

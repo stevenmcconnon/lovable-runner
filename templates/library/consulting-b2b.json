@@ -1,0 +1,56 @@
+{
+  "id": "consulting-b2b",
+  "name": "B2B Consulting",
+  "vertical": "professional-services",
+  "subcategory": "consulting",
+  "useCases": [
+    "discovery calls",
+    "workshops",
+    "retainers"
+  ],
+  "tone": "authoritative, concise",
+  "vibe": "luxury",
+  "tags": [
+    "frameworks",
+    "case-studies",
+    "workshops"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "outcome-focused hero with consult CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "ROI, industries served, certifications"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "services and frameworks"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "diagnose → recommend → implement → review"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "executive endorsements"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "workshops and retainers"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "engagement model, timing, team"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book intro call"
+    }
+  ],
+  "needsComponents": [
+    "case-study-cards",
+    "logo-grid"
+  ]
+}

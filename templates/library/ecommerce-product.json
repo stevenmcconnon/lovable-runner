@@ -1,0 +1,58 @@
+{
+  "id": "ecommerce-product",
+  "name": "Single Product DTC",
+  "vertical": "ecommerce",
+  "subcategory": "single-product",
+  "useCases": [
+    "product launch",
+    "preorders",
+    "bundle sales"
+  ],
+  "tone": "bold, benefit-led",
+  "vibe": "playful",
+  "tags": [
+    "reviews",
+    "bundles",
+    "faq",
+    "social-proof"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "product hero with buy CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "ingredients/features, benefits, how it works"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "clinical claims or usage stats"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "lifestyle/product shots"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "bundles or subscriptions"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "reviews and UGC"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "shipping, returns, sizing"
+    },
+    {
+      "componentId": "cta-banner",
+      "purpose": "limited offer CTA"
+    }
+  ],
+  "needsComponents": [
+    "product-detail",
+    "cart/checkout-link",
+    "badge-list"
+  ]
+}

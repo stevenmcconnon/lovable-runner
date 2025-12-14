@@ -1,0 +1,53 @@
+{
+  "id": "car-dealership",
+  "name": "Auto Dealership",
+  "vertical": "automotive",
+  "subcategory": "dealership",
+  "useCases": [
+    "inventory browsing",
+    "financing leads",
+    "test drives"
+  ],
+  "tone": "confident, helpful",
+  "vibe": "tech",
+  "tags": [
+    "inventory",
+    "financing",
+    "trade-in"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "featured models and financing CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "inventory count, delivery times, ratings"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "top trims or selling points"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "hero vehicles and lifestyle shots"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "buyer stories and ratings"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "financing, warranties, trade-ins"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "schedule test drive or call back"
+    }
+  ],
+  "needsComponents": [
+    "inventory-grid",
+    "trade-in-estimator",
+    "payment-calculator"
+  ]
+}

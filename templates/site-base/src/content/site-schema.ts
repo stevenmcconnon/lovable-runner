@@ -52,6 +52,7 @@ export type SiteSEO = {
 };
 
 export type SiteContent = {
+  templateId?: string;
   meta: SiteMeta;
   seo: SiteSEO;
   theme: SiteTheme;

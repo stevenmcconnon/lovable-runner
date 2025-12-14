@@ -1,0 +1,49 @@
+{
+  "id": "cleaning-services",
+  "name": "Residential & Office Cleaning",
+  "vertical": "services",
+  "subcategory": "cleaning",
+  "useCases": [
+    "recurring plans",
+    "move-in/out",
+    "office cleaning"
+  ],
+  "tone": "trustworthy, sparkling",
+  "vibe": "playful",
+  "tags": [
+    "recurring",
+    "packages",
+    "checklist",
+    "satisfaction"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "cleanliness guarantee with booking CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "services and checklists"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "weekly/biweekly/deep clean tiers"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "book → prepare → clean → review"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "trust and consistency proof"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "supplies, pets, cancellations"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "schedule recurring plan"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "id": "home-services-landscaping",
+  "name": "Landscaping & Lawn Care",
+  "vertical": "home-services",
+  "subcategory": "landscaping",
+  "useCases": [
+    "maintenance plans",
+    "design-build",
+    "seasonal cleanups"
+  ],
+  "tone": "fresh, reliable",
+  "vibe": "earthy",
+  "tags": [
+    "recurring",
+    "design",
+    "before-after",
+    "schedules"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "lush hero with seasonal CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "before/after beds, patios, lighting"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "mowing, pruning, installs, lighting"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "consult → plan → install → maintain"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "maintenance tiers or seasonal packages"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "neighbors and HOAs"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book walkthrough or request quote"
+    }
+  ]
+}

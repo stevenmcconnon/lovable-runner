@@ -1,0 +1,48 @@
+{
+  "id": "property-management",
+  "name": "Property Management",
+  "vertical": "real-estate",
+  "subcategory": "property-management",
+  "useCases": [
+    "owner leads",
+    "tenant services"
+  ],
+  "tone": "professional, steady",
+  "vibe": "tech",
+  "tags": [
+    "owners",
+    "tenants",
+    "reporting",
+    "maintenance"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "owner outcomes and NOI focus"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "leasing, maintenance, accounting, reporting"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "occupancy, response SLA, markets"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "onboarding → marketing → management → reporting"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "owner quotes and retention"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "fees, coverage, tech stack"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "owner intake form"
+    }
+  ]
+}

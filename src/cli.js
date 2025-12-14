@@ -5,6 +5,7 @@ const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
 const { buildAndUpload } = require('./deploy');
 const { waitForProjectReady } = require('./project-readiness');
+const { runLaunch } = require('./launch');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -206,11 +207,9 @@ const handleOneShot = async (flags) => {
   });
 
   console.log('--- One-shot complete ---');
-  console.log(`Project ID: ${result.projectId}`);
-  console.log(`Local path: ${result.outputDir}`);
-  console.log(`Built from: ${result.distPath}`);
-  console.log(`Uploaded to: ${result.target}`);
-  console.log(`URL: ${result.publicUrl}`);
+  console.log(`Slug: ${result.slug}`);
+  console.log(`Content JSON: ${result.contentUrl} (${result.contentKey})`);
+  console.log(`Template JSON: ${result.templateUrl} (${result.templateKey})`);
 };
 
 const handleFetch = async (flags) => {

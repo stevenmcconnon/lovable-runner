@@ -1,0 +1,1354 @@
+{
+  "notes": "Starter site.json payloads mapped to template-library ids. Each entry is drop-in compatible with templates/site-base/src/content/site-schema.ts.",
+  "sites": [
+    {
+      "templateId": "home-services-plumber",
+      "site": {
+        "meta": {
+          "brandName": "RapidFlow Plumbing",
+          "headline": "Licensed local plumbers on call day and night",
+          "subheadline": "Same-day repairs, honest quotes, clean work",
+          "location": "Portland, OR",
+          "phone": "(503) 555-0112",
+          "email": "dispatch@rapidflowplumbing.com"
+        },
+        "seo": {
+          "title": "RapidFlow Plumbing | 24/7 Emergency Plumbers in Portland",
+          "description": "Licensed Portland plumbers for leaks, water heaters, clogs, and repipes with same-day service.",
+          "keywords": ["plumber", "emergency plumbing", "Portland leaks", "water heater repair"]
+        },
+        "theme": {
+          "primaryColor": "#0f766e",
+          "accentColor": "#f97316",
+          "backgroundStyle": "texture",
+          "vibe": "earthy",
+          "textColor": "#0f172a"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "24/7 Emergency Plumbing",
+              "title": "Leaks fixed, water restored, and worries handled without the mess",
+              "subtitle": "Burst pipes and cold showers do not wait for business hours. Our licensed, background-checked techs arrive with stocked vans, lay down floor protection, and get water flowing again in a single visit. Transparent pricing and text updates keep you in control from the first call to the final walkthrough.",
+              "primaryCta": {"label": "Call dispatch now", "href": "tel:+15035550112"},
+              "secondaryCta": {"label": "Request a quote", "href": "#contact"},
+              "stats": [
+                {"label": "Avg. arrival time", "value": "42 min"},
+                {"label": "Repairs done on first visit", "value": "93%"},
+                {"label": "Licensed & insured", "value": "CCB #225881"}
+              ],
+              "imagePrompt": "Friendly plumber in clean uniform repairing copper pipe under a sink, branded van in driveway, tidy work area"
+            }
+          },
+          {
+            "id": "services",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Repair, replace, and prevent the next leak",
+              "subtitle": "Every visit includes a safety check, photos, and a clear plan so you know what is next and why it matters.",
+              "features": [
+                {"name": "Emergency leaks", "description": "Shutoff, dry-out, and targeted repair for burst pipes, slab leaks, and overflowing fixtures.", "benefit": "Stops damage fast"},
+                {"name": "Water heaters", "description": "Tank and tankless installs with haul-away, permits, and manufacturer-backed warranties handled for you.", "benefit": "Hot water same day"},
+                {"name": "Drains & sewers", "description": "Camera inspections, hydro-jetting, and root removal to clear recurring clogs at the source.", "benefit": "Long-term clear lines"},
+                {"name": "Repipes & upgrades", "description": "PEX and copper repipes, new shutoffs, and pressure balancing to modernize older homes.", "benefit": "Future-proof plumbing"}
+              ]
+            }
+          },
+          {
+            "id": "process",
+            "componentId": "process-timeline",
+            "props": {
+              "title": "A clean, predictable visit",
+              "subtitle": "Stay informed with every step and photo updates.",
+              "steps": [
+                {"id": "intake", "title": "Rapid intake", "description": "Text or call with photos and we pre-diagnose to bring the right parts the first time.", "timeline": "0-10 min"},
+                {"id": "arrival", "title": "On-time arrival", "description": "You get a live ETA, technician profile, and clear upfront pricing before work begins.", "timeline": "30-60 min"},
+                {"id": "repair", "title": "Repair & verify", "description": "We protect floors, complete the fix, pressure-test, and show you photos of the finished work.", "timeline": "Same visit"},
+                {"id": "aftercare", "title": "Aftercare", "description": "Guidance on prevention, simple maintenance tips, and warranty details in your inbox.", "timeline": "Wrap-up"}
+              ]
+            }
+          },
+          {
+            "id": "proof",
+            "componentId": "stats-showcase",
+            "props": {
+              "title": "Local proof you can call on",
+              "subtitle": "Homeowners and property managers trust us for fast, clean fixes.",
+              "stats": [
+                {"label": "Jobs completed in Portland this year", "value": "1,240"},
+                {"label": "Water heaters installed", "value": "310", "helper": "tank & tankless"},
+                {"label": "Neighbor referrals", "value": "57%", "helper": "from happy customers"},
+                {"label": "Satisfaction score", "value": "4.9/5"}
+              ],
+              "imagePrompt": "Technician showing homeowner clear before/after photos on a tablet in a bright kitchen"
+            }
+          },
+          {
+            "id": "testimonials",
+            "componentId": "testimonials-cards",
+            "props": {
+              "title": "“They treated our home like their own.”",
+              "subtitle": "Quotes from nearby customers and building managers.",
+              "testimonials": [
+                {"name": "Elena M.", "role": "Homeowner in Sellwood", "quote": "They arrived in under an hour, fixed the leaking valve, and left the area spotless. Pricing matched the estimate with no surprises.", "highlight": "Fast & spotless"},
+                {"name": "Victor P.", "role": "Property manager", "quote": "RapidFlow handles our duplexes because they photograph everything, communicate clearly with tenants, and back their work.", "highlight": "Clear communication"},
+                {"name": "Kylie R.", "role": "Restaurant owner", "quote": "Our water heater died before lunch service. They swapped it the same day and even set up a maintenance reminder.", "highlight": "Same-day save"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "Plumbing questions we answer daily",
+              "subtitle": "If you do not see yours, text us a photo.",
+              "faqs": [
+                {"id": "after-hours", "question": "Do you charge extra for nights or weekends?", "answer": "We keep straightforward pricing with a small after-hours fee that we disclose before dispatch. No surprise line items."},
+                {"id": "warranties", "question": "Are parts and labor under warranty?", "answer": "Yes. We register equipment with manufacturers, include labor warranties on most repairs, and document everything with photos."},
+                {"id": "estimates", "question": "Can you quote before arriving?", "answer": "Share photos and a short note; we provide a ballpark and tighten it once we inspect on site so you can approve with confidence."},
+                {"id": "cleanliness", "question": "How do you protect the home?", "answer": "Drop cloths, boot covers, and floor protection go down before tools come out. We haul debris away and wipe down work areas."}
+              ]
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Tell us what is happening and we will route the right tech",
+              "subtitle": "Attach photos if you have them. We respond within minutes during business hours.",
+              "fields": [
+                {"label": "Name", "placeholder": "Your full name", "required": true},
+                {"label": "Phone", "placeholder": "Best number for updates", "required": true},
+                {"label": "Email", "placeholder": "Optional but helpful", "type": "email"},
+                {"label": "Address", "placeholder": "Service address", "required": true},
+                {"label": "Issue", "placeholder": "Describe the leak, clog, or project", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Send to dispatch",
+              "contactEmail": "dispatch@rapidflowplumbing.com",
+              "reassurance": "You will get a text with ETA and tech details. We never share your contact information."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "home-services-electrician",
+      "site": {
+        "meta": {
+          "brandName": "Brightline Electric",
+          "headline": "Certified electricians focused on safe, clean installs",
+          "subheadline": "Panel upgrades, EV chargers, and lighting done to code",
+          "location": "Austin, TX",
+          "phone": "(737) 555-0145",
+          "email": "hello@brightlineelectric.com"
+        },
+        "seo": {
+          "title": "Brightline Electric | Licensed Electricians in Austin",
+          "description": "Austin electricians for panel upgrades, EV chargers, and safety inspections with transparent pricing.",
+          "keywords": ["electrician", "EV charger install", "panel upgrade", "Austin electrician"]
+        },
+        "theme": {
+          "primaryColor": "#2563eb",
+          "accentColor": "#f59e0b",
+          "backgroundStyle": "mesh",
+          "vibe": "tech",
+          "textColor": "#0b1220"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "Licensed • Insured • Code-First",
+              "title": "Modern electrical work with pro-grade materials and spotless finishes",
+              "subtitle": "From EV chargers to whole-home surge protection, we design and install systems that keep your family safe and your projects on schedule. Expect tidy crews, labeled panels, and photos of every completed circuit so you know exactly what changed.",
+              "primaryCta": {"label": "Book an inspection", "href": "#contact"},
+              "secondaryCta": {"label": "Call the shop", "href": "tel:+17375550145"},
+              "stats": [
+                {"label": "Permits closed without rework", "value": "99%"},
+                {"label": "EV chargers installed", "value": "420"},
+                {"label": "Licensed master electricians", "value": "3"}
+              ],
+              "imagePrompt": "Electrician mounting an EV charger on a clean garage wall, tidy wiring, bright and organized workspace"
+            }
+          },
+          {
+            "id": "services",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Upgrades that keep up with how you live",
+              "subtitle": "Safety inspections, power where you need it, and lighting that makes the space shine.",
+              "features": [
+                {"name": "Panel upgrades", "description": "Capacity planning, labeling, and surge protection for remodels and additions.", "benefit": "More power with clean documentation"},
+                {"name": "EV charging", "description": "Proper load calculations, dedicated circuits, and tidy conduit runs for all major brands.", "benefit": "Charge-ready in one visit"},
+                {"name": "Lighting design", "description": "Kitchens, landscape, and commercial lighting with dimming scenes and smart controls.", "benefit": "Balanced, comfortable light"},
+                {"name": "Safety & backup", "description": "GFCI/AFCI protection, generators, and battery backups installed to code.", "benefit": "Protected from outages"}
+              ]
+            }
+          },
+          {
+            "id": "process",
+            "componentId": "process-timeline",
+            "props": {
+              "title": "Clear steps, clean work",
+              "subtitle": "We keep inspectors, GCs, and homeowners aligned.",
+              "steps": [
+                {"id": "assessment", "title": "Assessment", "description": "Load calculations, existing panel review, and photos to confirm scope.", "timeline": "Visit 1"},
+                {"id": "proposal", "title": "Proposal", "description": "Code-compliant plan with itemized pricing, permits, and schedule.", "timeline": "Within 24h"},
+                {"id": "install", "title": "Install", "description": "Tidy runs, labeled circuits, and safety testing documented for your records.", "timeline": "Visit 2-3"},
+                {"id": "handoff", "title": "Handoff", "description": "Walkthrough, instructions, and as-built photos sent to your inbox.", "timeline": "Closeout"}
+              ]
+            }
+          },
+          {
+            "id": "proof",
+            "componentId": "stats-showcase",
+            "props": {
+              "title": "Data-backed trust",
+              "subtitle": "Electricians who measure twice and document once.",
+              "stats": [
+                {"label": "Inspections passed on first visit", "value": "98%"},
+                {"label": "Average response for emergencies", "value": "90 min"},
+                {"label": "Commercial projects delivered", "value": "65"},
+                {"label": "Average panel labeling time", "value": "Under 1 hr"}
+              ]
+            }
+          },
+          {
+            "id": "testimonials",
+            "componentId": "testimonials-cards",
+            "props": {
+              "title": "Clients who call us back for every project",
+              "subtitle": "Safety, cleanliness, and punctuality are our hallmarks.",
+              "testimonials": [
+                {"name": "Jenna L.", "role": "Home remodeler", "quote": "Brightline is the only crew I trust around finished interiors. They label everything and never leave drywall scars.", "highlight": "Finish-friendly"},
+                {"name": "Carl M.", "role": "Facilities director", "quote": "They handled a full panel swap overnight so we could open on time. Communication was constant and clear.", "highlight": "Business-ready"},
+                {"name": "Samir G.", "role": "EV owner", "quote": "Install was neat, conduit runs look intentional, and they walked me through the charger app before leaving.", "highlight": "EV experts"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "Electrical questions, answered",
+              "subtitle": "No jargon—just clear answers.",
+              "faqs": [
+                {"id": "permits", "question": "Do you pull permits?", "answer": "Yes. We handle permits and coordinate inspections. You receive copies of all documentation."},
+                {"id": "ev", "question": "Can my panel handle an EV charger?", "answer": "We run a load calc first. If you need a panel upgrade, we present options before scheduling."},
+                {"id": "mess", "question": "Will you patch drywall?", "answer": "We make surgical cuts and patch small openings. Larger patches are pre-approved with you before work starts."},
+                {"id": "warranty", "question": "What is your warranty?", "answer": "We warranty labor for 1 year and follow manufacturer warranties for equipment. We also document everything with photos."}
+              ]
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Tell us about your project or issue",
+              "subtitle": "We respond within one business hour.",
+              "fields": [
+                {"label": "Name", "placeholder": "Your name", "required": true},
+                {"label": "Phone", "placeholder": "Best phone number", "required": true},
+                {"label": "Email", "placeholder": "Work or personal email", "type": "email", "required": true},
+                {"label": "Address", "placeholder": "Project address", "required": true},
+                {"label": "Scope", "placeholder": "What do you need help with?", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Request a visit",
+              "contactEmail": "hello@brightlineelectric.com",
+              "reassurance": "You will receive a confirmation and proposed time windows. We never share your information."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "home-services-hvac",
+      "site": {
+        "meta": {
+          "brandName": "NorthWind HVAC",
+          "headline": "Comfort on demand with pro-grade heating and cooling",
+          "subheadline": "Emergency repairs, installs, and memberships that prevent breakdowns",
+          "location": "Denver, CO",
+          "phone": "(720) 555-0189",
+          "email": "care@northwindhvac.com"
+        },
+        "seo": {
+          "title": "NorthWind HVAC | Heating & Cooling in Denver",
+          "description": "Trusted Denver HVAC team for repairs, installs, and maintenance plans with financing available.",
+          "keywords": ["HVAC repair", "furnace service", "AC install", "Denver HVAC"]
+        },
+        "theme": {
+          "primaryColor": "#0ea5e9",
+          "accentColor": "#f97316",
+          "backgroundStyle": "gradient",
+          "vibe": "tech",
+          "textColor": "#0f172a"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "24/7 Heating & Cooling",
+              "title": "Stay comfortable year-round with technicians who respect your home",
+              "subtitle": "Whether it is a midnight no-heat call or a full system replacement, we arrive with shoe covers, protect your floors, and share options that fit your budget. Transparent estimates and financing keep the project predictable.",
+              "primaryCta": {"label": "Schedule service", "href": "#contact"},
+              "secondaryCta": {"label": "Call now", "href": "tel:+17205550189"},
+              "stats": [
+                {"label": "Emergency response", "value": "24/7"},
+                {"label": "Maintenance members", "value": "1,150"},
+                {"label": "Install satisfaction", "value": "4.9/5"}
+              ],
+              "imagePrompt": "HVAC technician inspecting a modern furnace with tools neatly arranged and a customer reviewing a tablet"
+            }
+          },
+          {
+            "id": "services",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Repairs, installs, and indoor air quality tuned for Denver",
+              "subtitle": "We balance efficiency, comfort, and clean air in every home.",
+              "features": [
+                {"name": "Rapid repairs", "description": "No-heat, no-cool, and airflow issues diagnosed with modern tools.", "benefit": "Comfort restored fast"},
+                {"name": "System installs", "description": "High-efficiency furnaces, heat pumps, and AC with permits and rebates handled.", "benefit": "Lower bills and quieter homes"},
+                {"name": "Air quality", "description": "Filtration, humidifiers, and UV to match Denver's dry climate.", "benefit": "Cleaner, balanced air"},
+                {"name": "Smart controls", "description": "Thermostats and zoning for every lifestyle and floor plan.", "benefit": "Comfort on autopilot"}
+              ]
+            }
+          },
+          {
+            "id": "process",
+            "componentId": "process-timeline",
+            "props": {
+              "title": "A predictable service call",
+              "subtitle": "Clear windows, photo updates, and tidy installs.",
+              "steps": [
+                {"id": "diagnose", "title": "Diagnose", "description": "We measure, photograph, and test before recommending fixes.", "timeline": "Visit"},
+                {"id": "options", "title": "Options", "description": "Good/better/best options with energy savings and financing presented side-by-side.", "timeline": "Same day"},
+                {"id": "install", "title": "Install or repair", "description": "Permits, haul-away, and start-up checklists completed in one visit when possible.", "timeline": "1-2 days"},
+                {"id": "maintain", "title": "Maintain", "description": "Membership reminders, filter swaps, and seasonal tune-ups keep warranties intact.", "timeline": "Ongoing"}
+              ]
+            }
+          },
+          {
+            "id": "pricing",
+            "componentId": "pricing-table",
+            "props": {
+              "title": "Maintenance memberships that pay for themselves",
+              "subtitle": "Prevent breakdowns and keep warranties valid.",
+              "tiers": [
+                {"name": "Comfort", "description": "Seasonal tune-ups and priority scheduling.", "price": "$19/mo", "features": ["2 tune-ups per year", "Priority service", "10% off repairs"], "ctaLabel": "Join Comfort"},
+                {"name": "Climate", "description": "Ideal for homes with multiple systems or older equipment.", "price": "$39/mo", "features": ["Everything in Comfort", "Filter delivery", "Loaner space heaters"], "ctaLabel": "Join Climate"},
+                {"name": "Complete", "description": "For mission-critical comfort and rental portfolios.", "price": "$69/mo", "features": ["Everything in Climate", "No after-hours fee", "Annual IAQ check"], "ctaLabel": "Join Complete"}
+              ]
+            }
+          },
+          {
+            "id": "proof",
+            "componentId": "stats-showcase",
+            "props": {
+              "title": "Measured results",
+              "subtitle": "Comfort, efficiency, and reliability you can see.",
+              "stats": [
+                {"label": "Average energy savings after upgrade", "value": "18%"},
+                {"label": "Warranty claims avoided", "value": "96%", "helper": "with memberships"},
+                {"label": "Response window for members", "value": "Same day"},
+                {"label": "Heat pump installs this year", "value": "210"}
+              ]
+            }
+          },
+          {
+            "id": "testimonials",
+            "componentId": "testimonials-cards",
+            "props": {
+              "title": "Homeowners who sleep better at night",
+              "subtitle": "Service you can set and forget.",
+              "testimonials": [
+                {"name": "Ty B.", "role": "Homeowner in Wash Park", "quote": "They texted updates, wore boot covers, and left the utility room cleaner than they found it.", "highlight": "Immaculate work"},
+                {"name": "Shelly D.", "role": "Property owner", "quote": "We added all four units to their membership and haven't had a single after-hours emergency this winter.", "highlight": "Zero emergencies"},
+                {"name": "Mark V.", "role": "New build GC", "quote": "NorthWind handles our start-up checklists with inspectors so I don't have to chase paperwork.", "highlight": "Permit pros"}
+              ]
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Book a visit or join a plan",
+              "subtitle": "Tell us what you need—service, install, or a comfort plan.",
+              "fields": [
+                {"label": "Name", "placeholder": "Full name", "required": true},
+                {"label": "Phone", "placeholder": "Mobile number", "required": true},
+                {"label": "Email", "placeholder": "you@example.com", "type": "email", "required": true},
+                {"label": "Address", "placeholder": "Service address", "required": true},
+                {"label": "Request", "placeholder": "Describe the issue or project", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Schedule now",
+              "contactEmail": "care@northwindhvac.com",
+              "reassurance": "We will confirm your window and share the tech profile. No marketing spam."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "law-firm",
+      "site": {
+        "meta": {
+          "brandName": "Harbor & Hale LLP",
+          "headline": "Business counsel that moves as fast as your deals",
+          "subheadline": "Commercial, employment, and litigation support for growing teams",
+          "location": "Chicago, IL",
+          "phone": "(312) 555-0192",
+          "email": "intake@harborhale.com"
+        },
+        "seo": {
+          "title": "Harbor & Hale LLP | Business Attorneys in Chicago",
+          "description": "Practical legal counsel for commercial, employment, and dispute matters with responsive attorneys.",
+          "keywords": ["business lawyer", "employment counsel", "commercial litigation", "Chicago law firm"]
+        },
+        "theme": {
+          "primaryColor": "#111827",
+          "accentColor": "#2563eb",
+          "backgroundStyle": "gradient",
+          "vibe": "luxury",
+          "textColor": "#111827"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "Business & Employment Law",
+              "title": "Clear, decisive counsel for the moments that matter",
+              "subtitle": "Your leadership team gets direct access to partners, practical answers in hours—not weeks—and documents that are ready for boardrooms and courtrooms alike. We anticipate risk, translate the legal path, and keep deals moving.",
+              "primaryCta": {"label": "Schedule a consultation", "href": "#contact"},
+              "secondaryCta": {"label": "Meet the team", "href": "#reviews"},
+              "stats": [
+                {"label": "Matters handled last year", "value": "480"},
+                {"label": "Average response time", "value": "2 hrs"},
+                {"label": "Years serving Chicago", "value": "18"}
+              ],
+              "imagePrompt": "Modern law office conference room with city skyline, partners reviewing documents with clients, confident and polished"
+            }
+          },
+          {
+            "id": "services",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Practice areas built for operators",
+              "subtitle": "Focused teams that collaborate across disciplines to keep your operations protected.",
+              "features": [
+                {"name": "Commercial & contracts", "description": "Vendor, customer, and partner agreements that anticipate disputes and speed signing.", "benefit": "Deals that hold up"},
+                {"name": "Employment", "description": "Handbooks, policies, and investigations that protect culture and compliance.", "benefit": "Confident people decisions"},
+                {"name": "Litigation & disputes", "description": "Assertive representation with candid risk assessments and courtroom experience.", "benefit": "Practical litigation strategy"},
+                {"name": "Transactions", "description": "M&A, financings, and restructurings with clean diligence and clear closing checklists.", "benefit": "Smooth closings"}
+              ]
+            }
+          },
+          {
+            "id": "proof",
+            "componentId": "stats-showcase",
+            "props": {
+              "title": "Outcomes you can cite",
+              "subtitle": "Representative metrics from recent matters.",
+              "stats": [
+                {"label": "Contracts reviewed annually", "value": "1,900+"},
+                {"label": "Employment matters resolved pre-litigation", "value": "87%"},
+                {"label": "Avg. time to first memo", "value": "48 hrs"},
+                {"label": "Repeat client rate", "value": "92%"}
+              ]
+            }
+          },
+          {
+            "id": "process",
+            "componentId": "process-timeline",
+            "props": {
+              "title": "How we work together",
+              "subtitle": "Built for founders, operators, and boards.",
+              "steps": [
+                {"id": "intake", "title": "Listen & scope", "description": "We gather the facts, align on goals, and share clear next steps.", "timeline": "Day 0"},
+                {"id": "plan", "title": "Plan & brief", "description": "You receive a short memo outlining options, risks, and our recommended path.", "timeline": "Day 1-2"},
+                {"id": "execute", "title": "Execute quickly", "description": "Drafts, negotiations, and filings handled by the right-sized team.", "timeline": "Day 2+"},
+                {"id": "update", "title": "Keep you in the loop", "description": "Weekly status updates, recorded decisions, and clear owners.", "timeline": "Weekly"}
+              ]
+            }
+          },
+          {
+            "id": "testimonials",
+            "componentId": "testimonials-cards",
+            "props": {
+              "title": "Trusted by operators and boards",
+              "subtitle": "They call when the stakes are high.",
+              "testimonials": [
+                {"name": "Dana K.", "role": "COO, logistics startup", "quote": "They move fast without skipping rigor. Our board packets improved overnight.", "highlight": "Board-ready"},
+                {"name": "Miguel S.", "role": "VP People", "quote": "Employment issues are addressed with empathy and airtight documentation. Huge help during rapid growth.", "highlight": "HR partner"},
+                {"name": "Priya R.", "role": "Founder", "quote": "I get practical answers on the first call. They translate legal into action items.", "highlight": "Practical counsel"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "What clients ask first",
+              "subtitle": "If you are new here, start with these answers.",
+              "faqs": [
+                {"id": "fees", "question": "Do you offer flat fees?", "answer": "Yes. Many matters begin with a scoped flat fee or a capped engagement before moving to hourly."},
+                {"id": "availability", "question": "Will I speak with a partner?", "answer": "You will always have partner oversight and direct access for strategy calls, with associates handling execution."},
+                {"id": "industries", "question": "Which industries do you know best?", "answer": "We routinely support SaaS, logistics, healthcare, hospitality, and manufacturing clients across the Midwest."},
+                {"id": "timelines", "question": "How quickly can you start?", "answer": "We begin with a short intake call and move to execution within 1-2 business days for most matters."}
+              ]
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Schedule a confidential consultation",
+              "subtitle": "Tell us about the matter so we can staff the right team.",
+              "fields": [
+                {"label": "Name", "placeholder": "Your name", "required": true},
+                {"label": "Company", "placeholder": "Company name", "required": true},
+                {"label": "Email", "placeholder": "you@company.com", "type": "email", "required": true},
+                {"label": "Phone", "placeholder": "Optional phone number"},
+                {"label": "Matter", "placeholder": "Describe the issue or goal", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Request consultation",
+              "contactEmail": "intake@harborhale.com",
+              "reassurance": "Your information is confidential and goes directly to our intake attorneys."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "dental-clinic",
+      "site": {
+        "meta": {
+          "brandName": "Brightside Dental",
+          "headline": "Gentle dentistry with same-day solutions",
+          "subheadline": "Family care, cosmetic dentistry, and memberships that keep smiles healthy",
+          "location": "Seattle, WA",
+          "phone": "(206) 555-0150",
+          "email": "smiles@brightside.dental"
+        },
+        "seo": {
+          "title": "Brightside Dental | Family & Cosmetic Dentist in Seattle",
+          "description": "Family-friendly dental care with cosmetic options, memberships, and same-day crowns in Seattle.",
+          "keywords": ["dentist", "Seattle dental", "cosmetic dentist", "dental membership"]
+        },
+        "theme": {
+          "primaryColor": "#22c55e",
+          "accentColor": "#0ea5e9",
+          "backgroundStyle": "texture",
+          "vibe": "luxury",
+          "textColor": "#0f172a"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "Family & Cosmetic Dentistry",
+              "title": "Relaxed visits, modern technology, and smiles that feel like you",
+              "subtitle": "From cleanings to veneers, our calm team and in-office technology mean fewer appointments, clearer pricing, and results you are proud to show off. We explain every option before we touch a tooth.",
+              "primaryCta": {"label": "Book an appointment", "href": "#contact"},
+              "secondaryCta": {"label": "View membership", "href": "#pricing"},
+              "stats": [
+                {"label": "Same-day crowns completed", "value": "180"},
+                {"label": "Patient satisfaction", "value": "4.9/5"},
+                {"label": "Emergency slots held daily", "value": "4"}
+              ],
+              "imagePrompt": "Bright dental studio with natural light, dentist and patient smiling, modern equipment visible"
+            }
+          },
+          {
+            "id": "services",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Everything your smile needs in one place",
+              "subtitle": "Comfort-first care with transparent recommendations.",
+              "features": [
+                {"name": "Preventive care", "description": "Cleanings, exams, and digital X-rays with gentle hygienists.", "benefit": "Healthy foundations"},
+                {"name": "Cosmetic dentistry", "description": "Whitening, bonding, veneers, and alignment to craft natural-looking smiles.", "benefit": "Confidence without over-treating"},
+                {"name": "Restorative", "description": "Same-day crowns, implants, and fillings using durable materials.", "benefit": "Strong, lasting results"},
+                {"name": "Emergency care", "description": "Tooth pain, chips, and swelling handled with same-day appointments.", "benefit": "Fast relief"}
+              ]
+            }
+          },
+          {
+            "id": "gallery",
+            "componentId": "gallery-carousel",
+            "props": {
+              "title": "See the difference",
+              "subtitle": "Natural results and calm spaces.",
+              "items": [
+                {"title": "Same-day crown", "caption": "Cracked molar restored in one visit.", "badge": "Before/After", "image": {"src": "https://placehold.co/400x260", "alt": "Before and after dental crown"}},
+                {"title": "Smile refresh", "caption": "Whitening + bonding for subtle brightness.", "badge": "Cosmetic", "image": {"src": "https://placehold.co/400x260", "alt": "Cosmetic results"}},
+                {"title": "Comfortable space", "caption": "Calm operatories with natural light and blankets.", "badge": "Office", "image": {"src": "https://placehold.co/400x260", "alt": "Dental studio interior"}}
+              ]
+            }
+          },
+          {
+            "id": "pricing",
+            "componentId": "pricing-table",
+            "props": {
+              "title": "Memberships that reward consistent care",
+              "subtitle": "Designed for patients without traditional dental insurance.",
+              "tiers": [
+                {"name": "Adult", "description": "For preventive visits and peace of mind.", "price": "$32/mo", "features": ["2 exams & cleanings", "X-rays as needed", "15% off treatment"], "ctaLabel": "Join Adult plan"},
+                {"name": "Kids", "description": "Gentle pediatric care.", "price": "$24/mo", "features": ["2 cleanings", "Fluoride & sealants", "15% off treatment"], "ctaLabel": "Join Kids plan"},
+                {"name": "Cosmetic", "description": "Keep your smile bright year-round.", "price": "$49/mo", "features": ["Everything in Adult", "2 whitening refills", "Priority cosmetic consults"], "ctaLabel": "Join Cosmetic"}
+              ]
+            }
+          },
+          {
+            "id": "process",
+            "componentId": "process-timeline",
+            "props": {
+              "title": "What to expect on your first visit",
+              "subtitle": "No pressure—just information.",
+              "steps": [
+                {"id": "welcome", "title": "Warm welcome", "description": "We start on time, review your goals, and answer questions before exams.", "timeline": "Arrival"},
+                {"id": "exam", "title": "Thorough exam", "description": "Digital X-rays, photos, and a gentle cleaning to understand your baseline.", "timeline": "30 min"},
+                {"id": "plan", "title": "Personal plan", "description": "We show findings and co-create a plan with transparent timelines and costs.", "timeline": "10 min"},
+                {"id": "care", "title": "Comfort-first care", "description": "Noise-canceling headphones, blankets, and nitrous available when needed.", "timeline": "Visit"}
+              ]
+            }
+          },
+          {
+            "id": "testimonials",
+            "componentId": "testimonials-cards",
+            "props": {
+              "title": "Patients who actually enjoy their visits",
+              "subtitle": "Comfort, clarity, and predictable pricing.",
+              "testimonials": [
+                {"name": "Samantha R.", "role": "Patient", "quote": "They showed me photos and explained every option without pressure. The same-day crown was painless.", "highlight": "Pain-free visit"},
+                {"name": "Jordan M.", "role": "Patient", "quote": "The membership makes budgeting easy and the team remembers my preferences every time.", "highlight": "Membership fan"},
+                {"name": "Priya A.", "role": "Patient", "quote": "I am nervous at the dentist, but the calm team and headphones made it smooth.", "highlight": "Anxiety-friendly"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "Answers before you arrive",
+              "subtitle": "Feel prepared for your appointment.",
+              "faqs": [
+                {"id": "insurance", "question": "Do you accept insurance?", "answer": "Yes, we help maximize benefits and offer memberships for those without coverage."},
+                {"id": "financing", "question": "Do you offer financing?", "answer": "We partner with third-party financing for larger treatments with transparent terms."},
+                {"id": "kids", "question": "Are you good with kids?", "answer": "We see patients of all ages and create a calm, friendly environment for little ones."},
+                {"id": "comfort", "question": "Can I have nitrous?", "answer": "Yes. Nitrous is available upon request for appropriate treatments."}
+              ]
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Request an appointment",
+              "subtitle": "Share your preferred times—we will follow up shortly.",
+              "fields": [
+                {"label": "Name", "placeholder": "Full name", "required": true},
+                {"label": "Email", "placeholder": "you@example.com", "type": "email", "required": true},
+                {"label": "Phone", "placeholder": "Best phone number", "required": true},
+                {"label": "Reason", "placeholder": "Cleaning, tooth pain, cosmetic consult...", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Request time",
+              "contactEmail": "smiles@brightside.dental",
+              "reassurance": "We confirm within one business day. Your details stay private."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "personal-trainer",
+      "site": {
+        "meta": {
+          "brandName": "Momentum Coaching",
+          "headline": "Personal training tailored to real life",
+          "subheadline": "Strength, nutrition, and accountability in the gym or online",
+          "location": "Atlanta, GA",
+          "phone": "(404) 555-0178",
+          "email": "coach@momentum.fit"
+        },
+        "seo": {
+          "title": "Momentum Coaching | Personal Trainer in Atlanta & Online",
+          "description": "Personal training, nutrition, and online coaching focused on strength and sustainable habits.",
+          "keywords": ["personal trainer", "online coaching", "Atlanta fitness", "strength training"]
+        },
+        "theme": {
+          "primaryColor": "#f97316",
+          "accentColor": "#0ea5e9",
+          "backgroundStyle": "mesh",
+          "vibe": "tech",
+          "textColor": "#0f172a"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "1:1 & Online Coaching",
+              "title": "Build strength, lose fat, and keep your momentum",
+              "subtitle": "No crash diets. No guesswork. You get a program tailored to your schedule, form checks each week, and nutrition guidance you can actually follow at work and home.",
+              "primaryCta": {"label": "Book a consult", "href": "#contact"},
+              "secondaryCta": {"label": "See programs", "href": "#pricing"},
+              "stats": [
+                {"label": "Clients served", "value": "320"},
+                {"label": "Avg. strength gain in 12 wks", "value": "+18%"},
+                {"label": "Check-in response time", "value": "<12 hrs"}
+              ],
+              "imagePrompt": "Trainer coaching client through barbell deadlift in bright, clean gym with encouraging posture"
+            }
+          },
+          {
+            "id": "gallery",
+            "componentId": "gallery-carousel",
+            "props": {
+              "title": "Wins from the Momentum crew",
+              "subtitle": "Real clients, sustainable results.",
+              "items": [
+                {"title": "Strength milestone", "caption": "Jess hit her first 225 lb deadlift at 12 weeks.", "badge": "PR", "image": {"src": "https://placehold.co/360x240", "alt": "Client deadlift PR"}},
+                {"title": "Body recomposition", "caption": "Marcus dropped 15 lbs while increasing muscle mass.", "badge": "Before/After", "image": {"src": "https://placehold.co/360x240", "alt": "Client before and after"}},
+                {"title": "Outdoor session", "caption": "Weekend conditioning to keep training fun.", "badge": "Conditioning", "image": {"src": "https://placehold.co/360x240", "alt": "Outdoor workout"}}
+              ]
+            }
+          },
+          {
+            "id": "services",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Coaching built around your life",
+              "subtitle": "Training, nutrition, and accountability in one plan.",
+              "features": [
+                {"name": "Strength programs", "description": "Periodized training with clear progression, warm-ups, and accessory work.", "benefit": "Lift safely and consistently"},
+                {"name": "Nutrition coaching", "description": "Macro ranges, sample meals, and habit goals that fit your week.", "benefit": "Fuel without obsession"},
+                {"name": "Weekly check-ins", "description": "Form reviews by video plus adjustments based on sleep and stress.", "benefit": "Stay on track"},
+                {"name": "Hybrid options", "description": "In-person sessions plus online programming when you travel.", "benefit": "No lost momentum"}
+              ]
+            }
+          },
+          {
+            "id": "pricing",
+            "componentId": "pricing-table",
+            "props": {
+              "title": "Pick the support level you need",
+              "subtitle": "Switch tiers anytime as your goals change.",
+              "tiers": [
+                {"name": "Online", "description": "Remote coaching with weekly video reviews.", "price": "$199/mo", "features": ["Custom program", "Weekly check-ins", "Form reviews"], "ctaLabel": "Start online"},
+                {"name": "Hybrid", "description": "Mix of in-person sessions plus online updates.", "price": "$399/mo", "features": ["4 sessions/mo", "Custom program", "Nutrition guidance"], "ctaLabel": "Start hybrid"},
+                {"name": "Premium", "description": "High-touch coaching for ambitious goals.", "price": "$699/mo", "features": ["8 sessions/mo", "Meal planning", "Daily messaging"], "ctaLabel": "Start premium"}
+              ]
+            }
+          },
+          {
+            "id": "process",
+            "componentId": "process-timeline",
+            "props": {
+              "title": "How we work together",
+              "subtitle": "From consult to confident lifting.",
+              "steps": [
+                {"id": "consult", "title": "Consult", "description": "Quick call to learn your goals, equipment, and schedule.", "timeline": "Day 0"},
+                {"id": "plan", "title": "Plan", "description": "Receive a tailored program with demo videos and nutrition targets.", "timeline": "Day 2"},
+                {"id": "train", "title": "Train", "description": "Execute the plan with weekly adjustments and form checks.", "timeline": "Weeks 1-12"},
+                {"id": "progress", "title": "Progress", "description": "Celebrate milestones and level up your plan as you get stronger.", "timeline": "Ongoing"}
+              ]
+            }
+          },
+          {
+            "id": "testimonials",
+            "componentId": "testimonials-cards",
+            "props": {
+              "title": "Clients who built momentum",
+              "subtitle": "Accountability, clarity, and fun training.",
+              "testimonials": [
+                {"name": "Leah H.", "role": "Remote client", "quote": "The weekly video feedback keeps my form sharp even when I travel.", "highlight": "Travel-friendly"},
+                {"name": "Chris W.", "role": "Busy parent", "quote": "He programs around my schedule and soreness so I never feel lost.", "highlight": "Flexible plans"},
+                {"name": "Andre P.", "role": "Beginner lifter", "quote": "No ego, just clear cues and encouragement. I actually look forward to sessions.", "highlight": "Encouraging coaching"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "Quick answers",
+              "subtitle": "Still wondering? Ask in the form below.",
+              "faqs": [
+                {"id": "gym", "question": "Do I need a gym membership?", "answer": "No. We can design home or hotel-friendly programs with minimal equipment."},
+                {"id": "nutrition", "question": "Will you tell me what to eat?", "answer": "We set macro ranges, share sample meals, and help you build habits instead of strict meal plans."},
+                {"id": "injuries", "question": "Can you work around injuries?", "answer": "Yes. We coordinate with your PT, modify movements, and progress safely."},
+                {"id": "checkins", "question": "How do check-ins work?", "answer": "Upload videos weekly; we respond with timestamps, cues, and adjustments within 12 hours."}
+              ]
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Start your consult",
+              "subtitle": "Share your goals and schedule and we will reach out today.",
+              "fields": [
+                {"label": "Name", "placeholder": "Full name", "required": true},
+                {"label": "Email", "placeholder": "you@example.com", "type": "email", "required": true},
+                {"label": "Phone", "placeholder": "Optional phone"},
+                {"label": "Goals", "placeholder": "Strength, body recomposition, accountability...", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Book my consult",
+              "contactEmail": "coach@momentum.fit",
+              "reassurance": "We respond same day. No spam, no pressure."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "wedding-photographer",
+      "site": {
+        "meta": {
+          "brandName": "Silver Hour Studios",
+          "headline": "Wedding storytelling with timeless edits",
+          "subheadline": "Documentary coverage, thoughtful posing, and heirloom albums",
+          "location": "Nashville, TN",
+          "phone": "(615) 555-0120",
+          "email": "hello@silverhour.studio"
+        },
+        "seo": {
+          "title": "Silver Hour Studios | Wedding Photographer in Nashville",
+          "description": "Romantic wedding photography with documentary storytelling and heirloom albums across Tennessee.",
+          "keywords": ["wedding photographer", "Nashville weddings", "documentary wedding photography"]
+        },
+        "theme": {
+          "primaryColor": "#7c3aed",
+          "accentColor": "#f59e0b",
+          "backgroundStyle": "texture",
+          "vibe": "luxury",
+          "textColor": "#1f2937"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "Weddings & Elopements",
+              "title": "Your day, photographed with calm presence and flattering light",
+              "subtitle": "We guide when you want direction and step back when you just want to be together. You get true-to-life color, gentle edits, and a gallery ready for prints and albums.",
+              "primaryCta": {"label": "Check availability", "href": "#contact"},
+              "secondaryCta": {"label": "View collections", "href": "#pricing"},
+              "stats": [
+                {"label": "Weddings photographed", "value": "160"},
+                {"label": "Average gallery delivery", "value": "4 weeks"},
+                {"label": "Backup redundancy", "value": "3x"}
+              ],
+              "imagePrompt": "Bride and groom laughing under string lights at sunset, warm tones, candid moment captured"
+            }
+          },
+          {
+            "id": "gallery",
+            "componentId": "gallery-carousel",
+            "props": {
+              "title": "A few favorite moments",
+              "subtitle": "Candid, romantic, and true to the day.",
+              "items": [
+                {"title": "Sunset vows", "caption": "An intimate vow exchange at Radnor Lake.", "badge": "Elopement", "image": {"src": "https://placehold.co/360x240", "alt": "Outdoor vows"}},
+                {"title": "First dance", "caption": "Classic ballroom light with a modern edit.", "badge": "Reception", "image": {"src": "https://placehold.co/360x240", "alt": "First dance"}},
+                {"title": "Joyful portraits", "caption": "Relaxed direction for natural smiles.", "badge": "Portraits", "image": {"src": "https://placehold.co/360x240", "alt": "Couple portraits"}}
+              ]
+            }
+          },
+          {
+            "id": "services",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Collections designed around your day",
+              "subtitle": "Transparent coverage with thoughtful add-ons.",
+              "features": [
+                {"name": "Full-day coverage", "description": "Two photographers capturing details, portraits, and dance floor energy.", "benefit": "Nothing missed"},
+                {"name": "Engagement session", "description": "A relaxed session to get comfortable on camera before the big day.", "benefit": "Camera confidence"},
+                {"name": "Heirloom albums", "description": "Layflat albums crafted to last generations with curated storytelling.", "benefit": "Prints that matter"},
+                {"name": "Film add-on", "description": "35mm and Polaroid captures woven into your gallery.", "benefit": "Timeless texture"}
+              ]
+            }
+          },
+          {
+            "id": "pricing",
+            "componentId": "pricing-table",
+            "props": {
+              "title": "Simple collections",
+              "subtitle": "Customize any package with extra hours or film.",
+              "tiers": [
+                {"name": "Classic", "description": "8 hours + engagement session.", "price": "$3,900", "features": ["Lead photographer", "Engagement session", "600+ edited images"], "ctaLabel": "Inquire about Classic"},
+                {"name": "Signature", "description": "10 hours + second photographer.", "price": "$4,800", "features": ["2 photographers", "Sneak peeks in 72h", "Album credit"], "ctaLabel": "Inquire about Signature"},
+                {"name": "Destination", "description": "Tailored travel coverage anywhere.", "price": "Custom", "features": ["Travel included", "Rehearsal dinner", "Full weekend"], "ctaLabel": "Plan destination"}
+              ]
+            }
+          },
+          {
+            "id": "process",
+            "componentId": "process-timeline",
+            "props": {
+              "title": "A calm, guided experience",
+              "subtitle": "We keep you in the moment.",
+              "steps": [
+                {"id": "connect", "title": "Connect", "description": "We learn your story, venues, and timeline priorities.", "timeline": "Week 1"},
+                {"id": "plan", "title": "Plan", "description": "Shot list, family groupings, and rain plan finalized together.", "timeline": "1 month out"},
+                {"id": "photograph", "title": "Photograph", "description": "We direct gently when needed and document the candid energy.", "timeline": "Wedding day"},
+                {"id": "deliver", "title": "Deliver", "description": "Sneak peeks in 72 hours, full gallery in four weeks, album design shortly after.", "timeline": "Post-wedding"}
+              ]
+            }
+          },
+          {
+            "id": "testimonials",
+            "componentId": "testimonials-cards",
+            "props": {
+              "title": "Couples who loved the experience",
+              "subtitle": "Kind words from recent weddings.",
+              "testimonials": [
+                {"name": "Hannah & Eli", "role": "Married in 2024", "quote": "We forgot the cameras were there and the photos feel like us. The sneak peeks arrived before we got back from our mini-moon.", "highlight": "Natural & fast"},
+                {"name": "Morgan & Tate", "role": "Married in 2023", "quote": "She wrangled our big families with grace and kept the timeline on track.", "highlight": "Timeline pro"},
+                {"name": "Rina & Caleb", "role": "Married in 2024", "quote": "The film add-on was worth every penny. The album feels like an heirloom already.", "highlight": "Heirloom quality"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "Good to know",
+              "subtitle": "Clear answers before you book.",
+              "faqs": [
+                {"id": "travel", "question": "Do you travel?", "answer": "Yes. Destination coverage includes travel planning and scouting the day before."},
+                {"id": "backup", "question": "How do you back up photos?", "answer": "Images are written to dual cards, backed up on-site, and duplicated to cloud storage within 24 hours."},
+                {"id": "delivery", "question": "When will we see photos?", "answer": "Sneak peeks within 72 hours and the full gallery within four weeks."},
+                {"id": "video", "question": "Do you offer video?", "answer": "We partner with trusted filmmakers and coordinate timelines together."}
+              ]
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Check your date",
+              "subtitle": "Tell us about your celebration and we will confirm availability.",
+              "fields": [
+                {"label": "Names", "placeholder": "Your names", "required": true},
+                {"label": "Email", "placeholder": "you@example.com", "type": "email", "required": true},
+                {"label": "Wedding date", "placeholder": "MM/DD/YYYY", "required": true},
+                {"label": "Venue", "placeholder": "Planned venue(s)", "required": true},
+                {"label": "Notes", "placeholder": "What matters most to you?", "type": "textarea"}
+              ],
+              "submitLabel": "Check availability",
+              "contactEmail": "hello@silverhour.studio",
+              "reassurance": "We respond within one business day with next steps."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "saas-product",
+      "site": {
+        "meta": {
+          "brandName": "Beacon",
+          "headline": "The customer data layer built for modern GTM teams",
+          "subheadline": "Unify signals, trigger playbooks, and prove revenue impact",
+          "location": "Remote",
+          "phone": "(415) 555-0119",
+          "email": "sales@usebeacon.com"
+        },
+        "seo": {
+          "title": "Beacon | Customer Data Activation for SaaS GTM Teams",
+          "description": "Beacon unifies product, marketing, and sales data to trigger the right playbooks and measure revenue impact.",
+          "keywords": ["customer data platform", "product-led sales", "B2B SaaS analytics", "GTM playbooks"]
+        },
+        "theme": {
+          "primaryColor": "#6366f1",
+          "accentColor": "#f59e0b",
+          "backgroundStyle": "mesh",
+          "vibe": "tech",
+          "textColor": "#0f172a"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "Customer Data Activation",
+              "title": "Ship revenue playbooks in hours, not quarters",
+              "subtitle": "Beacon turns raw product, marketing, and sales signals into actions your teams can launch without engineering tickets. From PQL alerts to renewal saves, every motion is measurable.",
+              "primaryCta": {"label": "Start free", "href": "/signup"},
+              "secondaryCta": {"label": "Book a demo", "href": "#contact"},
+              "stats": [
+                {"label": "Integrations", "value": "40+"},
+                {"label": "Median go-live", "value": "10 days"},
+                {"label": "Customer ROI in 90 days", "value": "142%"}
+              ],
+              "imagePrompt": "SaaS dashboard showing unified customer timeline, product usage charts, and alert rules in a sleek UI"
+            }
+          },
+          {
+            "id": "features",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Built for revenue teams that want action, not dashboards",
+              "subtitle": "Beacon puts the right data in the right hands automatically.",
+              "features": [
+                {"name": "Unified timeline", "description": "Product events, email engagement, and deal activity in one view.", "benefit": "Know the full story"},
+                {"name": "Playbook builder", "description": "Trigger sequences, alerts, and enrichment without code.", "benefit": "Launch in hours"},
+                {"name": "Revenue attribution", "description": "Tie product signals to pipeline, expansion, and renewals.", "benefit": "Prove impact"},
+                {"name": "Governed access", "description": "Role-based data access with audit trails and SOC2 controls.", "benefit": "Stay compliant"}
+              ]
+            }
+          },
+          {
+            "id": "results",
+            "componentId": "stats-showcase",
+            "props": {
+              "title": "Proven outcomes",
+              "subtitle": "Teams use Beacon to turn signals into revenue.",
+              "stats": [
+                {"label": "Lift in PQL-to-meeting rate", "value": "38%"},
+                {"label": "Time saved per AE weekly", "value": "4.5 hrs"},
+                {"label": "Segments synced in real time", "value": "120+"},
+                {"label": "Security posture", "value": "SOC2 Type II"}
+              ],
+              "imagePrompt": "Product usage cohort chart highlighting conversion lift before and after automations"
+            }
+          },
+          {
+            "id": "pricing",
+            "componentId": "pricing-table",
+            "props": {
+              "title": "Plans that scale with your signals",
+              "subtitle": "Start free, grow when you are ready.",
+              "tiers": [
+                {"name": "Starter", "description": "For lean teams launching first playbooks.", "price": "Free", "features": ["Up to 5k profiles", "Core integrations", "2 workspaces"], "ctaLabel": "Start free"},
+                {"name": "Growth", "description": "Everything needed for product-led sales.", "price": "$890/mo", "features": ["Unlimited playbooks", "Attribution", "SAML/SCIM"], "ctaLabel": "Try Growth"},
+                {"name": "Enterprise", "description": "For complex data models and strict compliance.", "price": "Talk to us", "features": ["Dedicated VPC", "Custom SLAs", "Solutions engineer"], "ctaLabel": "Talk to sales"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "Security, setup, and support",
+              "subtitle": "The details revenue teams care about.",
+              "faqs": [
+                {"id": "setup", "question": "How fast can we go live?", "answer": "Most teams connect data sources and launch first playbooks in 1-2 weeks with our solutions team."},
+                {"id": "security", "question": "Is Beacon SOC2 compliant?", "answer": "Yes. Beacon is SOC2 Type II audited with SSO, RBAC, audit logs, and data retention controls."},
+                {"id": "data", "question": "Do we need engineers?", "answer": "No. CS, RevOps, and Marketing Ops can ship playbooks without code. We help with any custom events."},
+                {"id": "support", "question": "What support do you provide?", "answer": "Live chat, weekly office hours, and implementation support on Growth and Enterprise plans."}
+              ]
+            }
+          },
+          {
+            "id": "cta",
+            "componentId": "cta-banner",
+            "props": {
+              "title": "See Beacon with your data",
+              "body": "We will connect a source, build one playbook, and measure its lift in a live session.",
+              "primaryCta": {"label": "Book a live demo", "href": "#contact"},
+              "secondaryCta": {"label": "Explore docs", "href": "https://docs.usebeacon.com"},
+              "imagePrompt": "Illustration of team collaborating around a dashboard with colorful signals flowing into automations"
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Request a demo",
+              "subtitle": "Tell us about your stack and GTM motions.",
+              "fields": [
+                {"label": "Name", "placeholder": "Full name", "required": true},
+                {"label": "Work email", "placeholder": "you@company.com", "type": "email", "required": true},
+                {"label": "Company", "placeholder": "Company name", "required": true},
+                {"label": "Team size", "placeholder": "Sales/CS headcount", "required": true},
+                {"label": "What you want to solve", "placeholder": "PQLs, expansion alerts, renewals...", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Book demo",
+              "contactEmail": "sales@usebeacon.com",
+              "reassurance": "We respond within one business day with a tailored agenda."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "ecommerce-product",
+      "site": {
+        "meta": {
+          "brandName": "Lumen Bottle",
+          "headline": "The self-cleaning bottle that keeps water fresh all day",
+          "subheadline": "UV-C purification, insulated design, and a lid you will not lose",
+          "location": "Los Angeles, CA",
+          "phone": "(213) 555-0181",
+          "email": "support@lumenbottle.com"
+        },
+        "seo": {
+          "title": "Lumen Bottle | Self-Cleaning, Insulated Water Bottle",
+          "description": "Lumen Bottle purifies water with UV-C light, keeps drinks cold for 24 hours, and uses a magnetic lid you cannot misplace.",
+          "keywords": ["self-cleaning bottle", "UV-C bottle", "insulated bottle", "Lumen Bottle"]
+        },
+        "theme": {
+          "primaryColor": "#0ea5e9",
+          "accentColor": "#f97316",
+          "backgroundStyle": "gradient",
+          "vibe": "playful",
+          "textColor": "#0f172a"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "New launch",
+              "title": "Cleaner water, fewer refills, and a lid that finally stays put",
+              "subtitle": "Lumen uses UV-C light inside the cap to neutralize 99.9% of bacteria in 60 seconds. Double-wall insulation keeps water cold for 24 hours, and the magnetic lid docks to the handle so you never lose it.",
+              "primaryCta": {"label": "Shop now", "href": "https://lumenbottle.com/buy"},
+              "secondaryCta": {"label": "See how it works", "href": "#faq"},
+              "stats": [
+                {"label": "Cold for", "value": "24 hrs"},
+                {"label": "Hot for", "value": "12 hrs"},
+                {"label": "Battery life", "value": "30 days"}
+              ],
+              "imagePrompt": "Sleek stainless steel water bottle with glowing UV lid, modern background with water droplets"
+            }
+          },
+          {
+            "id": "features",
+            "componentId": "features-grid",
+            "props": {
+              "title": "Designed for daily carry",
+              "subtitle": "Every detail solves a real annoyance.",
+              "features": [
+                {"name": "UV-C purification", "description": "Built-in UV-C cleans the bottle and water with one button tap.", "benefit": "Fresh water anywhere"},
+                {"name": "Magnetic lid", "description": "Lid locks to the handle so it never rolls away or gets lost.", "benefit": "No more missing lids"},
+                {"name": "Insulated steel", "description": "Double-wall vacuum keeps drinks cold or hot without condensation.", "benefit": "All-day temperature"},
+                {"name": "Carry-friendly", "description": "Wide loop handle, cup-holder friendly base, and leakproof seal.", "benefit": "Take it everywhere"}
+              ]
+            }
+          },
+          {
+            "id": "results",
+            "componentId": "stats-showcase",
+            "props": {
+              "title": "Proof points",
+              "subtitle": "Validated by lab tests and daily use.",
+              "stats": [
+                {"label": "Bacteria neutralized", "value": "99.9%"},
+                {"label": "Refills saved per week", "value": "14", "helper": "avg customer"},
+                {"label": "Condensation complaints", "value": "0", "helper": "thanks to insulation"},
+                {"label": "Dishwasher safe", "value": "Yes", "helper": "top rack"}
+              ]
+            }
+          },
+          {
+            "id": "gallery",
+            "componentId": "gallery-carousel",
+            "props": {
+              "title": "In the wild",
+              "subtitle": "Take Lumen to the gym, office, trail, or airport.",
+              "items": [
+                {"title": "Trail-ready", "caption": "Clips to a backpack with the sturdy loop.", "badge": "Outdoors", "image": {"src": "https://placehold.co/360x240", "alt": "Bottle on backpack"}},
+                {"title": "Desk companion", "caption": "No sweat ring on your laptop desk.", "badge": "Office", "image": {"src": "https://placehold.co/360x240", "alt": "Bottle on desk"}},
+                {"title": "Airport-proof", "caption": "Quick UV cycle after filling post-security.", "badge": "Travel", "image": {"src": "https://placehold.co/360x240", "alt": "Bottle in airport"}}
+              ]
+            }
+          },
+          {
+            "id": "pricing",
+            "componentId": "pricing-table",
+            "props": {
+              "title": "Pick your bottle",
+              "subtitle": "Bundle lids and filters for more savings.",
+              "tiers": [
+                {"name": "Standard", "description": "21oz in stainless or matte black.", "price": "$119", "features": ["UV-C lid", "USB-C charging", "1-year warranty"], "ctaLabel": "Buy Standard"},
+                {"name": "Adventure", "description": "27oz with paracord handle and carabiner.", "price": "$139", "features": ["Everything in Standard", "Paracord loop", "Extra filter"], "ctaLabel": "Buy Adventure"},
+                {"name": "Family pack", "description": "Four bottles + extra lids.", "price": "$429", "features": ["Mix colors", "Two spare lids", "Free shipping"], "ctaLabel": "Buy Family pack"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "How Lumen works",
+              "subtitle": "Answers before you buy.",
+              "faqs": [
+                {"id": "safety", "question": "Is UV-C safe?", "answer": "The UV-C light is contained inside the cap and runs only when the bottle is closed."},
+                {"id": "charging", "question": "How do I charge it?", "answer": "Use the included USB-C cable. One charge lasts about 30 days of daily cycles."},
+                {"id": "cleaning", "question": "Is it dishwasher safe?", "answer": "The bottle is dishwasher safe on the top rack. Hand-wash the lid electronics."},
+                {"id": "returns", "question": "What if I do not love it?", "answer": "30-day returns, no questions asked."}
+              ]
+            }
+          },
+          {
+            "id": "cta",
+            "componentId": "cta-banner",
+            "props": {
+              "title": "Ready for fresher water?",
+              "body": "Join thousands of people who stopped buying plastic bottles and started carrying Lumen.",
+              "primaryCta": {"label": "Shop now", "href": "https://lumenbottle.com/buy"},
+              "secondaryCta": {"label": "Compare models", "href": "#pricing"},
+              "imagePrompt": "Row of Lumen bottles in multiple colors with lids glowing softly"
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Need help choosing?",
+              "subtitle": "We are real humans answering questions fast.",
+              "fields": [
+                {"label": "Name", "placeholder": "Your name", "required": true},
+                {"label": "Email", "placeholder": "you@example.com", "type": "email", "required": true},
+                {"label": "Question", "placeholder": "What can we help with?", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Ask a question",
+              "contactEmail": "support@lumenbottle.com",
+              "reassurance": "Replies within one business day. No spam."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "templateId": "restaurant",
+      "site": {
+        "meta": {
+          "brandName": "Elm & Ember",
+          "headline": "Seasonal wood-fired kitchen in the heart of the city",
+          "subheadline": "Locally sourced ingredients, thoughtful cocktails, and warm service",
+          "location": "Brooklyn, NY",
+          "phone": "(718) 555-0166",
+          "email": "hello@elmandember.com"
+        },
+        "seo": {
+          "title": "Elm & Ember | Wood-Fired Restaurant in Brooklyn",
+          "description": "Seasonal wood-fired dishes, craft cocktails, and a cozy dining room in Brooklyn. Book a table or plan your next event.",
+          "keywords": ["Brooklyn restaurant", "wood-fired", "seasonal menu", "cocktails"]
+        },
+        "theme": {
+          "primaryColor": "#b45309",
+          "accentColor": "#f59e0b",
+          "backgroundStyle": "texture",
+          "vibe": "luxury",
+          "textColor": "#1f2937"
+        },
+        "sections": [
+          {
+            "id": "hero",
+            "componentId": "hero-with-image",
+            "props": {
+              "eyebrow": "Wood-Fired Kitchen",
+              "title": "Seasonal plates, open flame, and hospitality that feels like home",
+              "subtitle": "Our menu changes with the farms and the weather. Expect shareable plates, crisp cocktails, and a dining room filled with the smell of oak and citrus.",
+              "primaryCta": {"label": "Book a table", "href": "#contact"},
+              "secondaryCta": {"label": "View seasonal menu", "href": "#services"},
+              "stats": [
+                {"label": "Wood-fired dishes nightly", "value": "12"},
+                {"label": "Local farms partnered", "value": "9"},
+                {"label": "Happy hour", "value": "4–6pm"}
+              ],
+              "imagePrompt": "Warm restaurant interior with wood-fired oven, open kitchen, and glowing ambience"
+            }
+          },
+          {
+            "id": "gallery",
+            "componentId": "gallery-carousel",
+            "props": {
+              "title": "From our hearth",
+              "subtitle": "Seasonal dishes, cocktails, and the room.",
+              "items": [
+                {"title": "Charred carrots", "caption": "Smoked yogurt, pistachio, honey.", "badge": "Seasonal", "image": {"src": "https://placehold.co/360x240", "alt": "Charred carrots"}},
+                {"title": "Dining room", "caption": "Cozy banquettes and open kitchen views.", "badge": "Space", "image": {"src": "https://placehold.co/360x240", "alt": "Dining room"}},
+                {"title": "Cocktails", "caption": "Citrus-forward classics and zero-proof options.", "badge": "Bar", "image": {"src": "https://placehold.co/360x240", "alt": "Cocktail"}}
+              ]
+            }
+          },
+          {
+            "id": "menu",
+            "componentId": "features-grid",
+            "props": {
+              "title": "What we are serving this month",
+              "subtitle": "A short, evolving menu built around the wood fire.",
+              "features": [
+                {"name": "Snacks", "description": "Fire-kissed olives, house sourdough, whipped ricotta.", "benefit": "Start strong"},
+                {"name": "Plates", "description": "Coal-roasted trout, embered carrots, aged ribeye with charred lemon.", "benefit": "Shareable mains"},
+                {"name": "Cocktails", "description": "Smoky old fashioned, citrus spritz, and zero-proof pairings.", "benefit": "Balanced sips"},
+                {"name": "Desserts", "description": "Burnt honey panna cotta, flourless chocolate, seasonal fruit.", "benefit": "Sweet finish"}
+              ]
+            }
+          },
+          {
+            "id": "process",
+            "componentId": "process-timeline",
+            "props": {
+              "title": "Plan your visit",
+              "subtitle": "We keep things simple and welcoming.",
+              "steps": [
+                {"id": "book", "title": "Book", "description": "Reserve online for parties up to 8 or reach out for larger groups.", "timeline": "Now"},
+                {"id": "arrive", "title": "Arrive", "description": "We hold tables for 15 minutes and can accommodate most dietary needs.", "timeline": "Your night"},
+                {"id": "enjoy", "title": "Enjoy", "description": "Relax with snacks while your mains finish over the fire.", "timeline": "Dinner"},
+                {"id": "events", "title": "Events", "description": "Ask about buyouts or private dining for celebrations.", "timeline": "Anytime"}
+              ]
+            }
+          },
+          {
+            "id": "reviews",
+            "componentId": "testimonials-cards",
+            "props": {
+              "title": "Guests keep coming back",
+              "subtitle": "A few recent notes from the neighborhood.",
+              "testimonials": [
+                {"name": "Lena G.", "role": "Local regular", "quote": "The embered carrots and fresh bread alone are worth the trip. Service feels like old friends.", "highlight": "Neighborhood favorite"},
+                {"name": "Theo W.", "role": "Chef & guest", "quote": "Balanced smoke, bright flavors, and a team that genuinely cares.", "highlight": "Chef-approved"},
+                {"name": "Suki P.", "role": "Event host", "quote": "They made our rehearsal dinner seamless—custom menu, great pacing, and thoughtful wine pairings.", "highlight": "Events made easy"}
+              ]
+            }
+          },
+          {
+            "id": "faq",
+            "componentId": "faq-accordion",
+            "props": {
+              "title": "Before you visit",
+              "subtitle": "Helpful details for a smooth evening.",
+              "faqs": [
+                {"id": "dietary", "question": "Can you handle dietary needs?", "answer": "Yes. Please add notes to your reservation and our chefs will offer thoughtful adjustments."},
+                {"id": "parking", "question": "Do you have parking?", "answer": "Street parking is available; the Bergen garage is two blocks away."},
+                {"id": "walkins", "question": "Do you take walk-ins?", "answer": "We keep a few bar seats for walk-ins nightly."},
+                {"id": "large-parties", "question": "How do I book a large party?", "answer": "Email us for parties over 8 or for private dining options."}
+              ]
+            }
+          },
+          {
+            "id": "contact",
+            "componentId": "contact-form",
+            "props": {
+              "title": "Book a table or plan an event",
+              "subtitle": "We reply quickly during service hours.",
+              "fields": [
+                {"label": "Name", "placeholder": "Full name", "required": true},
+                {"label": "Email", "placeholder": "you@example.com", "type": "email", "required": true},
+                {"label": "Phone", "placeholder": "Optional phone"},
+                {"label": "Date & time", "placeholder": "When would you like to dine?", "required": true},
+                {"label": "Details", "placeholder": "Number of guests, occasion, dietary notes", "type": "textarea", "required": true}
+              ],
+              "submitLabel": "Send request",
+              "contactEmail": "hello@elmandember.com",
+              "reassurance": "We confirm reservations and event details promptly."
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

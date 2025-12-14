@@ -1,10 +1,12 @@
 const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
+const fsp = require('node:fs/promises');
+const fs = require('node:fs');
 const AWS = require('aws-sdk');
+const { uploadToS3 } = require('./deploy');
 const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
-const { buildAndUpload } = require('./deploy');
 const { waitForProjectReady } = require('./project-readiness');
 const {
   putDraftRecord,
@@ -35,6 +37,87 @@ const sanitizePrefix = (prefix) => {
   return prefix.replace(/^\/+/, '').replace(/\/+$/, '');
 };
 
+const buildS3Url = ({ bucket, key }) => {
+  const cleanedKey = key.replace(/^\/+/, '');
+  return `https://${bucket}.s3.amazonaws.com/${cleanedKey}`;
+};
+
+const buildPublicUrlFromKey = ({ bucket, key }) => {
+  const previewDomain = (process.env.PREVIEW_DOMAIN || '').replace(/\/+$/, '');
+  const cleanedKey = key.replace(/^\/+/, '');
+  if (previewDomain) {
+    return `https://${previewDomain}/${cleanedKey}`;
+  }
+  return buildS3Url({ bucket, key });
+};
+
+const writeJson = async ({ s3, bucket, key, payload }) => {
+  await s3
+    .putObject({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(payload, null, 2),
+      ContentType: 'application/json',
+    })
+    .promise();
+};
+
+const readSiteContent = async (downloadDir) => {
+  const filePath = path.join(downloadDir, 'src', 'content', 'site.json');
+  const raw = await fsp.readFile(filePath, 'utf8');
+  return JSON.parse(raw);
+};
+
+const buildTemplateSummary = (site = {}) => {
+  const mapSections = (sections = []) =>
+    sections
+      .map((section) => ({
+        id: section?.id || null,
+        componentId: section?.componentId || null,
+      }))
+      .filter((entry) => entry.componentId);
+
+  const pages = Array.isArray(site.pages)
+    ? site.pages.map((page) => ({
+        path: page?.path,
+        title: page?.title,
+        sections: mapSections(page?.sections || []),
+      }))
+    : null;
+
+  return {
+    templateId: site.templateId || null,
+    sections: mapSections(site.sections || []),
+    pages: pages || undefined,
+  };
+};
+
+const ensureBaseBundleUploaded = async ({ bucket, prefix, s3 }) => {
+  if (!fs.existsSync(BASE_BUNDLE_DIR)) {
+    throw new Error(`Base bundle not found at ${BASE_BUNDLE_DIR}. Run the build or set BASE_BUNDLE_DIR.`);
+  }
+  const client = s3 || ensureS3();
+  const normalizedPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : '';
+  const indexKey = `${normalizedPrefix}index.html`;
+
+  try {
+    await client
+      .headObject({
+        Bucket: bucket,
+        Key: indexKey,
+      })
+      .promise();
+    return false;
+  } catch (error) {
+    if (error.code && !['NotFound', 'NoSuchKey'].includes(error.code)) {
+      throw error;
+    }
+  }
+
+  await uploadToS3(BASE_BUNDLE_DIR, { bucket, prefix, profile: undefined });
+  return true;
+};
+
 const buildPrompt = ({ url, instructions }) => {
   const base = instructions?.trim()
     ? instructions.trim()
@@ -58,6 +141,10 @@ const createDraftId = () => {
   }
   return `draft-${Date.now().toString(36)}`;
 };
+
+const BASE_BUNDLE_DIR =
+  process.env.BASE_BUNDLE_DIR ||
+  path.join(__dirname, '..', 'templates', 'site-base', 'dist');
 
 const runUpdate = async ({
   projectId,
@@ -155,20 +242,46 @@ const runUpdate = async ({
       projectData,
     });
 
-    const { distPath, target } = await buildAndUpload(downloadDir, {
+    const siteContent = await readSiteContent(downloadDir);
+    const templateSummary = buildTemplateSummary(siteContent);
+    const s3 = ensureS3();
+    const contentKey = `${tempPrefix}/content.json`;
+    const templateKey = `${tempPrefix}/template.json`;
+    const metadata = {
+      lovProjectId: newProjectId,
+      updatedAt: new Date().toISOString(),
+      sourceUrl: url,
+      instructions: instructions || '',
+      requestedBy: requestedBy?.sub || null,
+    };
+
+    await writeJson({
+      s3,
       bucket: resolvedBucket,
-      prefix: tempPrefix,
-      profile,
-      skipInstall: Boolean(skipInstall),
+      key: contentKey,
+      payload: { slug: projectId, site: siteContent },
     });
+    await writeJson({
+      s3,
+      bucket: resolvedBucket,
+      key: templateKey,
+      payload: { slug: projectId, template: templateSummary, metadata },
+    });
+
+    await ensureBaseBundleUploaded({ bucket: resolvedBucket, prefix: tempPrefix, s3 });
+
+    const contentUrl = buildPublicUrlFromKey({ bucket: resolvedBucket, key: contentKey });
+    const templateUrl = buildPublicUrlFromKey({ bucket: resolvedBucket, key: templateKey });
 
     await updateDraftStatus({
       projectId,
       draftId,
       status: 'ready',
       metadata: {
-        distPath,
-        target,
+        contentKey,
+        templateKey,
+        contentUrl,
+        templateUrl,
         lovProjectId: newProjectId,
       },
     });
@@ -177,7 +290,11 @@ const runUpdate = async ({
       projectId,
       draftId,
       status: 'ready',
-      target,
+      target: contentUrl,
+      contentKey,
+      templateKey,
+      contentUrl,
+      templateUrl,
       tempPrefix,
     };
   } catch (error) {

@@ -1,0 +1,58 @@
+{
+  "id": "restaurant",
+  "name": "Restaurant",
+  "vertical": "hospitality",
+  "subcategory": "restaurant",
+  "useCases": [
+    "reservations",
+    "menus",
+    "private dining"
+  ],
+  "tone": "warm, sensory",
+  "vibe": "luxury",
+  "tags": [
+    "menu",
+    "reservations",
+    "hours",
+    "map"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "signature dish hero with reserve CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "interior and plates"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "cuisine highlights, chef story, sourcing"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "awards, seating, wait times"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "reserve → arrive → dine → events"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "diners and press quotes"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "hours, parking, dietary"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "private dining inquiries"
+    }
+  ],
+  "needsComponents": [
+    "menu-grid",
+    "reservation-widget",
+    "hours/location-block"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "id": "mortgage-broker",
+  "name": "Mortgage & Lending",
+  "vertical": "finance",
+  "subcategory": "mortgage",
+  "useCases": [
+    "pre-approvals",
+    "refi leads",
+    "rate shoppers"
+  ],
+  "tone": "clear, compliant",
+  "vibe": "luxury",
+  "tags": [
+    "pre-approval",
+    "rate-table",
+    "calculator"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "rate-focused hero with pre-approval CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "avg close time, lenders, satisfaction"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "FHA/VA/conventional, jumbo, refi"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "apply → review → approval → close"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "borrower outcomes"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "rates, docs, timelines"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "start application"
+    }
+  ],
+  "needsComponents": [
+    "rate-table",
+    "payment-calculator"
+  ]
+}

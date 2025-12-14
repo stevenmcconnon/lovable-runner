@@ -1,0 +1,57 @@
+{
+  "id": "personal-trainer",
+  "name": "Personal Trainer",
+  "vertical": "fitness",
+  "subcategory": "personal-training",
+  "useCases": [
+    "1:1 training",
+    "online programs",
+    "transformation packages"
+  ],
+  "tone": "motivating, clear",
+  "vibe": "tech",
+  "tags": [
+    "before-after",
+    "plans",
+    "virtual",
+    "calendar"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "transformation hero with booking CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "before/after and training shots"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "strength, fat loss, mobility, nutrition"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "packages and online programs"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "assessment → plan → train → track"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "client outcomes"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "scheduling, nutrition, remote options"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book consult"
+    }
+  ],
+  "needsComponents": [
+    "schedule-picker",
+    "program-grid"
+  ]
+}

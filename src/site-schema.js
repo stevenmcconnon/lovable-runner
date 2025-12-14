@@ -7,6 +7,12 @@ const ImageSchema = z.object({
   generatedAt: z.string().optional(),
 });
 
+const MIN_IMAGE_PROMPTS = 2;
+const REQUIRED_GROUPS = ['hero', 'services', 'social-proof', 'process', 'support', 'cta', 'proof'];
+const MIN_SECTIONS_TOTAL = 8;
+const MIN_TOTAL_WORDS = 600;
+const BANNED_PHRASES = ['ai sitemaker', 'ai site maker', 'ai-sitemaker', 'lovable'];
+
 const SectionSchema = z.object({
   id: z.string().min(2),
   componentId: z.enum(SECTION_IDS),
@@ -16,7 +22,7 @@ const SectionSchema = z.object({
 const PageSchema = z.object({
   path: z.string().min(1),
   title: z.string().min(2),
-  sections: z.array(SectionSchema).min(4),
+  sections: z.array(SectionSchema).min(5),
 });
 
 const IntegrationsSchema = z.object({
@@ -61,6 +67,7 @@ const SiteSchema = z.object({
     vibe: z.enum(['luxury', 'tech', 'playful', 'earthy']),
     textColor: z.string().min(4).optional(),
   }),
+  templateId: z.string().min(2),
   canonical: z.string().url().optional(),
   redirects: z
     .array(
@@ -80,15 +87,19 @@ const SiteSchema = z.object({
     .optional(),
   schemaMarkup: z.string().optional(),
   integrations: IntegrationsSchema.optional(),
-  sections: z.array(SectionSchema).min(6).optional(),
+  sections: z.array(SectionSchema).min(8).optional(),
   pages: z.array(PageSchema).max(5).optional(),
 }).superRefine((value, ctx) => {
-  const hasSections = Array.isArray(value.sections) && value.sections.length >= 6;
-  const hasPages = Array.isArray(value.pages) && value.pages.length > 0;
+  const sectionsCount = Array.isArray(value.sections) ? value.sections.length : 0;
+  const pagesCount = Array.isArray(value.pages)
+    ? value.pages.reduce((total, page) => total + (Array.isArray(page.sections) ? page.sections.length : 0), 0)
+    : 0;
+  const hasSections = sectionsCount >= MIN_SECTIONS_TOTAL;
+  const hasPages = pagesCount >= MIN_SECTIONS_TOTAL;
   if (!hasSections && !hasPages) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Provide either sections (>=6) or pages with sections.',
+      message: `Provide either sections (>=${MIN_SECTIONS_TOTAL}) or pages whose combined sections reach ${MIN_SECTIONS_TOTAL}.`,
       path: ['sections'],
     });
   }
@@ -121,10 +132,6 @@ const flattenStrings = (value) => {
   visit(value);
   return strings;
 };
-
-const MIN_IMAGE_PROMPTS = 2;
-const REQUIRED_GROUPS = ['hero', 'services', 'social-proof', 'process', 'support', 'cta'];
-const MIN_SECTIONS_TOTAL = 6;
 
 const validateSectionQuality = (section) => {
   const manifest = SECTION_MANIFEST.find((item) => item.id === section.componentId);
@@ -204,13 +211,34 @@ const validateSiteQuality = (siteJson) => {
     const strings = flattenStrings(section.props);
     return acc + strings.reduce((sum, text) => sum + countWords(text), 0);
   }, 0);
-  if (totalWords < 500) {
-    errors.push(`Overall copy too short (${totalWords}/500 words).`);
+  if (totalWords < MIN_TOTAL_WORDS) {
+    errors.push(`Overall copy too short (${totalWords}/${MIN_TOTAL_WORDS} words).`);
   }
   allSections.forEach((section) => {
     const error = validateSectionQuality(section);
     if (error) errors.push(error);
   });
+  const strings = flattenStrings(site);
+  const normalizedStrings = strings.map((str) => str.toLowerCase());
+  const bannedFound = BANNED_PHRASES.find((phrase) => normalizedStrings.some((s) => s.includes(phrase)));
+  if (bannedFound) {
+    errors.push(`Banned branding present: "${bannedFound}". Remove AI-SiteMaker/Lovable references.`);
+  }
+  if (site.meta?.brandName) {
+    const brand = site.meta.brandName.trim().toLowerCase();
+    const sectionStrings = allSections
+      .map((section) => flattenStrings(section.props))
+      .flat()
+      .map((str) => str.toLowerCase());
+    const brandCore = brand.split(/\s+/).slice(0, 2).join(' ');
+    const matchesBrand =
+      brand &&
+      (sectionStrings.some((s) => s.includes(brand)) ||
+        (brandCore.length > 3 && sectionStrings.some((s) => s.includes(brandCore))));
+    if (brand && !matchesBrand) {
+      errors.push('Brand name from meta.brandName is not present in body copy.');
+    }
+  }
   return { valid: errors.length === 0, errors, site };
 };
 

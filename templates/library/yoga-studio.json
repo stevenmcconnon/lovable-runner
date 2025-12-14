@@ -1,0 +1,52 @@
+{
+  "id": "yoga-studio",
+  "name": "Yoga Studio",
+  "vertical": "fitness",
+  "subcategory": "yoga",
+  "useCases": [
+    "class passes",
+    "memberships",
+    "events"
+  ],
+  "tone": "calm, welcoming",
+  "vibe": "earthy",
+  "tags": [
+    "schedule",
+    "memberships",
+    "community"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "class variety hero with pass CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "class types, instructors, experience"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "choose class → arrive → flow → connect"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "drop-in, passes, memberships"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "community proof"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "what to bring, level, parking"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "new student questions"
+    }
+  ],
+  "needsComponents": [
+    "class-schedule",
+    "instructor-bios"
+  ]
+}

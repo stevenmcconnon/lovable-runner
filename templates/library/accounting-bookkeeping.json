@@ -1,0 +1,48 @@
+{
+  "id": "accounting-bookkeeping",
+  "name": "Accounting & Bookkeeping",
+  "vertical": "professional-services",
+  "subcategory": "accounting",
+  "useCases": [
+    "retainer leads",
+    "cleanup projects",
+    "SaaS/SMB niches"
+  ],
+  "tone": "calm, precise",
+  "vibe": "tech",
+  "tags": [
+    "retainer",
+    "remote",
+    "niching"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "profit and compliance hero with CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "bookkeeping, payroll, advisory, tax"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "diagnose → cleanup → automate → review"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "accuracy, savings, response SLAs"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "starter, growth, CFO tiers"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "industry-specific proof"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "schedule consult"
+    }
+  ]
+}

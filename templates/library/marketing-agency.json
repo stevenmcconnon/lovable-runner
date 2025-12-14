@@ -1,0 +1,56 @@
+{
+  "id": "marketing-agency",
+  "name": "Marketing Agency",
+  "vertical": "agency",
+  "subcategory": "marketing",
+  "useCases": [
+    "retainers",
+    "projects",
+    "audits"
+  ],
+  "tone": "smart, results-driven",
+  "vibe": "tech",
+  "tags": [
+    "case-studies",
+    "services",
+    "retainers"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "positioning hero with discovery CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "ROI metrics, channel expertise"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "paid, SEO, creative, lifecycle"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "audit → strategy → launch → optimize"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "client quotes and logos"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "retainer tiers or audits"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "contracts, reporting, pricing"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book discovery call"
+    }
+  ],
+  "needsComponents": [
+    "case-study-cards",
+    "logo-grid"
+  ]
+}

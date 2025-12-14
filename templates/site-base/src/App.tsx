@@ -1,10 +1,7 @@
-import site from './content/site.json';
 import type { SiteContent } from './content/site-schema';
 import { SectionRenderer } from './components/sections';
 import { applyThemeToDocument } from './lib/theme';
-import { useEffect } from 'react';
-
-const siteContent = site as SiteContent;
+import { useEffect, useState } from 'react';
 
 const backgroundLayers: Record<
   'gradient' | 'mesh' | 'texture',
@@ -40,9 +37,64 @@ const Background = ({ mode }: { mode: 'gradient' | 'mesh' | 'texture' }) => {
 };
 
 const App = () => {
+  const [siteContent, setSiteContent] = useState<SiteContent | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+
   useEffect(() => {
-    applyThemeToDocument(siteContent.theme);
+    const loadContent = async () => {
+      try {
+        // Resolve content.json relative to the current page so slug-prefixed sites load correctly.
+        const contentUrl = new URL('./content.json', window.location.href).toString();
+        const response = await fetch(contentUrl, { cache: 'no-cache' });
+        if (!response.ok) {
+          throw new Error(`Failed to load content.json (${response.status})`);
+        }
+        const raw = await response.json();
+        const data = (raw?.site || raw) as SiteContent;
+        setSiteContent(data);
+        setStatus('ready');
+        applyThemeToDocument(data.theme);
+      } catch (error) {
+        console.error('[App] Failed to load site content', error);
+        setStatus('error');
+      }
+    };
+    loadContent();
   }, []);
+
+  useEffect(() => {
+    if (!siteContent) return;
+    applyThemeToDocument(siteContent.theme);
+  }, [siteContent]);
+
+  if (status === 'loading') {
+    return (
+      <div className="relative min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900">
+        <div className="mx-auto max-w-4xl px-6 py-16">
+          <div className="h-4 w-28 animate-pulse rounded-full bg-slate-200" />
+          <div className="mt-4 h-8 w-72 animate-pulse rounded-lg bg-slate-200" />
+          <div className="mt-10 grid gap-4 md:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="h-36 animate-pulse rounded-2xl bg-white shadow-sm" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!siteContent || status === 'error') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white">
+        <div className="max-w-md rounded-2xl bg-slate-800 p-6 text-center shadow-lg shadow-black/40">
+          <p className="text-lg font-semibold">Content unavailable</p>
+          <p className="mt-2 text-sm text-slate-200">
+            We could not load the site content. Check that <code className="font-mono">/content.json</code> is present.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen">

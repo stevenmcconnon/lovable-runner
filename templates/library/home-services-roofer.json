@@ -1,0 +1,49 @@
+{
+  "id": "home-services-roofer",
+  "name": "Roofing & Storm Repair",
+  "vertical": "home-services",
+  "subcategory": "roofing",
+  "useCases": [
+    "storm damage",
+    "new roofs",
+    "inspections"
+  ],
+  "tone": "solid, insurance-ready",
+  "vibe": "earthy",
+  "tags": [
+    "insurance",
+    "free-inspection",
+    "local",
+    "photo-proof"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "storm-readiness hero with insurance CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "before/after and materials"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "inspect → document → repair → warranty"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "materials, crews, clean-up promise"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "homeowner proof and photos"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "insurance claims and timelines"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "request inspection slot"
+    }
+  ]
+}

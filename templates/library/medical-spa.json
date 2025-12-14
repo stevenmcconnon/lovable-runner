@@ -1,0 +1,56 @@
+{
+  "id": "medical-spa",
+  "name": "Medical Spa",
+  "vertical": "healthcare",
+  "subcategory": "medspa",
+  "useCases": [
+    "consults",
+    "packages",
+    "memberships"
+  ],
+  "tone": "elevated, reassuring",
+  "vibe": "luxury",
+  "tags": [
+    "packages",
+    "before-after",
+    "memberships"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "luxury hero with consultation CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "before/after treatments"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "injectables, facials, lasers, body"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "packages and memberships"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "consult → plan → treatment → aftercare"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "outcomes and comfort"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "downtime, safety, candidacy"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book consultation"
+    }
+  ],
+  "needsComponents": [
+    "treatment-menu",
+    "practitioner-bios"
+  ]
+}

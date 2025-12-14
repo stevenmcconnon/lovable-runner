@@ -1,0 +1,49 @@
+{
+  "id": "auto-repair",
+  "name": "Auto Repair Shop",
+  "vertical": "automotive",
+  "subcategory": "auto-repair",
+  "useCases": [
+    "diagnostics",
+    "maintenance",
+    "fleet"
+  ],
+  "tone": "practical, trustworthy",
+  "vibe": "tech",
+  "tags": [
+    "fleet",
+    "warranty",
+    "same-day",
+    "certified-techs"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "ASE-certified hero with same-day CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "turnaround times, warranties"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "brakes, diagnostics, tires, inspections"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "drop-off → diagnose → approve → repair"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "customer trust and fleet managers"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "estimates, parts, warranties"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book service slot or pickup"
+    }
+  ]
+}

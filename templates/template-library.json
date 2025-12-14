@@ -1,0 +1,602 @@
+{
+  "version": "2024-11-xx",
+  "componentsAvailable": [
+    "hero-with-image",
+    "features-grid",
+    "testimonials-cards",
+    "faq-accordion",
+    "pricing-table",
+    "cta-banner",
+    "process-timeline",
+    "stats-showcase",
+    "gallery-carousel",
+    "contact-form"
+  ],
+  "templatesIndex": [
+    {
+      "id": "home-services-plumber",
+      "name": "Local Plumber Lead Gen",
+      "vertical": "home-services",
+      "subcategory": "plumbing",
+      "path": "templates/library/home-services-plumber.json",
+      "tags": [
+        "local",
+        "phone-forward",
+        "emergency",
+        "quick-quote"
+      ],
+      "tone": "trustworthy, urgent",
+      "vibe": "earthy",
+      "useCases": [
+        "emergency calls",
+        "quote requests",
+        "maintenance plans"
+      ]
+    },
+    {
+      "id": "home-services-electrician",
+      "name": "Certified Electrician",
+      "vertical": "home-services",
+      "subcategory": "electrician",
+      "path": "templates/library/home-services-electrician.json",
+      "tags": [
+        "licensed",
+        "safety",
+        "quote",
+        "local"
+      ],
+      "tone": "precise, safety-first",
+      "vibe": "tech",
+      "useCases": [
+        "panel upgrades",
+        "safety inspections",
+        "remodel wiring"
+      ]
+    },
+    {
+      "id": "home-services-hvac",
+      "name": "HVAC Comfort Pros",
+      "vertical": "home-services",
+      "subcategory": "hvac",
+      "path": "templates/library/home-services-hvac.json",
+      "tags": [
+        "seasonal",
+        "maintenance-plan",
+        "emergency",
+        "financing"
+      ],
+      "tone": "reassuring, expert",
+      "vibe": "tech",
+      "useCases": [
+        "seasonal tune-ups",
+        "new installs",
+        "emergency repair"
+      ]
+    },
+    {
+      "id": "home-services-roofer",
+      "name": "Roofing & Storm Repair",
+      "vertical": "home-services",
+      "subcategory": "roofing",
+      "path": "templates/library/home-services-roofer.json",
+      "tags": [
+        "insurance",
+        "free-inspection",
+        "local",
+        "photo-proof"
+      ],
+      "tone": "solid, insurance-ready",
+      "vibe": "earthy",
+      "useCases": [
+        "storm damage",
+        "new roofs",
+        "inspections"
+      ]
+    },
+    {
+      "id": "home-services-landscaping",
+      "name": "Landscaping & Lawn Care",
+      "vertical": "home-services",
+      "subcategory": "landscaping",
+      "path": "templates/library/home-services-landscaping.json",
+      "tags": [
+        "recurring",
+        "design",
+        "before-after",
+        "schedules"
+      ],
+      "tone": "fresh, reliable",
+      "vibe": "earthy",
+      "useCases": [
+        "maintenance plans",
+        "design-build",
+        "seasonal cleanups"
+      ]
+    },
+    {
+      "id": "cleaning-services",
+      "name": "Residential & Office Cleaning",
+      "vertical": "services",
+      "subcategory": "cleaning",
+      "path": "templates/library/cleaning-services.json",
+      "tags": [
+        "recurring",
+        "packages",
+        "checklist",
+        "satisfaction"
+      ],
+      "tone": "trustworthy, sparkling",
+      "vibe": "playful",
+      "useCases": [
+        "recurring plans",
+        "move-in/out",
+        "office cleaning"
+      ]
+    },
+    {
+      "id": "pest-control",
+      "name": "Pest Control & Prevention",
+      "vertical": "services",
+      "subcategory": "pest-control",
+      "path": "templates/library/pest-control.json",
+      "tags": [
+        "safety",
+        "eco-friendly",
+        "guarantee",
+        "emergency"
+      ],
+      "tone": "calm, decisive",
+      "vibe": "tech",
+      "useCases": [
+        "one-time removal",
+        "quarterly plans",
+        "commercial"
+      ]
+    },
+    {
+      "id": "auto-repair",
+      "name": "Auto Repair Shop",
+      "vertical": "automotive",
+      "subcategory": "auto-repair",
+      "path": "templates/library/auto-repair.json",
+      "tags": [
+        "fleet",
+        "warranty",
+        "same-day",
+        "certified-techs"
+      ],
+      "tone": "practical, trustworthy",
+      "vibe": "tech",
+      "useCases": [
+        "diagnostics",
+        "maintenance",
+        "fleet"
+      ]
+    },
+    {
+      "id": "car-dealership",
+      "name": "Auto Dealership",
+      "vertical": "automotive",
+      "subcategory": "dealership",
+      "path": "templates/library/car-dealership.json",
+      "tags": [
+        "inventory",
+        "financing",
+        "trade-in"
+      ],
+      "tone": "confident, helpful",
+      "vibe": "tech",
+      "useCases": [
+        "inventory browsing",
+        "financing leads",
+        "test drives"
+      ]
+    },
+    {
+      "id": "real-estate-agent",
+      "name": "Real Estate Agent",
+      "vertical": "real-estate",
+      "subcategory": "agent",
+      "path": "templates/library/real-estate-agent.json",
+      "tags": [
+        "local",
+        "listings",
+        "consult",
+        "map"
+      ],
+      "tone": "expert, local",
+      "vibe": "luxury",
+      "useCases": [
+        "listing leads",
+        "buyer consults"
+      ]
+    },
+    {
+      "id": "property-management",
+      "name": "Property Management",
+      "vertical": "real-estate",
+      "subcategory": "property-management",
+      "path": "templates/library/property-management.json",
+      "tags": [
+        "owners",
+        "tenants",
+        "reporting",
+        "maintenance"
+      ],
+      "tone": "professional, steady",
+      "vibe": "tech",
+      "useCases": [
+        "owner leads",
+        "tenant services"
+      ]
+    },
+    {
+      "id": "mortgage-broker",
+      "name": "Mortgage & Lending",
+      "vertical": "finance",
+      "subcategory": "mortgage",
+      "path": "templates/library/mortgage-broker.json",
+      "tags": [
+        "pre-approval",
+        "rate-table",
+        "calculator"
+      ],
+      "tone": "clear, compliant",
+      "vibe": "luxury",
+      "useCases": [
+        "pre-approvals",
+        "refi leads",
+        "rate shoppers"
+      ]
+    },
+    {
+      "id": "law-firm",
+      "name": "Law Firm",
+      "vertical": "professional-services",
+      "subcategory": "legal",
+      "path": "templates/library/law-firm.json",
+      "tags": [
+        "practice-areas",
+        "attorneys",
+        "case-results"
+      ],
+      "tone": "confident, clear",
+      "vibe": "luxury",
+      "useCases": [
+        "inquiries",
+        "practice area pages"
+      ]
+    },
+    {
+      "id": "accounting-bookkeeping",
+      "name": "Accounting & Bookkeeping",
+      "vertical": "professional-services",
+      "subcategory": "accounting",
+      "path": "templates/library/accounting-bookkeeping.json",
+      "tags": [
+        "retainer",
+        "remote",
+        "niching"
+      ],
+      "tone": "calm, precise",
+      "vibe": "tech",
+      "useCases": [
+        "retainer leads",
+        "cleanup projects",
+        "SaaS/SMB niches"
+      ]
+    },
+    {
+      "id": "dental-clinic",
+      "name": "Dental Practice",
+      "vertical": "healthcare",
+      "subcategory": "dentist",
+      "path": "templates/library/dental-clinic.json",
+      "tags": [
+        "new-patient-offer",
+        "insurance",
+        "membership",
+        "before-after"
+      ],
+      "tone": "friendly, clinical",
+      "vibe": "luxury",
+      "useCases": [
+        "new patients",
+        "membership plans",
+        "cosmetic focus"
+      ]
+    },
+    {
+      "id": "medical-spa",
+      "name": "Medical Spa",
+      "vertical": "healthcare",
+      "subcategory": "medspa",
+      "path": "templates/library/medical-spa.json",
+      "tags": [
+        "packages",
+        "before-after",
+        "memberships"
+      ],
+      "tone": "elevated, reassuring",
+      "vibe": "luxury",
+      "useCases": [
+        "consults",
+        "packages",
+        "memberships"
+      ]
+    },
+    {
+      "id": "physical-therapy",
+      "name": "Physical Therapy Clinic",
+      "vertical": "healthcare",
+      "subcategory": "physical-therapy",
+      "path": "templates/library/physical-therapy.json",
+      "tags": [
+        "insurance",
+        "telehealth",
+        "programs"
+      ],
+      "tone": "clinical, encouraging",
+      "vibe": "tech",
+      "useCases": [
+        "post-op rehab",
+        "sports performance",
+        "telehealth"
+      ]
+    },
+    {
+      "id": "personal-trainer",
+      "name": "Personal Trainer",
+      "vertical": "fitness",
+      "subcategory": "personal-training",
+      "path": "templates/library/personal-trainer.json",
+      "tags": [
+        "before-after",
+        "plans",
+        "virtual",
+        "calendar"
+      ],
+      "tone": "motivating, clear",
+      "vibe": "tech",
+      "useCases": [
+        "1:1 training",
+        "online programs",
+        "transformation packages"
+      ]
+    },
+    {
+      "id": "yoga-studio",
+      "name": "Yoga Studio",
+      "vertical": "fitness",
+      "subcategory": "yoga",
+      "path": "templates/library/yoga-studio.json",
+      "tags": [
+        "schedule",
+        "memberships",
+        "community"
+      ],
+      "tone": "calm, welcoming",
+      "vibe": "earthy",
+      "useCases": [
+        "class passes",
+        "memberships",
+        "events"
+      ]
+    },
+    {
+      "id": "salon-spa",
+      "name": "Salon & Spa",
+      "vertical": "beauty",
+      "subcategory": "salon-spa",
+      "path": "templates/library/salon-spa.json",
+      "tags": [
+        "booking",
+        "packages",
+        "before-after"
+      ],
+      "tone": "warm, polished",
+      "vibe": "luxury",
+      "useCases": [
+        "bookings",
+        "packages",
+        "memberships"
+      ]
+    },
+    {
+      "id": "barber-shop",
+      "name": "Barber Shop",
+      "vertical": "beauty",
+      "subcategory": "barber",
+      "path": "templates/library/barber-shop.json",
+      "tags": [
+        "walk-in",
+        "booking",
+        "membership"
+      ],
+      "tone": "confident, straightforward",
+      "vibe": "earthy",
+      "useCases": [
+        "walk-ins",
+        "online booking",
+        "memberships"
+      ]
+    },
+    {
+      "id": "wedding-photographer",
+      "name": "Wedding Photographer",
+      "vertical": "creative",
+      "subcategory": "photography",
+      "path": "templates/library/wedding-photographer.json",
+      "tags": [
+        "portfolio",
+        "packages",
+        "timeline"
+      ],
+      "tone": "romantic, organized",
+      "vibe": "luxury",
+      "useCases": [
+        "booking consults",
+        "venue familiarity",
+        "package sales"
+      ]
+    },
+    {
+      "id": "video-production",
+      "name": "Video Production Studio",
+      "vertical": "creative",
+      "subcategory": "video",
+      "path": "templates/library/video-production.json",
+      "tags": [
+        "portfolio",
+        "packages",
+        "timeline"
+      ],
+      "tone": "bold, strategic",
+      "vibe": "tech",
+      "useCases": [
+        "brand films",
+        "product explainers",
+        "event recaps"
+      ]
+    },
+    {
+      "id": "marketing-agency",
+      "name": "Marketing Agency",
+      "vertical": "agency",
+      "subcategory": "marketing",
+      "path": "templates/library/marketing-agency.json",
+      "tags": [
+        "case-studies",
+        "services",
+        "retainers"
+      ],
+      "tone": "smart, results-driven",
+      "vibe": "tech",
+      "useCases": [
+        "retainers",
+        "projects",
+        "audits"
+      ]
+    },
+    {
+      "id": "consulting-b2b",
+      "name": "B2B Consulting",
+      "vertical": "professional-services",
+      "subcategory": "consulting",
+      "path": "templates/library/consulting-b2b.json",
+      "tags": [
+        "frameworks",
+        "case-studies",
+        "workshops"
+      ],
+      "tone": "authoritative, concise",
+      "vibe": "luxury",
+      "useCases": [
+        "discovery calls",
+        "workshops",
+        "retainers"
+      ]
+    },
+    {
+      "id": "saas-product",
+      "name": "SaaS Product Landing",
+      "vertical": "software",
+      "subcategory": "saas",
+      "path": "templates/library/saas-product.json",
+      "tags": [
+        "product-led",
+        "social-proof",
+        "pricing",
+        "integrations"
+      ],
+      "tone": "crisp, product-led",
+      "vibe": "tech",
+      "useCases": [
+        "signups",
+        "demo requests",
+        "waitlists"
+      ]
+    },
+    {
+      "id": "ecommerce-product",
+      "name": "Single Product DTC",
+      "vertical": "ecommerce",
+      "subcategory": "single-product",
+      "path": "templates/library/ecommerce-product.json",
+      "tags": [
+        "reviews",
+        "bundles",
+        "faq",
+        "social-proof"
+      ],
+      "tone": "bold, benefit-led",
+      "vibe": "playful",
+      "useCases": [
+        "product launch",
+        "preorders",
+        "bundle sales"
+      ]
+    },
+    {
+      "id": "restaurant",
+      "name": "Restaurant",
+      "vertical": "hospitality",
+      "subcategory": "restaurant",
+      "path": "templates/library/restaurant.json",
+      "tags": [
+        "menu",
+        "reservations",
+        "hours",
+        "map"
+      ],
+      "tone": "warm, sensory",
+      "vibe": "luxury",
+      "useCases": [
+        "reservations",
+        "menus",
+        "private dining"
+      ]
+    },
+    {
+      "id": "coffee-shop",
+      "name": "Coffee Shop",
+      "vertical": "hospitality",
+      "subcategory": "coffee",
+      "path": "templates/library/coffee-shop.json",
+      "tags": [
+        "menu",
+        "loyalty",
+        "wifi",
+        "events"
+      ],
+      "tone": "cozy, upbeat",
+      "vibe": "playful",
+      "useCases": [
+        "foot traffic",
+        "loyalty",
+        "catering"
+      ]
+    },
+    {
+      "id": "catering-food-truck",
+      "name": "Catering / Food Truck",
+      "vertical": "hospitality",
+      "subcategory": "catering",
+      "path": "templates/library/catering-food-truck.json",
+      "tags": [
+        "menu",
+        "calendar",
+        "minimums",
+        "events"
+      ],
+      "tone": "festive, reliable",
+      "vibe": "playful",
+      "useCases": [
+        "event bookings",
+        "corporate lunches",
+        "festivals"
+      ]
+    }
+  ],
+  "notes": "Each template now lives in templates/library/<id>.json to keep files LLM-friendly."
+}

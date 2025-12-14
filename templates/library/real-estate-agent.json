@@ -1,0 +1,57 @@
+{
+  "id": "real-estate-agent",
+  "name": "Real Estate Agent",
+  "vertical": "real-estate",
+  "subcategory": "agent",
+  "useCases": [
+    "listing leads",
+    "buyer consults"
+  ],
+  "tone": "expert, local",
+  "vibe": "luxury",
+  "tags": [
+    "local",
+    "listings",
+    "consult",
+    "map"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "neighborhood specialist hero with consult CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "featured listings or neighborhoods"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "homes sold, avg days on market"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "buyer/seller services and staging"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "consult → plan → market → close"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "client proof and awards"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "listing process, fees, timelines"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book consultation"
+    }
+  ],
+  "needsComponents": [
+    "listing-cards",
+    "map-block",
+    "schedule-picker"
+  ]
+}

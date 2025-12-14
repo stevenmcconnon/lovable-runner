@@ -8,7 +8,9 @@ const resolveBucket = () =>
   process.env.TEMPLATE_UPLOAD_BUCKET ||
   null;
 
-const buildSiteKey = (slug) => `site-builds/sites/${slug}/site.json`;
+const buildContentKey = (slug) => `site-builds/sites/${slug}/content.json`;
+const buildTemplateKey = (slug) => `site-builds/sites/${slug}/template.json`;
+const buildLegacyKey = (slug) => `site-builds/sites/${slug}/site.json`;
 
 const s3 = new AWS.S3();
 
@@ -47,32 +49,102 @@ const resolveSlugsForUser = (user) => {
   return resolved.size ? Array.from(resolved) : null;
 };
 
-const saveSiteConfig = async ({ slug, site, metadata }) => {
-  const bucket = resolveBucket();
-  if (!bucket || !slug || !site) return;
-  const record = {
-    slug,
-    site,
-    metadata: {
-      ...(metadata || {}),
-      updatedAt: new Date().toISOString(),
-    },
-  };
+const writeJson = async ({ bucket, key, payload }) => {
   await s3
     .putObject({
       Bucket: bucket,
-      Key: buildSiteKey(slug),
-      Body: JSON.stringify(record, null, 2),
+      Key: key,
+      Body: JSON.stringify(payload, null, 2),
       ContentType: 'application/json',
     })
-    .promise()
-    .catch((error) => {
-      console.warn('[site-store] Failed to persist site config', error.message);
+    .promise();
+};
+
+const buildTemplateSummary = (site = {}, metadata = {}) => {
+  const mapSections = (sections = []) =>
+    sections
+      .map((section) => ({
+        id: section?.id || null,
+        componentId: section?.componentId || null,
+      }))
+      .filter((entry) => entry.componentId);
+
+  const pages = Array.isArray(site.pages)
+    ? site.pages.map((page) => ({
+        path: page?.path,
+        title: page?.title,
+        sections: mapSections(page?.sections || []),
+      }))
+    : null;
+
+  const sectionSummary = mapSections(site.sections || []);
+  const pageSummary = Array.isArray(site.pages)
+    ? site.pages.map((page) => ({
+        path: page?.path,
+        title: page?.title,
+        sections: mapSections(page?.sections || []),
+      }))
+    : null;
+
+  const components = new Set();
+  sectionSummary.forEach((item) => components.add(item.componentId));
+  (pageSummary || []).forEach((page) => {
+    (page.sections || []).forEach((section) => {
+      components.add(section.componentId);
     });
+  });
+
+  return {
+    templateId: site.templateId || metadata.templateId || null,
+    sections: sectionSummary,
+    pages: pageSummary || undefined,
+    components: Array.from(components),
+  };
+};
+
+const saveSiteConfig = async ({ slug, site, metadata, storagePrefix }) => {
+  const bucket = resolveBucket();
+  if (!bucket || !slug || !site) return;
+  const timestamp = new Date().toISOString();
+  const mergedMetadata = {
+    ...(metadata || {}),
+    updatedAt: timestamp,
+  };
+
+  const contentRecord = { slug, site };
+  const templateRecord = {
+    slug,
+    template: buildTemplateSummary(site, mergedMetadata),
+    metadata: mergedMetadata,
+  };
+
+  const uploads = [
+    { key: buildContentKey(slug), payload: contentRecord },
+    { key: buildTemplateKey(slug), payload: templateRecord },
+  ];
+
+  if (storagePrefix) {
+    const base = storagePrefix.replace(/\/+$/, '');
+    uploads.push(
+      { key: base ? `${base}/content.json` : 'content.json', payload: contentRecord },
+      { key: base ? `${base}/template.json` : 'template.json', payload: templateRecord }
+    );
+  }
+
+  for (const entry of uploads) {
+    try {
+      await writeJson({ bucket, key: entry.key, payload: entry.payload });
+    } catch (error) {
+      console.warn('[site-store] Failed to persist site config', {
+        key: entry.key,
+        err: error?.message,
+      });
+    }
+  }
 };
 
 const extractSlugFromKey = (key) => {
-  const match = key.match(/site-builds\/sites\/([^/]+)\/site\.json$/);
+  const match = key.match(/site-builds\/sites\/([^/]+)\/content\.json$/);
   return match ? match[1] : null;
 };
 
@@ -96,7 +168,7 @@ const listSiteConfigs = async ({ limit = 50, slugs } = {}) => {
       })
       .promise();
     const foundKeys =
-      listing.Contents?.map((item) => item.Key).filter((key) => key.endsWith('/site.json')) ||
+      listing.Contents?.map((item) => item.Key).filter((key) => key.endsWith('/content.json')) ||
       [];
     keys.push(...foundKeys);
     if (keys.length >= maxResults || !listing.IsTruncated) break;
@@ -110,25 +182,46 @@ const listSiteConfigs = async ({ limit = 50, slugs } = {}) => {
   const limitedKeys = filteredKeys.slice(0, maxResults);
   const records = await Promise.all(
     limitedKeys.map(async (key) => {
+      const slug = extractSlugFromKey(key);
       try {
-        const raw = await s3
-          .getObject({
-            Bucket: bucket,
-            Key: key,
-          })
-          .promise();
-        const parsed = JSON.parse(raw.Body.toString('utf8'));
+        const [contentRaw, templateRaw] = await Promise.all([
+          s3
+            .getObject({
+              Bucket: bucket,
+              Key: key,
+            })
+            .promise()
+            .catch((err) => {
+              if (err.code !== 'NoSuchKey') throw err;
+              return null;
+            }),
+          s3
+            .getObject({
+              Bucket: bucket,
+              Key: buildTemplateKey(slug),
+            })
+            .promise()
+            .catch((err) => {
+              if (err.code !== 'NoSuchKey') throw err;
+              return null;
+            }),
+        ]);
+
+        const content = contentRaw ? JSON.parse(contentRaw.Body.toString('utf8')) : null;
+        const template = templateRaw ? JSON.parse(templateRaw.Body.toString('utf8')) : null;
+
+        if (!content?.site) return null;
         return {
-          ...parsed,
-          slug: parsed.slug || extractSlugFromKey(key),
+          slug: content.slug || slug,
+          site: content.site,
+          template: template?.template || null,
+          metadata: template?.metadata || content.metadata || null,
         };
       } catch (error) {
-        if (error.code !== 'NoSuchKey') {
-          console.warn('[site-store] Failed to load site config from list', {
-            key,
-            err: error.message,
-          });
-        }
+        console.warn('[site-store] Failed to load site config from list', {
+          key,
+          err: error.message,
+        });
         return null;
       }
     })
@@ -160,14 +253,33 @@ const loadSiteConfig = async (slug) => {
   const bucket = resolveBucket();
   if (!bucket) return null;
   try {
-    const result = await s3
-      .getObject({
-        Bucket: bucket,
-        Key: buildSiteKey(slug),
-      })
-      .promise();
-    const parsed = JSON.parse(result.Body.toString('utf8'));
-    return parsed;
+    const [contentRaw, templateRaw] = await Promise.all([
+      s3
+        .getObject({
+          Bucket: bucket,
+          Key: buildContentKey(slug),
+        })
+        .promise(),
+      s3
+        .getObject({
+          Bucket: bucket,
+          Key: buildTemplateKey(slug),
+        })
+        .promise()
+        .catch((err) => {
+          if (err.code !== 'NoSuchKey') throw err;
+          return null;
+        }),
+    ]);
+
+    const content = JSON.parse(contentRaw.Body.toString('utf8'));
+    const template = templateRaw ? JSON.parse(templateRaw.Body.toString('utf8')) : null;
+    return {
+      slug: content.slug || slug,
+      site: content.site,
+      template: template?.template || null,
+      metadata: template?.metadata || content.metadata || null,
+    };
   } catch (error) {
     if (error.code !== 'NoSuchKey') {
       console.warn('[site-store] Failed to load site config', error.message);

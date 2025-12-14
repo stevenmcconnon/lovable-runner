@@ -1,0 +1,49 @@
+{
+  "id": "home-services-electrician",
+  "name": "Certified Electrician",
+  "vertical": "home-services",
+  "subcategory": "electrician",
+  "useCases": [
+    "panel upgrades",
+    "safety inspections",
+    "remodel wiring"
+  ],
+  "tone": "precise, safety-first",
+  "vibe": "tech",
+  "tags": [
+    "licensed",
+    "safety",
+    "quote",
+    "local"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "code-compliant services and quick dispatch"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "upgrades, EV chargers, lighting, inspections"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "licenses, zero-call-back rate, coverage zones"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "assessment → plan → install → test"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "safety and punctuality proof"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "permits, warranties, scheduling"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book a visit or request a quote"
+    }
+  ]
+}

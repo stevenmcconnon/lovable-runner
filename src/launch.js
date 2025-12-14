@@ -1,18 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const AWS = require('aws-sdk');
 const { randomUUID } = require('node:crypto');
 const fetch = global.fetch;
 const { generateSiteWithOpenAI } = require('./openai');
 const { refineThemePalette } = require('./color-agent');
-const { uploadToS3, buildProject } = require('./deploy');
-const { exportProjectToGit } = require('./git-archive');
-const { copyTemplateTo, writeSiteJson } = require('./site-template');
-const { enhanceSiteWithImages } = require('./image-generator');
 const { saveSiteConfig } = require('./site-store');
-const { uploadGeneratedAssets, hydrateExistingGeneratedAssets } = require('./generated-assets');
-const { ensurePreviewPlaceholder } = require('./preview-placeholder');
+const { uploadToS3 } = require('./deploy');
 
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
@@ -75,14 +69,6 @@ const ensureUniqueSlug = async ({ bucket, basePrefix, slugCandidate }) => {
   return { slug: fallback, prefixPath: buildPrefixPath(fallback) };
 };
 
-const buildTempDir = (...parts) => path.join(os.tmpdir(), ...parts, randomUUID());
-
-const createProjectFromTemplate = async ({ slug, requestSuffix }) => {
-  const outputDir = buildTempDir('site', slug, requestSuffix);
-  await copyTemplateTo(outputDir);
-  return outputDir;
-};
-
 const buildSlugCandidate = ({ businessDetails, url, description, requestId }) => {
   if (businessDetails?.businessName) return slugify(businessDetails.businessName);
   if (url) return slugify(url);
@@ -90,23 +76,6 @@ const buildSlugCandidate = ({ businessDetails, url, description, requestId }) =>
   if (requestId) return slugify(requestId);
   return slugify(`site-${Date.now()}`);
 };
-
-const extractHostname = (value) => {
-  if (!value) return null;
-  try {
-    const parsed = new URL(value);
-    return parsed.hostname.replace(/^www\./i, '');
-  } catch {
-    return null;
-  }
-};
-
-const derivePlaceholderLabel = ({ site, businessDetails, url, fallback }) =>
-  site?.meta?.brandName ||
-  businessDetails?.businessName ||
-  extractHostname(url) ||
-  fallback ||
-  'Preview site';
 
 const fetchSourceContext = async (url) => {
   if (!url) return null;
@@ -388,36 +357,73 @@ const buildTestSiteConfig = ({ url, description }) => {
   };
 };
 
-const clearS3Prefix = async ({ bucket, prefix }) => {
-  if (!prefix) return;
-  const normalizedPrefix = prefix.replace(/\/+$/, '');
-  const s3 = new AWS.S3();
-  let continuationToken = undefined;
-  do {
-    const listed = await s3
-      .listObjectsV2({
-        Bucket: bucket,
-        Prefix: `${normalizedPrefix}/`,
-        ContinuationToken: continuationToken,
-      })
-      .promise();
-    if (listed.Contents?.length) {
-      await s3
-        .deleteObjects({
-          Bucket: bucket,
-          Delete: { Objects: listed.Contents.map((item) => ({ Key: item.Key })) },
-        })
-        .promise();
-    }
-    continuationToken = listed.IsTruncated ? listed.NextContinuationToken : undefined;
-  } while (continuationToken);
+const BASE_BUNDLE_DIR =
+  process.env.BASE_BUNDLE_DIR ||
+  path.join(__dirname, '..', 'templates', 'site-base', 'dist');
+
+const buildJsonKeys = ({ prefix }) => {
+  const base = (prefix || '').replace(/\/+$/, '');
+  const contentKey = base ? `${base}/content.json` : 'content.json';
+  const templateKey = base ? `${base}/template.json` : 'template.json';
+  return { contentKey, templateKey };
 };
 
-const buildPublicUrl = ({ bucket, prefix }) => {
+const buildPublicUrlFromKey = ({ bucket, key }) => {
+  const previewDomain = (process.env.PREVIEW_DOMAIN || '').replace(/\/+$/, '');
+  const cleanedKey = key.replace(/^\/+/, '');
+  if (previewDomain) {
+    return `https://${previewDomain}/${cleanedKey}`;
+  }
+  return `https://${bucket}.s3.amazonaws.com/${cleanedKey}`;
+};
+
+const deriveTemplateSummary = (site = {}) => {
+  const mapSections = (sections = []) =>
+    sections
+      .map((section) => ({
+        id: section?.id || null,
+        componentId: section?.componentId || null,
+      }))
+      .filter((entry) => entry.componentId);
+
+  const pages = Array.isArray(site.pages)
+    ? site.pages.map((page) => ({
+        path: page?.path,
+        title: page?.title,
+        sections: mapSections(page?.sections || []),
+      }))
+    : null;
+
+  return {
+    templateId: site.templateId || null,
+    sections: mapSections(site.sections || []),
+    pages: pages || undefined,
+  };
+};
+
+const ensureBaseBundleUploaded = async ({ bucket, prefix }) => {
+  if (!fs.existsSync(BASE_BUNDLE_DIR)) {
+    throw new Error(`Base bundle not found at ${BASE_BUNDLE_DIR}. Run the build or set BASE_BUNDLE_DIR.`);
+  }
+  const s3 = new AWS.S3();
   const normalizedPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : '';
-  const previewDomain = (process.env.PREVIEW_DOMAIN || '').trim().replace(/\/+$/, '');
-  if (previewDomain) return `https://${previewDomain}/${normalizedPrefix}`;
-  return `https://${bucket}.s3.amazonaws.com/${normalizedPrefix}`;
+  const indexKey = `${normalizedPrefix}index.html`;
+  try {
+    await s3
+      .headObject({
+        Bucket: bucket,
+        Key: indexKey,
+      })
+      .promise();
+    return false;
+  } catch (error) {
+    if (error.code && !['NotFound', 'NoSuchKey'].includes(error.code)) {
+      throw error;
+    }
+  }
+
+  await uploadToS3(BASE_BUNDLE_DIR, { bucket, prefix });
+  return true;
 };
 
 const deploySiteFromConfig = async ({
@@ -429,7 +435,6 @@ const deploySiteFromConfig = async ({
   sourceUrl,
   description,
   onProgress,
-  generateImages = true,
   testMode = false,
 }) => {
   if (!slug) throw new Error('slug is required');
@@ -437,127 +442,49 @@ const deploySiteFromConfig = async ({
   if (!site) throw new Error('site config is required');
 
   const requestLabel = requestId || randomUUID();
-  const requestSuffix = requestLabel.slice(0, 8);
+  const { contentKey, templateKey } = buildJsonKeys({ prefix });
+  const contentUrl = buildPublicUrlFromKey({ bucket, key: contentKey });
+  const templateUrl = buildPublicUrlFromKey({ bucket, key: templateKey });
 
-  console.log('[launch] Site template preparation starting', { requestId: requestLabel, slug, prefix });
-  const outputDir = await createProjectFromTemplate({
-    slug,
-    requestSuffix,
-  });
-  console.log('[launch] Site template prepared', { requestId: requestLabel, outputDir });
-
-  if (!generateImages) {
-    await hydrateExistingGeneratedAssets({
-      site,
-      bucket,
-      prefix,
-      projectDir: outputDir,
-    }).catch((error) => {
-      console.warn('[launch] Failed to hydrate existing generated assets', {
-        err: error?.message,
-      });
-    });
-  }
-
-  let workingSite = site;
-  let generatedAssets = [];
-  if (generateImages) {
-    try {
-      const result = await enhanceSiteWithImages({
-        site,
-        projectDir: outputDir,
-        slug,
-        requestId: requestLabel,
-      });
-      workingSite = result.site;
-      generatedAssets = result.assets || [];
-    } catch (error) {
-      console.warn('[launch] Failed to generate AI imagery', { err: error?.message, requestId: requestLabel });
-      workingSite = site;
-    }
-  } else {
-    console.log('[launch] Skipping AI imagery generation', { requestId: requestLabel, slug, testMode });
-  }
-  await writeSiteJson(outputDir, workingSite);
-
-  const gitArchive = await exportProjectToGit({
-    projectDir: outputDir,
-    slug,
-    requestId: requestLabel,
-    sourceUrl,
-    description,
-  });
-  if (gitArchive) {
-    console.log('[launch] Exported project to git', gitArchive);
-  }
-
-  onProgress?.('building');
-  console.log('[launch] Installing and building site project', { requestId: requestLabel, outputDir });
-  const distPath = await buildProject(outputDir);
-  console.log('[launch] Build complete', { requestId: requestLabel, distPath });
-
-  onProgress?.('deploying');
-  console.log('[launch] Clearing existing preview prefix', {
-    requestId: requestLabel,
-    bucket,
-    prefix,
-  });
-  await clearS3Prefix({ bucket, prefix }).catch((error) => {
-    console.warn('[launch] Failed to clear prefix (continuing)', {
-      err: error?.message,
-      prefix,
-    });
-  });
-
-  console.log('[launch] Uploading to S3', {
-    requestId: requestLabel,
-    bucket,
-    prefix,
-  });
-  const target = await uploadToS3(distPath, { bucket, prefix });
-  console.log('[launch] Upload complete', { requestId: requestLabel, target });
-
-  await uploadGeneratedAssets({
-    site: workingSite,
-    projectDir: outputDir,
-    bucket,
-    prefix,
-    assets: generatedAssets,
-  }).catch((error) => {
-    console.warn('[launch] Failed to upload generated assets (continuing)', {
-      err: error?.message,
-    });
-  });
-
-  const publicUrl = buildPublicUrl({ bucket, prefix });
+  onProgress?.('saving');
+  console.log('[launch] Saving JSON payloads only (no build)', { requestId: requestLabel, slug, prefix });
 
   await saveSiteConfig({
     slug,
-    site: workingSite,
+    site,
     metadata: {
       bucket,
       prefix,
-      publicUrl,
+      publicUrl: contentUrl,
       requestId: requestLabel,
       sourceUrl,
       description,
       lastBuildAt: new Date().toISOString(),
       testMode,
+      templateId: site?.templateId || null,
     },
+    storagePrefix: prefix,
+  });
+
+  await ensureBaseBundleUploaded({ bucket, prefix });
+
+  const publicUrl = buildPublicUrlFromKey({
+    bucket,
+    key: prefix ? `${prefix.replace(/\/+$/, '')}/` : '',
   });
 
   return {
     slug,
     bucket,
     prefix,
-    outputDir,
-    hostingDir: distPath,
-    builtFromProject: true,
-    target,
+    contentKey,
+    templateKey,
+    contentUrl,
+    templateUrl,
     publicUrl,
-    gitArchive,
     requestId: requestLabel,
-    site: workingSite,
+    site,
+    template: deriveTemplateSummary(site),
   };
 };
 
@@ -605,6 +532,9 @@ const runLaunch = async ({
         description,
         businessDetails,
       })) || result.site;
+    if (!siteConfig.templateId) {
+      siteConfig.templateId = 'consulting-b2b';
+    }
     console.log('[launch] Gemini generation complete', {
       requestId,
       sectionCount: siteConfig.sections?.length || 0,
@@ -618,32 +548,18 @@ const runLaunch = async ({
     '';
 
   let finalSlug = slug;
-  let targetPrefix = prefix;
+  let targetPrefix = prefix || '';
 
-  if (!finalSlug || !targetPrefix) {
-    const desiredSlug = slug || buildSlugCandidate({ businessDetails, url, description, requestId });
-    const { slug: ensuredSlug, prefixPath: resolvedPrefix } = await ensureUniqueSlug({
-      bucket: resolvedBucket,
-      basePrefix,
-      slugCandidate: desiredSlug,
-    });
-    finalSlug = ensuredSlug;
-    targetPrefix = prefix || resolvedPrefix;
-  }
+  const desiredSlug = slug || buildSlugCandidate({ businessDetails, url, description, requestId });
+  const { slug: ensuredSlug, prefixPath: resolvedPrefix } = await ensureUniqueSlug({
+    bucket: resolvedBucket,
+    basePrefix,
+    slugCandidate: desiredSlug,
+  });
+  finalSlug = ensuredSlug;
+  targetPrefix = resolvedPrefix;
 
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
-  const placeholderLabel = derivePlaceholderLabel({
-    site: siteConfig,
-    businessDetails,
-    url,
-    fallback: finalSlug,
-  });
-  await ensurePreviewPlaceholder({
-    bucket: resolvedBucket,
-    prefix: targetPrefix,
-    brandName: placeholderLabel,
-    requestId,
-  });
 
   return deploySiteFromConfig({
     slug: finalSlug,
@@ -654,7 +570,6 @@ const runLaunch = async ({
     sourceUrl: url,
     description,
     onProgress,
-    generateImages: !testMode,
     testMode,
   });
 };

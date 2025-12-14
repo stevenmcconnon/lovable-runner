@@ -1,0 +1,52 @@
+{
+  "id": "wedding-photographer",
+  "name": "Wedding Photographer",
+  "vertical": "creative",
+  "subcategory": "photography",
+  "useCases": [
+    "booking consults",
+    "venue familiarity",
+    "package sales"
+  ],
+  "tone": "romantic, organized",
+  "vibe": "luxury",
+  "tags": [
+    "portfolio",
+    "packages",
+    "timeline"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "story-led hero with consult CTA"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "signature weddings"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "coverage hours, second shooter, deliverables"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "collections and add-ons"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "inquire → plan → shoot → deliver"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "couple stories"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "turnaround, travel, rights"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "inquiry form"
+    }
+  ]
+}

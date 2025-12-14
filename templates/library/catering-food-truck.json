@@ -1,0 +1,58 @@
+{
+  "id": "catering-food-truck",
+  "name": "Catering / Food Truck",
+  "vertical": "hospitality",
+  "subcategory": "catering",
+  "useCases": [
+    "event bookings",
+    "corporate lunches",
+    "festivals"
+  ],
+  "tone": "festive, reliable",
+  "vibe": "playful",
+  "tags": [
+    "menu",
+    "calendar",
+    "minimums",
+    "events"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "event catering hero with book CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "menus, service styles, dietary options"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "events served, capacity, ratings"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "inquire → customize → cook → serve"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "events and dishes"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "hosts and corporate clients"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "minimums, travel, licensing"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "event intake form"
+    }
+  ],
+  "needsComponents": [
+    "menu-grid",
+    "event-calendar",
+    "quote-estimator"
+  ]
+}

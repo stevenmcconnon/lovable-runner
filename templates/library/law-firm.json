@@ -1,0 +1,51 @@
+{
+  "id": "law-firm",
+  "name": "Law Firm",
+  "vertical": "professional-services",
+  "subcategory": "legal",
+  "useCases": [
+    "inquiries",
+    "practice area pages"
+  ],
+  "tone": "confident, clear",
+  "vibe": "luxury",
+  "tags": [
+    "practice-areas",
+    "attorneys",
+    "case-results"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "authority hero with consultation CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "practice areas and specialties"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "case results, years, bar admissions"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "intake → evaluate → plan → action"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "client victories and quotes"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "fees, timelines, confidentiality"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "case evaluation form"
+    }
+  ],
+  "needsComponents": [
+    "attorney-bios",
+    "case-result-cards"
+  ]
+}

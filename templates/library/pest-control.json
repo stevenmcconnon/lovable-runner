@@ -1,0 +1,53 @@
+{
+  "id": "pest-control",
+  "name": "Pest Control & Prevention",
+  "vertical": "services",
+  "subcategory": "pest-control",
+  "useCases": [
+    "one-time removal",
+    "quarterly plans",
+    "commercial"
+  ],
+  "tone": "calm, decisive",
+  "vibe": "tech",
+  "tags": [
+    "safety",
+    "eco-friendly",
+    "guarantee",
+    "emergency"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "fast removal hero with guarantee badge"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "targets (termites, rodents, ants) and methods"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "inspect → treat → monitor → prevent"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "response time, success rate"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "quarterly plans and add-ons"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "home and commercial proof"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "safety, pets, warranties"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book inspection"
+    }
+  ]
+}

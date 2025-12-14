@@ -1,0 +1,53 @@
+{
+  "id": "home-services-hvac",
+  "name": "HVAC Comfort Pros",
+  "vertical": "home-services",
+  "subcategory": "hvac",
+  "useCases": [
+    "seasonal tune-ups",
+    "new installs",
+    "emergency repair"
+  ],
+  "tone": "reassuring, expert",
+  "vibe": "tech",
+  "tags": [
+    "seasonal",
+    "maintenance-plan",
+    "emergency",
+    "financing"
+  ],
+  "sections": [
+    {
+      "componentId": "hero-with-image",
+      "purpose": "climate control promise and financing CTA"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "heating, cooling, IAQ, smart thermostats"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "energy savings, response windows, brands"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "diagnose → options → install/repair → maintain"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "maintenance plans and memberships"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "comfort outcomes and before/after"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "filters, warranties, tune-up timing"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "schedule visit or join plan"
+    }
+  ]
+}

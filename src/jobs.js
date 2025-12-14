@@ -28,11 +28,11 @@ const postSiteLaunchStage = async (requestId, status) => {
 const handleEditRequestJob = async (event) => {
   const referenceUrl = buildReferenceUrl(event);
   const businessDetails = event.businessDetails || event.business || null;
-  const description = event.description || '';
-  const jobId = event.jobId || event.id;
+    const description = event.description || '';
+    const jobId = event.jobId || event.id;
 
-  console.log('[runner] Starting edit job', { jobId, referenceUrl });
-  try {
+    console.log('[runner] Starting edit job', { jobId, referenceUrl });
+    try {
     const result = await runLaunch({
       url: referenceUrl,
       description,
@@ -40,7 +40,7 @@ const handleEditRequestJob = async (event) => {
       requestId: jobId,
     });
     const s3Key = result.prefix ? `${result.prefix}/` : '';
-    const previewUrl = `${result.publicUrl}index.html`;
+    const previewUrl = result.contentUrl;
     console.log('[runner] Edit job completed', { jobId, s3Key, previewUrl });
     return {
       jobId,
@@ -83,7 +83,8 @@ const handleSiteLaunchJob = async (event) => {
       bucket: result.bucket,
       prefix: result.prefix,
       slug: result.slug,
-      publicUrl: result.publicUrl,
+      publicUrl: result.contentUrl,
+      templateUrl: result.templateUrl,
     };
     await updateSiteGeneration(requestId, {
       status: 'completed',
