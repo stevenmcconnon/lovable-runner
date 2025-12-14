@@ -379,16 +379,38 @@ const attachPexelsImages = async ({ site, slug }) => {
     site.seo?.title ||
     slug;
 
-  const photos = await pickPexelsImages({ query, count: 6, seedValue: seed });
-  const fallback = {
-    id: 'placeholder',
-    // Public stock image (Pexels) to avoid blank/question-mark placeholders when the API key is absent.
-    src: 'https://images.pexels.com/photos/546819/pexels-photo-546819.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    alt: query,
-    photographer: 'Pexels',
-    creditUrl: 'https://www.pexels.com/photo/person-using-laptop-computer-on-table-546819/',
-  };
-  const pool = photos.length ? photos : [fallback];
+  const photos = await pickPexelsImages({ query, count: 8, seedValue: seed });
+  const fallbackPool = [
+    {
+      id: 'advisor-1',
+      src: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Advisor meeting with clients',
+      photographer: 'Pexels',
+      creditUrl: 'https://www.pexels.com/photo/man-and-woman-having-a-conversation-3184292/',
+    },
+    {
+      id: 'advisor-2',
+      src: 'https://images.pexels.com/photos/8349774/pexels-photo-8349774.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Financial planner reviewing charts',
+      photographer: 'Pexels',
+      creditUrl: 'https://www.pexels.com/photo/a-person-using-a-laptop-while-holding-a-pen-8349774/',
+    },
+    {
+      id: 'advisor-3',
+      src: 'https://images.pexels.com/photos/7693147/pexels-photo-7693147.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Couple discussing finances with advisor',
+      photographer: 'Pexels',
+      creditUrl: 'https://www.pexels.com/photo/man-in-black-suit-jacket-sitting-beside-woman-in-black-shirt-7693147/',
+    },
+    {
+      id: 'advisor-4',
+      src: 'https://images.pexels.com/photos/4792289/pexels-photo-4792289.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      alt: 'Advisor at desk with laptop and notes',
+      photographer: 'Pexels',
+      creditUrl: 'https://www.pexels.com/photo/crop-people-making-deal-in-office-4792289/',
+    },
+  ];
+  const pool = photos.length ? photos : fallbackPool;
 
   const nextPhoto = (() => {
     let idx = 0;
@@ -428,17 +450,49 @@ const attachPexelsImages = async ({ site, slug }) => {
     return section;
   };
 
+  let hasGallery = false;
   if (Array.isArray(site.sections)) {
-    site.sections = site.sections.map((section) => maybeAttach({ ...section }));
+    site.sections = site.sections.map((section) => {
+      if (section.componentId === 'gallery-carousel') hasGallery = true;
+      return maybeAttach({ ...section });
+    });
   }
   if (Array.isArray(site.pages)) {
     site.pages = site.pages.map((page) => ({
       ...page,
       sections: Array.isArray(page.sections)
-        ? page.sections.map((section) => maybeAttach({ ...section }))
+        ? page.sections.map((section) => {
+            if (section.componentId === 'gallery-carousel') hasGallery = true;
+            return maybeAttach({ ...section });
+          })
         : page.sections,
     }));
   }
+
+  if (!hasGallery && pool.length) {
+    const galleryItems = pool.slice(0, 4).map((photo, idx) => ({
+      title: `Snapshot ${idx + 1}`,
+      description: 'Recent work and client moments.',
+      badge: 'Highlights',
+      image: {
+        src: photo.src,
+        alt: photo.alt,
+        credit: photo.photographer,
+        creditUrl: photo.creditUrl,
+      },
+    }));
+    site.sections = site.sections || [];
+    site.sections.push({
+      id: 'gallery',
+      componentId: 'gallery-carousel',
+      props: {
+        title: 'Recent highlights',
+        subtitle: 'A few glimpses from recent client work and planning sessions.',
+        items: galleryItems,
+      },
+    });
+  }
+
   return site;
 };
 
