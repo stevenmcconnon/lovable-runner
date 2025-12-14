@@ -389,6 +389,11 @@ const generateSiteWithOpenAI = async ({ sourceUrl, description, businessDetails,
     throw err;
   }
 
+  const allowedVibes = new Set(['luxury', 'tech', 'playful', 'earthy']);
+  if (parsed?.theme && !allowedVibes.has(parsed.theme.vibe)) {
+    parsed.theme.vibe = 'tech';
+  }
+
   const validation = validateSiteQuality(parsed);
   if (!validation.valid || !validation.site) {
     const err = new Error(`Site JSON failed validation: ${JSON.stringify(validation.errors || [], null, 2)}`);
