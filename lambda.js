@@ -41,6 +41,14 @@ exports.handler = async (event) => {
       prefix: body.prefix || process.env.LOVABLE_DEPLOY_PREFIX,
       slug: body.slug,
     };
+    // If legacy shape is missing a URL/description, reject to avoid hitting unknown paths.
+    if (!legacyEvent.url && !legacyEvent.description) {
+      return json(400, { error: 'Invalid launch payload. Provide url or description.' });
+    }
+    // Explicitly require RUN_SITE_LAUNCH, otherwise reject to avoid accidental legacy paths.
+    if (legacyEvent.action !== 'RUN_SITE_LAUNCH') {
+      return json(400, { error: 'Unsupported action. Use RUN_SITE_LAUNCH.' });
+    }
     const result = await handleSiteLaunchJob(legacyEvent);
     return json(200, result);
   } catch (error) {
