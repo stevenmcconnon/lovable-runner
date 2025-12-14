@@ -382,10 +382,11 @@ const attachPexelsImages = async ({ site, slug }) => {
   const photos = await pickPexelsImages({ query, count: 6, seedValue: seed });
   const fallback = {
     id: 'placeholder',
-    src: 'placeholder.svg',
+    // Public stock image (Pexels) to avoid blank/question-mark placeholders when the API key is absent.
+    src: 'https://images.pexels.com/photos/546819/pexels-photo-546819.jpeg?auto=compress&cs=tinysrgb&w=1600',
     alt: query,
-    photographer: 'Placeholder',
-    creditUrl: '',
+    photographer: 'Pexels',
+    creditUrl: 'https://www.pexels.com/photo/person-using-laptop-computer-on-table-546819/',
   };
   const pool = photos.length ? photos : [fallback];
 
