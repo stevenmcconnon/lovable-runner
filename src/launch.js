@@ -156,6 +156,7 @@ const buildTestSiteConfig = ({ url, description }) => {
       accentColor: '#f97316',
       backgroundStyle: 'mesh',
       vibe: 'tech',
+      cornerStyle: 'rounded',
     },
     sections: [
       {
@@ -1054,6 +1055,28 @@ const enforceSingleStatsBlock = (sections = []) => {
   });
 };
 
+const pickDeterministicCornerStyle = (seed = '') => {
+  if (!seed) return 'rounded';
+  let total = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    total += seed.charCodeAt(i);
+  }
+  return total % 2 === 0 ? 'rounded' : 'sharp';
+};
+
+const ensureCornerStyle = ({ site, slug }) => {
+  if (!site?.theme) return;
+  if (site.theme.cornerStyle === 'rounded' || site.theme.cornerStyle === 'sharp') return;
+  const seed =
+    site.meta?.brandName ||
+    site.meta?.headline ||
+    slug ||
+    site.theme?.vibe ||
+    site.meta?.subheadline ||
+    'rounded';
+  site.theme.cornerStyle = pickDeterministicCornerStyle(seed);
+};
+
 const normalizeSiteSections = (site = {}) => {
   const normalizePrice = (value) => {
     if (typeof value !== 'string') return value;
@@ -1119,6 +1142,9 @@ const normalizeSiteSections = (site = {}) => {
   if (site.theme) {
     if (!allowedVibes.has(site.theme.vibe)) {
       site.theme.vibe = 'tech';
+    }
+    if (site.theme.cornerStyle !== 'sharp') {
+      site.theme.cornerStyle = 'rounded';
     }
   }
   if ((!site.sections || site.sections.length === 0) && Array.isArray(site.pages) && site.pages[0]?.sections) {
@@ -1324,6 +1350,7 @@ const runLaunch = async ({
 
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
 
+  ensureCornerStyle({ site: siteConfig, slug: finalSlug });
   // Attach stock imagery from Pexels (if available) and normalize sections before saving
   siteConfig = await attachStockImages({
     site: siteConfig,

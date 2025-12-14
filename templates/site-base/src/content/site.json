@@ -16,7 +16,8 @@
     "primaryColor": "#6366f1",
     "accentColor": "#f97316",
     "backgroundStyle": "mesh",
-    "vibe": "tech"
+    "vibe": "tech",
+    "cornerStyle": "rounded"
   },
   "sections": [
     {

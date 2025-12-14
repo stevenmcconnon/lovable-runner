@@ -44,3 +44,14 @@ body {
   background: var(--panel-surface);
   border-color: var(--panel-border);
 }
+
+:root[data-corners='sharp'] .rounded,
+:root[data-corners='sharp'] .rounded-sm,
+:root[data-corners='sharp'] .rounded-md,
+:root[data-corners='sharp'] .rounded-lg,
+:root[data-corners='sharp'] .rounded-xl,
+:root[data-corners='sharp'] .rounded-2xl,
+:root[data-corners='sharp'] .rounded-3xl,
+:root[data-corners='sharp'] .rounded-full {
+  border-radius: 0 !important;
+}

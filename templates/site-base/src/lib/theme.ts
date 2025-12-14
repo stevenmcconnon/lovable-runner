@@ -9,6 +9,7 @@ export const applyThemeToDocument = (theme: SiteTheme) => {
   root.style.setProperty('--on-brand-foreground', hexToHSL(resolveOnBrandTextColor(theme)));
   root.dataset.vibe = theme.vibe;
   root.dataset.surface = theme.backgroundStyle;
+  root.dataset.corners = theme.cornerStyle || 'rounded';
 };
 
 const DEFAULT_SURFACE_TEXT = '#0f172a';
