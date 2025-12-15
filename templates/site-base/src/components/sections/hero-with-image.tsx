@@ -1,6 +1,7 @@
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { LightboxImage } from '../ui/lightbox-image';
 import { RichText, PortableTextValue } from '../rich-text';
 import type { ImageAsset } from '../../content/site-schema';
 
@@ -49,14 +50,14 @@ export const HeroWithImage = ({ eyebrow, title, subtitle, primaryCta, secondaryC
       <Card className="min-h-[340px] bg-gradient-to-br from-[hsl(var(--brand))]/20 via-white/10 to-[hsl(var(--brand-accent))]/20">
         <div className="rounded-2xl border border-white/20 bg-black/30 p-6 text-white/80">
           {image?.src ? (
-            <figure>
-              <img
-                src={image.src}
-                alt={image.alt || (typeof title === 'string' ? title : 'Hero image')}
-                className="h-64 w-full rounded-xl border border-white/10 object-cover"
-                loading="lazy"
+            <figure className="space-y-3">
+              <LightboxImage
+                image={image}
+                rounded="rounded-2xl border border-white/10"
+                className="h-64 w-full"
+                overlayLabel="Zoom"
               />
-              {image.alt ? <figcaption className="mt-3 text-sm text-white/70">{image.alt}</figcaption> : null}
+              {image.alt ? <figcaption className="text-sm text-white/70">{image.alt}</figcaption> : null}
             </figure>
           ) : imagePrompt ? (
             <div>

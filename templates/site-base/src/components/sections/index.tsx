@@ -10,7 +10,10 @@ import { StatsShowcase } from './stats-showcase';
 import { GalleryCarousel } from './gallery-carousel';
 import { TeamGrid } from './team-grid';
 import { CaseStudies } from './case-studies';
+import { ProductGrid } from './product-grid';
 import { ContactForm } from './contact-form';
+import { BookingWidget } from './booking-widget';
+import { ReviewCollector } from './review-collector';
 import type { SectionComponentId, SectionConfig } from '../../content/site-schema';
 
 const REGISTRY: Record<SectionComponentId, (props: any) => JSX.Element | null> = {
@@ -26,7 +29,10 @@ const REGISTRY: Record<SectionComponentId, (props: any) => JSX.Element | null> =
   'gallery-carousel': GalleryCarousel,
   'team-grid': TeamGrid,
   'case-studies': CaseStudies,
+  'product-grid': ProductGrid,
   'contact-form': ContactForm,
+  'booking-widget': BookingWidget,
+  'review-collector': ReviewCollector,
 };
 
 export const SectionRenderer = ({ sections }: { sections: SectionConfig[] }) => (
@@ -34,7 +40,14 @@ export const SectionRenderer = ({ sections }: { sections: SectionConfig[] }) => 
     {sections.map((section) => {
       const Component = REGISTRY[section.componentId as SectionComponentId];
       if (!Component) return null;
-      return <Component key={section.id} {...section.props} />;
+      return (
+        <Component
+          key={section.id}
+          {...section.props}
+          sectionId={section.id}
+          componentId={section.componentId}
+        />
+      );
     })}
   </div>
 );

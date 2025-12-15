@@ -88,6 +88,187 @@
         }
       }
     },
+    "/contact": {
+      "post": {
+        "summary": "Submit a site contact form",
+        "description": "Public endpoint invoked by generated sites when visitors submit the on-page contact form. The payload is validated against the stored site config, then relayed via SES from an ai-sitemaker.com address.",
+        "operationId": "submitContactForm",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ContactSubmissionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Submission accepted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ContactSubmissionResponse" }
+              }
+            }
+          },
+          "400": { "description": "Missing slug, fields, or contact email" },
+          "404": { "description": "Site not found" }
+        }
+      }
+    },
+    "/leads": {
+      "get": {
+        "summary": "List captured leads",
+        "description": "Returns the latest lead submissions (contact + booking) stored for a site. Requires authentication and access to the site slug.",
+        "operationId": "listLeads",
+        "parameters": [
+          { "name": "slug", "in": "query", "schema": { "type": "string" }, "description": "Site slug to fetch leads for" },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["open", "responded", "closed"] } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string" }, "description": "Opaque pagination cursor returned by the previous call" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 25, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lead list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LeadListResponse" }
+              }
+            }
+          },
+          "403": { "description": "Caller does not have access to the slug" }
+        }
+      }
+    },
+    "/leads/reply": {
+      "post": {
+        "summary": "Send a reply to a stored lead",
+        "description": "Sends an email reply to the visitor's email, CCing the site owner, and appends the outbound message to the lead timeline.",
+        "operationId": "replyToLead",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LeadReplyRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Reply sent" },
+          "400": { "description": "Missing slug, leadId, or message" },
+          "403": { "description": "Caller cannot access this lead" }
+        }
+      }
+    },
+    "/leads/status": {
+      "post": {
+        "summary": "Update lead status or follow-up time",
+        "description": "Marks a lead as open/responded/closed and optionally schedules the next follow-up reminder.",
+        "operationId": "updateLeadStatus",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LeadStatusRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Lead status updated" },
+          "400": { "description": "Invalid payload" }
+        }
+      }
+    },
+    "/reviews": {
+      "get": {
+        "summary": "List approved reviews",
+        "description": "Public endpoint returning reviews that the owner has approved for on-site display.",
+        "operationId": "listReviews",
+        "parameters": [
+          { "name": "slug", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "maximum": 50, "default": 12 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReviewListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit a review",
+        "description": "Allows visitors (or the site owner) to submit a review/testimonial. Public submissions are stored as pending until approved.",
+        "operationId": "submitReview",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReviewSubmissionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Review captured", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReviewSubmissionResponse" } } } },
+          "400": { "description": "Invalid payload" }
+        }
+      }
+    },
+    "/reviews/status": {
+      "post": {
+        "summary": "Approve or reject a review",
+        "description": "Authenticated owners can change the status of a stored review (pending, approved, rejected).",
+        "operationId": "updateReviewStatus",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReviewStatusRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Review status updated" },
+          "400": { "description": "Invalid payload" }
+        }
+      }
+    },
+    "/analytics": {
+      "get": {
+        "summary": "Fetch analytics summary",
+        "description": "Returns recent daily metrics (page views, leads, bookings) plus simple alerts for the requested site.",
+        "operationId": "getAnalytics",
+        "parameters": [
+          { "name": "slug", "in": "query", "schema": { "type": "string" } },
+          { "name": "days", "in": "query", "schema": { "type": "integer", "maximum": 60, "default": 30 } }
+        ],
+        "responses": {
+          "200": { "description": "Analytics summary", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnalyticsResponse" } } } },
+          "403": { "description": "Caller does not have access to this site" }
+        }
+      }
+    },
+    "/analytics/events": {
+      "post": {
+        "summary": "Record a lightweight analytics event",
+        "description": "Used by generated sites to record anonymous page_view, lead, or booking events. Accepts public requests.",
+        "operationId": "recordAnalyticsEvent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AnalyticsEventRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Event recorded" },
+          "400": { "description": "Missing slug or type" }
+        }
+      }
+    },
     "/launch": {
       "post": {
         "summary": "Launch a new AI-generated site",
@@ -213,6 +394,65 @@
           "404": {
             "description": "Site not found"
           }
+        }
+      }
+    },
+    "/sites/history": {
+      "get": {
+        "summary": "List site history entries",
+        "description": "Returns the recent snapshot timestamps for a site (created automatically before each edit).",
+        "operationId": "listSiteHistory",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "History listings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SiteHistoryList" }
+              }
+            }
+          },
+          "400": { "description": "Missing slug" }
+        }
+      }
+    },
+    "/sites/restore": {
+      "post": {
+        "summary": "Restore site from history entry",
+        "description": "Replaces the current content/template JSON with a previously snapshotted version.",
+        "operationId": "restoreSiteHistory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SiteRestoreRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Restore complete",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SiteRestoreResponse" }
+              }
+            }
+          },
+          "400": { "description": "Missing slug/historyId" },
+          "404": { "description": "History entry not found" }
         }
       }
     },
@@ -1962,9 +2202,9 @@
           }
         }
       },
-      "SiteRecord": {
-        "type": "object",
-        "properties": {
+    "SiteRecord": {
+      "type": "object",
+      "properties": {
           "slug": {
             "type": "string"
           },
@@ -2203,9 +2443,216 @@
               },
               "required": [
                 "url"
-              ]
+        ]
+      }
+    },
+    "SiteHistoryList": {
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string" },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "timestamp": { "type": "string" }
             }
-          },
+          }
+        }
+      },
+      "required": ["slug", "entries"]
+    },
+    "SiteRestoreRequest": {
+      "type": "object",
+      "required": ["slug", "historyId"],
+      "properties": {
+        "slug": { "type": "string" },
+        "historyId": { "type": "string" }
+      }
+    },
+    "SiteRestoreResponse": {
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string" },
+        "historyId": { "type": "string" }
+      },
+      "required": ["slug", "historyId"]
+    },
+    "ContactSubmissionRequest": {
+      "type": "object",
+      "required": ["slug", "fields"],
+      "properties": {
+        "slug": { "type": "string", "description": "Site slug taken from /content.json" },
+        "sectionId": { "type": "string", "description": "Optional section id for the contact-form that triggered the submission" },
+        "sourceUrl": { "type": "string", "format": "uri" },
+        "intent": { "type": "string", "description": "Categorizes the submission (contact, booking, quote, etc.)" },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "value"],
+            "properties": {
+              "label": { "type": "string" },
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "value": {
+                "oneOf": [
+                  { "type": "string" },
+                  {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "ContactSubmissionResponse": {
+      "type": "object",
+      "properties": {
+        "ok": { "type": "boolean", "default": true }
+      }
+    },
+    "LeadMessage": {
+      "type": "object",
+      "properties": {
+        "messageId": { "type": "string" },
+        "direction": { "type": "string", "enum": ["inbound", "outbound"] },
+        "channel": { "type": "string" },
+        "body": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Lead": {
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string" },
+        "leadId": { "type": "string" },
+        "intent": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "fields": { "type": "array", "items": { "$ref": "#/components/schemas/ContactField" } },
+        "messages": { "type": "array", "items": { "$ref": "#/components/schemas/LeadMessage" } }
+      },
+      "required": ["slug", "leadId", "status", "createdAt"]
+    },
+    "ContactField": {
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "value": {
+          "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
+        }
+      }
+    },
+    "LeadListResponse": {
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/components/schemas/Lead" } },
+        "nextCursor": { "type": "string", "nullable": true }
+      }
+    },
+    "LeadReplyRequest": {
+      "type": "object",
+      "required": ["slug", "leadId", "message"],
+      "properties": {
+        "slug": { "type": "string" },
+        "leadId": { "type": "string" },
+        "message": { "type": "string" },
+        "subject": { "type": "string" }
+      }
+    },
+    "LeadStatusRequest": {
+      "type": "object",
+      "required": ["slug", "leadId", "status"],
+      "properties": {
+        "slug": { "type": "string" },
+        "leadId": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "responded", "closed"] },
+        "followUpAt": { "type": "string", "format": "date-time", "nullable": true }
+      }
+    },
+    "Review": {
+      "type": "object",
+      "properties": {
+        "reviewId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "body": { "type": "string" },
+        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ReviewListResponse": {
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/components/schemas/Review" } }
+      }
+    },
+    "ReviewSubmissionRequest": {
+      "type": "object",
+      "required": ["slug", "body"],
+      "properties": {
+        "slug": { "type": "string" },
+        "authorName": { "type": "string" },
+        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+        "body": { "type": "string" },
+        "contactEmail": { "type": "string", "format": "email" },
+        "source": { "type": "string" }
+      }
+    },
+    "ReviewSubmissionResponse": {
+      "type": "object",
+      "properties": {
+        "review": { "$ref": "#/components/schemas/Review" }
+      }
+    },
+    "ReviewStatusRequest": {
+      "type": "object",
+      "required": ["slug", "reviewId", "status"],
+      "properties": {
+        "slug": { "type": "string" },
+        "reviewId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] }
+      }
+    },
+    "AnalyticsRecord": {
+      "type": "object",
+      "properties": {
+        "statDate": { "type": "string" },
+        "pageViewCount": { "type": "integer" },
+        "leadCount": { "type": "integer" },
+        "bookingCount": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "AnalyticsResponse": {
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string" },
+        "records": { "type": "array", "items": { "$ref": "#/components/schemas/AnalyticsRecord" } },
+        "alerts": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "AnalyticsEventRequest": {
+      "type": "object",
+      "required": ["slug", "type"],
+      "properties": {
+        "slug": { "type": "string" },
+        "type": { "type": "string", "enum": ["page_view", "lead", "booking"] },
+        "path": { "type": "string" },
+        "referrer": { "type": "string" },
+        "metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
           "regenerateImages": {
             "type": "boolean",
             "default": false,

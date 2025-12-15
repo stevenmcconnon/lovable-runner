@@ -3,7 +3,14 @@
     "id": "hero-with-image",
     "label": "Hero with floating imagery",
     "description": "Large hero block with eyebrow, headline, CTA buttons, stat pills, and a generated imagery prompt card.",
-    "requiredProps": ["eyebrow", "title", "subtitle", "primaryCta", "stats", "imagePrompt"],
+    "requiredProps": [
+      "eyebrow",
+      "title",
+      "subtitle",
+      "primaryCta",
+      "stats",
+      "imagePrompt"
+    ],
     "minWordCount": 50,
     "group": "hero"
   },
@@ -11,7 +18,11 @@
     "id": "features-grid",
     "label": "Features grid",
     "description": "Two-column Magic UI style feature cards with benefit tags and marketing copy.",
-    "requiredProps": ["title", "subtitle", "features"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "features"
+    ],
     "minWordCount": 70,
     "group": "services"
   },
@@ -19,7 +30,11 @@
     "id": "logo-wall",
     "label": "Logo wall",
     "description": "Grid of partner or client logos with short proof statements and optional links.",
-    "requiredProps": ["title", "subtitle", "logos"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "logos"
+    ],
     "minWordCount": 40,
     "group": "social-proof"
   },
@@ -27,7 +42,11 @@
     "id": "testimonials-cards",
     "label": "Testimonials",
     "description": "Aceternity inspired gradient testimonial cards with quotes and proof labels.",
-    "requiredProps": ["title", "subtitle", "testimonials"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "testimonials"
+    ],
     "minWordCount": 70,
     "group": "social-proof"
   },
@@ -35,7 +54,11 @@
     "id": "team-grid",
     "label": "Team grid",
     "description": "Showcase of key team members with portraits, roles, bios, and social links.",
-    "requiredProps": ["title", "subtitle", "members"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "members"
+    ],
     "minWordCount": 70,
     "group": "support"
   },
@@ -43,7 +66,11 @@
     "id": "faq-accordion",
     "label": "FAQ accordion",
     "description": "Shadcn accordion block with at least 4 question/answer pairs.",
-    "requiredProps": ["title", "subtitle", "faqs"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "faqs"
+    ],
     "minWordCount": 70,
     "group": "support"
   },
@@ -51,15 +78,35 @@
     "id": "pricing-table",
     "label": "Pricing table",
     "description": "Three-tier pricing table with CTA buttons and feature bullets.",
-    "requiredProps": ["title", "subtitle", "tiers"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "tiers"
+    ],
     "minWordCount": 70,
     "group": "pricing"
+  },
+  {
+    "id": "product-grid",
+    "label": "Product grid",
+    "description": "Ecommerce-focused product cards with price, description, features, and CTAs.",
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "products"
+    ],
+    "minWordCount": 60,
+    "group": "services"
   },
   {
     "id": "cta-banner",
     "label": "CTA banner",
     "description": "High-impact CTA row with supporting imagery prompt and dual buttons.",
-    "requiredProps": ["title", "body", "primaryCta"],
+    "requiredProps": [
+      "title",
+      "body",
+      "primaryCta"
+    ],
     "minWordCount": 25,
     "group": "cta"
   },
@@ -67,7 +114,11 @@
     "id": "process-timeline",
     "label": "Process timeline",
     "description": "Four-step process timeline illustrating engagement journey.",
-    "requiredProps": ["title", "subtitle", "steps"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "steps"
+    ],
     "minWordCount": 70,
     "group": "process"
   },
@@ -75,7 +126,11 @@
     "id": "stats-showcase",
     "label": "Stat blocks",
     "description": "Animated stat grid showing metrics and outcomes.",
-    "requiredProps": ["title", "subtitle", "stats"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "stats"
+    ],
     "minWordCount": 45,
     "group": "proof"
   },
@@ -83,7 +138,11 @@
     "id": "case-studies",
     "label": "Case studies",
     "description": "Three card layout featuring project summaries, metrics, and CTA links.",
-    "requiredProps": ["title", "subtitle", "cases"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "cases"
+    ],
     "minWordCount": 70,
     "group": "proof"
   },
@@ -91,7 +150,11 @@
     "id": "gallery-carousel",
     "label": "Gallery carousel",
     "description": "Horizontal scrolling gallery with captioned images and optional badges.",
-    "requiredProps": ["title", "subtitle", "items"],
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "items"
+    ],
     "minWordCount": 60,
     "group": "media"
   },
@@ -99,8 +162,38 @@
     "id": "contact-form",
     "label": "Contact form",
     "description": "Warm contact form with short reassurance copy and email/CTA buttons.",
-    "requiredProps": ["title", "subtitle", "fields", "submitLabel"],
+    "requiredProps": [
+      "contactEmail",
+      "fields",
+      "submitLabel",
+      "subtitle",
+      "title"
+    ],
     "minWordCount": 45,
     "group": "support"
+  },
+  {
+    "id": "booking-widget",
+    "label": "Booking widget",
+    "description": "Service picker + preferred date/time capture with booking CTA and reassurance copy.",
+    "requiredProps": [
+      "title",
+      "subtitle",
+      "services",
+      "submitLabel"
+    ],
+    "minWordCount": 40,
+    "group": "support"
+  },
+  {
+    "id": "review-collector",
+    "label": "Review collector",
+    "description": "Simple review capture form visitors can use to leave a rating + testimonial for the owner to approve.",
+    "requiredProps": [
+      "title",
+      "subtitle"
+    ],
+    "minWordCount": 30,
+    "group": "social-proof"
   }
 ]

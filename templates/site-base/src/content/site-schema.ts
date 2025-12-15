@@ -5,13 +5,16 @@ export type SectionComponentId =
   | 'testimonials-cards'
   | 'faq-accordion'
   | 'pricing-table'
+  | 'product-grid'
   | 'cta-banner'
   | 'process-timeline'
   | 'stats-showcase'
   | 'gallery-carousel'
   | 'team-grid'
   | 'case-studies'
-  | 'contact-form';
+  | 'contact-form'
+  | 'booking-widget'
+  | 'review-collector';
 
 export type SectionConfig<TProps = Record<string, unknown>> = {
   id: string;
@@ -23,6 +26,9 @@ export type ImageAsset = {
   src: string;
   alt?: string;
   generatedAt?: string;
+  caption?: string;
+  credit?: string;
+  creditUrl?: string;
 };
 
 export type SiteMeta = {
@@ -59,6 +65,7 @@ export type SiteSEO = {
 };
 
 export type SiteContent = {
+  slug?: string;
   templateId?: string;
   meta: SiteMeta;
   seo: SiteSEO;

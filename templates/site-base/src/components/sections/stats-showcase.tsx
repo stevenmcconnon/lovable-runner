@@ -1,5 +1,6 @@
 import type { ImageAsset } from '../../content/site-schema';
 import { PortableTextValue, RichText } from '../rich-text';
+import { LightboxImage } from '../ui/lightbox-image';
 
 export type StatsShowcaseProps = {
   title: PortableTextValue;
@@ -38,15 +39,14 @@ export const StatsShowcase = ({ title, subtitle, stats, imagePrompt, image }: St
     {image?.src || imagePrompt ? (
       <div className="mx-auto mt-10 max-w-4xl rounded-2xl border border-[hsl(var(--brand)/0.4)] bg-[hsl(var(--brand-accent)/0.12)]/70 p-6 text-sm text-[hsl(var(--surface-foreground)/0.85)] shadow-lg shadow-[hsl(var(--brand-accent)/0.25)]/40">
         {image?.src ? (
-          <figure>
-            <img
-              src={image.src}
-              alt={image.alt || (typeof title === 'string' ? title : 'Showcase image')}
-              className="max-h-80 w-full rounded-xl border border-[hsl(var(--surface-foreground)/0.15)] object-cover"
-              loading="lazy"
+          <figure className="space-y-3">
+            <LightboxImage
+              image={image}
+              rounded="rounded-xl border border-[hsl(var(--surface-foreground)/0.15)]"
+              overlayLabel="Zoom"
             />
             {image.alt ? (
-              <figcaption className="mt-3 text-xs uppercase tracking-[0.3em] text-[hsl(var(--surface-foreground)/0.6)]">
+              <figcaption className="text-xs uppercase tracking-[0.3em] text-[hsl(var(--surface-foreground)/0.6)]">
                 {image.alt}
               </figcaption>
             ) : null}

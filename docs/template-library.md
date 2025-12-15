@@ -3,7 +3,7 @@
 This document summarizes the current section components, gaps to fill, and the new starter template manifests for LLM-driven site generation without heavy builds.
 
 ### Current section components
-- Hero with image (CTA + stats), Features grid, **Logo wall**, Testimonials cards, **Team grid**, FAQ accordion, Pricing table, CTA banner, Process timeline, Stats showcase, **Case studies**, Gallery carousel, Contact form.
+- Hero with image (CTA + stats), Features grid, **Product grid**, **Logo wall**, Testimonials cards, **Team grid**, FAQ accordion, Pricing table, CTA banner, Process timeline, Stats showcase, **Case studies**, Gallery carousel (supports `layout: "carousel" | "grid" | "masonry"`), Contact form.
 
 ### High-value gaps to add next
 - Global shell: sticky nav + anchor links, footer with links/social/legal.
@@ -48,6 +48,8 @@ This document summarizes the current section components, gaps to fill, and the n
   - `sharp-minimal` – squared edges, lighter shadows, and crisp dividers for tech/SaaS looks.
   - `full-bleed` – edge-to-edge sections with transparent panels so imagery carries the layout.
   Choose the profile that best fits the request; the build system will automatically sync the corner radius.
+- **Contact forms:** Always include a `contactEmail` in every `contact-form` section. Submissions now POST to our backend and are relayed from an `@ai-sitemaker.com` sender, so forms without `contactEmail` cannot deliver anything.
+- **Imagery/lightbox:** Section-level `image` props (hero cards, CTA, stats, product/portfolio items, gallery items, etc.) can now include optional `caption`, `credit`, and `creditUrl`. Every rendered image opens in a modal lightbox, so supplying descriptive alt text and credits improves the full-screen experience.
 
 - **Schema reference:** Both the API (`src/site-schema.js`) and template app (`templates/site-base/src/content/site-schema.ts`) expect the same shape. Keep generated `content.json` aligned with those types.
 

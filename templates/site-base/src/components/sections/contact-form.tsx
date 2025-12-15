@@ -1,4 +1,6 @@
+import { useMemo, useState } from 'react';
 import { PortableTextValue, RichText } from '../rich-text';
+import { useToast } from '../ui/toast';
 
 type Field = {
   label: string;
@@ -6,6 +8,7 @@ type Field = {
   type?: string;
   required?: boolean;
   options?: string[];
+  name?: string;
 };
 
 type Props = {
@@ -15,6 +18,8 @@ type Props = {
   submitLabel: string;
   contactEmail?: string;
   reassurance?: PortableTextValue;
+  sectionId?: string;
+  intent?: string;
 };
 
 export const ContactForm = ({
@@ -24,8 +29,94 @@ export const ContactForm = ({
   submitLabel,
   contactEmail,
   reassurance,
+  sectionId,
+  intent = 'contact',
 }: Props) => {
+  const { pushToast } = useToast();
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [lastSubmittedAt, setLastSubmittedAt] = useState<number | null>(null);
   const mailto = contactEmail ? `mailto:${contactEmail}` : undefined;
+  const slug =
+    typeof window !== 'undefined' ? window.__AI_SITEMAKER_SLUG || '' : '';
+  const apiBase = useMemo(() => {
+    if (typeof window !== 'undefined' && window.__AI_SITEMAKER_API_BASE) {
+      return window.__AI_SITEMAKER_API_BASE.replace(/\/+$/, '');
+    }
+    const envBase =
+      (import.meta.env?.VITE_RUNNER_API_BASE as string | undefined) ||
+      (import.meta.env?.VITE_API_BASE as string | undefined) ||
+      '';
+    return envBase ? envBase.replace(/\/+$/, '') : 'https://api.ai-sitemaker.com';
+  }, []);
+  const endpoint = slug && contactEmail ? `${apiBase}/contact` : null;
+
+  const fieldName = (field: Field, index: number) => {
+    if (field.name) return field.name;
+    const base = field.label?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || `field-${index + 1}`;
+    return `${base}-${index}`;
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!endpoint) {
+      if (mailto) {
+        window.location.href = mailto;
+        return;
+      }
+      setStatus('error');
+      setStatusMessage('Contact email is not configured yet.');
+      return;
+    }
+    if (lastSubmittedAt && Date.now() - lastSubmittedAt < 2000) {
+      return;
+    }
+    setStatus('loading');
+    setStatusMessage('');
+    const formData = new FormData(event.currentTarget);
+    const formattedFields = fields.map((field, index) => {
+      const name = fieldName(field, index);
+      const baseValue =
+        field.type === 'checkbox' ? formData.getAll(name) : formData.get(name);
+      const value = Array.isArray(baseValue)
+        ? baseValue.map((entry) => (entry ?? '').toString()).filter(Boolean)
+        : (baseValue ?? '').toString();
+      return {
+        label: field.label || `Field ${index + 1}`,
+        name,
+        type: field.type || 'text',
+        value,
+      };
+    });
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug,
+          sectionId,
+          fields: formattedFields,
+          sourceUrl: window.location.href,
+          intent,
+        }),
+      });
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => null);
+        throw new Error(errorJson?.error || 'Submission failed');
+      }
+      event.currentTarget.reset();
+      setStatus('success');
+      setStatusMessage('Thanks! We received your message and will reply shortly.');
+      setLastSubmittedAt(Date.now());
+      pushToast('Message sent!', 'success');
+    } catch (error) {
+      console.error('[ContactForm] submission failed', error);
+      setStatus('error');
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to send your message. Please try again.');
+      pushToast('Unable to send message. Please try again.', 'error');
+    }
+  };
+
   return (
     <section className="bg-white px-6 py-14 text-slate-900 md:px-12 md:py-20">
       <div className="mx-auto grid max-w-6xl gap-10 rounded-3xl bg-gradient-to-r from-white via-white to-blue-50 p-8 shadow-lg shadow-slate-900/5 md:grid-cols-2 md:p-12">
@@ -53,16 +144,11 @@ export const ContactForm = ({
         </div>
         <form
           className="flex flex-col gap-4 rounded-2xl bg-white/80 p-6 shadow-inner shadow-slate-200"
-          action={mailto}
-          method="POST"
-          onSubmit={(e) => {
-            if (!mailto) {
-              e.preventDefault();
-            }
-          }}
+          onSubmit={handleSubmit}
+          noValidate
         >
           {fields.map((field, idx) => {
-            const name = field.label?.toLowerCase().replace(/\s+/g, '-');
+            const name = fieldName(field, idx);
             const options = Array.isArray(field.options) ? field.options : [];
             if ((field.type === 'radio' || field.type === 'checkbox') && options.length) {
               return (
@@ -109,14 +195,22 @@ export const ContactForm = ({
             );
           })}
           <button
-            type={mailto ? 'submit' : 'button'}
-            className="mt-2 inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:shadow-xl"
+            type="submit"
+            disabled={status === 'loading'}
+            className="mt-2 inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60"
           >
-            {submitLabel || 'Send message'}
+            {status === 'loading' ? 'Sending…' : submitLabel || 'Send message'}
           </button>
-          {!mailto ? (
+          {statusMessage ? (
+            <p
+              className={`text-sm ${status === 'error' ? 'text-red-600' : 'text-green-600'}`}
+            >
+              {statusMessage}
+            </p>
+          ) : null}
+          {!contactEmail ? (
             <p className="text-xs text-slate-500">
-              Configure contactEmail to enable direct email submissions, or wire this form to your preferred handler.
+              Configure <code>contactEmail</code> so we can deliver incoming requests directly to you.
             </p>
           ) : null}
         </form>

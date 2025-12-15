@@ -1,7 +1,16 @@
 import type { SiteContent } from './content/site-schema';
 import { SectionRenderer } from './components/sections';
+import { ImageModalProvider } from './components/ui/image-modal';
+import { ToastProvider } from './components/ui/toast';
 import { applyThemeToDocument } from './lib/theme';
 import { useEffect, useState } from 'react';
+
+declare global {
+  interface Window {
+    __AI_SITEMAKER_SLUG?: string;
+    __AI_SITEMAKER_API_BASE?: string;
+  }
+}
 
 const backgroundLayers: Record<
   'gradient' | 'mesh' | 'texture',
@@ -51,9 +60,24 @@ const App = () => {
         }
         const raw = await response.json();
         const data = (raw?.site || raw) as SiteContent;
-        setSiteContent(data);
+        const slug = raw?.slug || (raw?.site?.slug as string | undefined) || data.slug || '';
+        const normalized: SiteContent = { ...data, slug };
+        setSiteContent(normalized);
         setStatus('ready');
-        applyThemeToDocument(data.theme);
+        applyThemeToDocument(normalized.theme);
+        if (typeof window !== 'undefined') {
+          window.__AI_SITEMAKER_SLUG = slug || window.__AI_SITEMAKER_SLUG;
+          const envApiBase =
+            (import.meta.env?.VITE_RUNNER_API_BASE as string | undefined) ||
+            (import.meta.env?.VITE_API_BASE as string | undefined) ||
+            '';
+          if (!window.__AI_SITEMAKER_API_BASE && envApiBase) {
+            window.__AI_SITEMAKER_API_BASE = envApiBase.replace(/\/+$/, '');
+          }
+          if (slug) {
+            document.documentElement.setAttribute('data-site-slug', slug);
+          }
+        }
       } catch (error) {
         console.error('[App] Failed to load site content', error);
         setStatus('error');
@@ -65,6 +89,34 @@ const App = () => {
   useEffect(() => {
     if (!siteContent) return;
     applyThemeToDocument(siteContent.theme);
+    const slug = siteContent.slug || window.__AI_SITEMAKER_SLUG;
+    const apiBase =
+      window.__AI_SITEMAKER_API_BASE ||
+      (import.meta.env?.VITE_RUNNER_API_BASE as string | undefined) ||
+      (import.meta.env?.VITE_API_BASE as string | undefined) ||
+      '';
+    if (!slug || !apiBase) return;
+    const endpoint = `${apiBase.replace(/\/+$/, '')}/analytics/events`;
+    const payload = {
+      slug,
+      type: 'page_view',
+      path: window.location.pathname,
+      referrer: document.referrer || undefined,
+    };
+    try {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        navigator.sendBeacon(endpoint, blob);
+      } else {
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).catch(() => null);
+      }
+    } catch (error) {
+      console.warn('[App] failed to record analytics event', error);
+    }
   }, [siteContent]);
 
   if (status === 'loading') {
@@ -97,51 +149,55 @@ const App = () => {
   }
 
   return (
-    <div className="relative min-h-screen">
-      <Background mode={siteContent.theme.backgroundStyle} />
-      <header className="sticky top-0 z-10 border-b border-white/60 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 text-slate-900">
-          <div>
-            <p className="text-xs uppercase tracking-[0.5em] text-slate-500">{siteContent.meta.brandName}</p>
-            <p className="text-lg font-semibold text-slate-900">{siteContent.meta.headline}</p>
+    <ToastProvider>
+      <ImageModalProvider>
+      <div className="relative min-h-screen">
+        <Background mode={siteContent.theme.backgroundStyle} />
+        <header className="sticky top-0 z-10 border-b border-white/60 bg-white/85 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 text-slate-900">
+            <div>
+              <p className="text-xs uppercase tracking-[0.5em] text-slate-500">{siteContent.meta.brandName}</p>
+              <p className="text-lg font-semibold text-slate-900">{siteContent.meta.headline}</p>
+            </div>
+            <div className="hidden gap-4 text-sm text-slate-700 md:flex">
+              {siteContent.meta.phone ? <span>{siteContent.meta.phone}</span> : null}
+              {siteContent.meta.email ? <span>{siteContent.meta.email}</span> : null}
+            </div>
           </div>
-          <div className="hidden gap-4 text-sm text-slate-700 md:flex">
-            {siteContent.meta.phone ? <span>{siteContent.meta.phone}</span> : null}
-            {siteContent.meta.email ? <span>{siteContent.meta.email}</span> : null}
-          </div>
-        </div>
-      </header>
-      <main>
-        {Array.isArray(siteContent.pages) && siteContent.pages.length ? (
-          <div className="mx-auto flex max-w-6xl flex-col gap-12 px-6 py-10">
-            <div className="flex flex-wrap gap-3 text-sm font-semibold text-slate-700">
+        </header>
+        <main>
+          {Array.isArray(siteContent.pages) && siteContent.pages.length ? (
+            <div className="mx-auto flex max-w-6xl flex-col gap-12 px-6 py-10">
+              <div className="flex flex-wrap gap-3 text-sm font-semibold text-slate-700">
+                {siteContent.pages.map((page) => (
+                  <a key={page.path} className="rounded-full bg-white/80 px-4 py-2 shadow" href={`#${page.path.replace(/^\//, '')}`}>
+                    {page.title || page.path}
+                  </a>
+                ))}
+              </div>
               {siteContent.pages.map((page) => (
-                <a key={page.path} className="rounded-full bg-white/80 px-4 py-2 shadow" href={`#${page.path.replace(/^\//, '')}`}>
-                  {page.title || page.path}
-                </a>
+                <section key={page.path} id={page.path.replace(/^\//, '')} className="scroll-mt-20">
+                  <div className="mb-6">
+                    <p className="text-xs uppercase tracking-[0.4em] text-slate-500">{page.path}</p>
+                    <h2 className="text-3xl font-semibold text-slate-900 md:text-4xl">{page.title}</h2>
+                  </div>
+                  <SectionRenderer sections={page.sections} />
+                </section>
               ))}
             </div>
-            {siteContent.pages.map((page) => (
-              <section key={page.path} id={page.path.replace(/^\//, '')} className="scroll-mt-20">
-                <div className="mb-6">
-                  <p className="text-xs uppercase tracking-[0.4em] text-slate-500">{page.path}</p>
-                  <h2 className="text-3xl font-semibold text-slate-900 md:text-4xl">{page.title}</h2>
-                </div>
-                <SectionRenderer sections={page.sections} />
-              </section>
-            ))}
+          ) : (
+            <SectionRenderer sections={siteContent.sections || []} />
+          )}
+        </main>
+        <footer className="border-t border-white/70 bg-white/80 text-slate-700">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-8 text-sm md:flex-row md:items-center md:justify-between">
+            <span>© {new Date().getFullYear()} {siteContent.meta.brandName}</span>
+            <span>{siteContent.meta.subheadline}</span>
           </div>
-        ) : (
-          <SectionRenderer sections={siteContent.sections || []} />
-        )}
-      </main>
-      <footer className="border-t border-white/70 bg-white/80 text-slate-700">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-8 text-sm md:flex-row md:items-center md:justify-between">
-          <span>© {new Date().getFullYear()} {siteContent.meta.brandName}</span>
-          <span>{siteContent.meta.subheadline}</span>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </ImageModalProvider>
+    </ToastProvider>
   );
 };
 

@@ -1,4 +1,5 @@
 import { Card } from '../ui/card';
+import { LightboxImage } from '../ui/lightbox-image';
 import { PortableTextValue, RichText } from '../rich-text';
 import type { ImageAsset } from '../../content/site-schema';
 
@@ -72,15 +73,10 @@ export const FeaturesGrid = ({ title, subtitle, features, imagePrompt, image }: 
     {image?.src || imagePrompt ? (
       <div className="mx-auto mt-10 max-w-4xl rounded-2xl border border-[hsl(var(--brand)/0.4)] bg-[hsl(var(--brand)/0.12)]/70 p-6 text-sm text-[hsl(var(--surface-foreground)/0.85)] shadow-lg shadow-[hsl(var(--brand)/0.25)]/40">
         {image?.src ? (
-          <figure>
-            <img
-              src={image.src}
-              alt={image.alt || (typeof title === 'string' ? title : 'Feature image')}
-              className="max-h-80 w-full rounded-xl border border-[hsl(var(--surface-foreground)/0.15)] object-cover"
-              loading="lazy"
-            />
+          <figure className="space-y-3">
+            <LightboxImage image={image} rounded="rounded-xl border border-[hsl(var(--surface-foreground)/0.15)]" overlayLabel="Zoom" />
             {image.alt ? (
-              <figcaption className="mt-3 text-xs uppercase tracking-[0.2em] text-[hsl(var(--surface-foreground)/0.6)]">
+              <figcaption className="text-xs uppercase tracking-[0.2em] text-[hsl(var(--surface-foreground)/0.6)]">
                 {image.alt}
               </figcaption>
             ) : null}

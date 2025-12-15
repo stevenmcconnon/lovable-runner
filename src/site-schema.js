@@ -6,6 +6,9 @@ const ImageSchema = z.object({
   src: z.string().min(1),
   alt: z.string().optional(),
   generatedAt: z.string().optional(),
+  caption: z.string().optional(),
+  credit: z.string().optional(),
+  creditUrl: z.string().url().optional(),
 });
 
 const MIN_IMAGE_PROMPTS = 2;
@@ -14,6 +17,7 @@ const MIN_SECTIONS_TOTAL = 8;
 const MIN_TOTAL_WORDS = 400;
 const BANNED_PHRASES = ['ai sitemaker', 'ai site maker', 'ai-sitemaker', 'lovable'];
 const MAX_STATS_ITEMS = 3;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 const SectionSchema = z.object({
   id: z.string().min(2),
@@ -148,6 +152,15 @@ const validateSectionQuality = (section) => {
     section.props.stats.length > MAX_STATS_ITEMS
   ) {
     return `stats-showcase should include at most ${MAX_STATS_ITEMS} metrics by default`;
+  }
+  if (section.componentId === 'contact-form') {
+    const email = section.props?.contactEmail;
+    if (!email || !EMAIL_REGEX.test(String(email).trim())) {
+      return 'contact-form requires a valid contactEmail so submissions can be delivered.';
+    }
+    if (!Array.isArray(section.props?.fields) || section.props.fields.length < 2) {
+      return 'contact-form should include at least two fields (name, email, message, etc.).';
+    }
   }
   const strings = flattenStrings(section.props);
   const totalWords = strings.reduce((acc, str) => acc + countWords(str), 0);

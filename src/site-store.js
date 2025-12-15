@@ -11,6 +11,8 @@ const resolveBucket = () =>
 const buildContentKey = (slug) => `site-builds/sites/${slug}/content.json`;
 const buildTemplateKey = (slug) => `site-builds/sites/${slug}/template.json`;
 const buildLegacyKey = (slug) => `site-builds/sites/${slug}/site.json`;
+const buildHistoryBase = (slug, timestamp) =>
+  `site-builds/sites/${slug}/history/${timestamp.replace(/[:.]/g, '-')}`;
 
 const s3 = new AWS.S3();
 
@@ -58,6 +60,64 @@ const writeJson = async ({ bucket, key, payload }) => {
       ContentType: 'application/json',
     })
     .promise();
+};
+
+const listHistoryEntries = async ({ slug, limit = 50 }) => {
+  const bucket = resolveBucket();
+  if (!bucket || !slug) return [];
+  const prefix = `site-builds/sites/${slug}/history/`;
+  const listing = await s3
+    .listObjectsV2({
+      Bucket: bucket,
+      Prefix: prefix,
+      Delimiter: '/',
+    })
+    .promise();
+  const entries =
+    listing.CommonPrefixes?.map((entry) => entry.Prefix.replace(prefix, '').replace(/\/$/, '')) || [];
+  const sorted = entries
+    .map((val) => ({
+      id: val,
+      timestamp: val.replace(/-/g, ':'),
+    }))
+    .sort((a, b) => (a.id < b.id ? 1 : -1))
+    .slice(0, limit);
+  return sorted;
+};
+
+const loadHistoryEntry = async ({ slug, historyId }) => {
+  const bucket = resolveBucket();
+  if (!bucket || !slug || !historyId) return null;
+  const base = `site-builds/sites/${slug}/history/${historyId}`;
+  try {
+    const [contentRaw, templateRaw] = await Promise.all([
+      s3
+        .getObject({
+          Bucket: bucket,
+          Key: `${base}/content.json`,
+        })
+        .promise(),
+      s3
+        .getObject({
+          Bucket: bucket,
+          Key: `${base}/template.json`,
+        })
+        .promise()
+        .catch((err) => {
+          if (err.code !== 'NoSuchKey') throw err;
+          return null;
+        }),
+    ]);
+    return {
+      content: JSON.parse(contentRaw.Body.toString('utf8')),
+      template: templateRaw ? JSON.parse(templateRaw.Body.toString('utf8')) : null,
+      bucket,
+      base,
+    };
+  } catch (error) {
+    console.warn('[site-store] Failed to load history entry', { slug, historyId, err: error.message });
+    return null;
+  }
 };
 
 const deriveImageSlots = (section = {}) => {
@@ -178,9 +238,74 @@ const buildTemplateSummary = (site = {}, metadata = {}) => {
   };
 };
 
+const snapshotExistingArtifacts = async ({ bucket, slug }) => {
+  if (!bucket || !slug) return;
+  try {
+    const [existingContent, existingTemplate] = await Promise.all([
+      s3
+        .getObject({
+          Bucket: bucket,
+          Key: buildContentKey(slug),
+        })
+        .promise()
+        .catch((err) => {
+          if (err.code !== 'NoSuchKey') throw err;
+          return null;
+        }),
+      s3
+        .getObject({
+          Bucket: bucket,
+          Key: buildTemplateKey(slug),
+        })
+        .promise()
+        .catch((err) => {
+          if (err.code !== 'NoSuchKey') throw err;
+          return null;
+        }),
+    ]);
+    if (!existingContent && !existingTemplate) return;
+    const timestamp = new Date().toISOString();
+    const historyBase = buildHistoryBase(slug, timestamp);
+    const uploads = [];
+    if (existingContent) {
+      uploads.push(
+        s3
+          .putObject({
+            Bucket: bucket,
+            Key: `${historyBase}/content.json`,
+            Body: existingContent.Body,
+            ContentType: 'application/json',
+          })
+          .promise()
+      );
+    }
+    if (existingTemplate) {
+      uploads.push(
+        s3
+          .putObject({
+            Bucket: bucket,
+            Key: `${historyBase}/template.json`,
+            Body: existingTemplate.Body,
+            ContentType: 'application/json',
+          })
+          .promise()
+      );
+    }
+    await Promise.all(uploads);
+  } catch (error) {
+    console.warn('[site-store] Failed to snapshot previous version', {
+      slug,
+      err: error?.message,
+    });
+  }
+};
+
 const saveSiteConfig = async ({ slug, site, metadata, storagePrefix }) => {
   const bucket = resolveBucket();
   if (!bucket || !slug || !site) return;
+
+  await snapshotExistingArtifacts({ bucket, slug });
+
   const timestamp = new Date().toISOString();
   const mergedMetadata = {
     ...(metadata || {}),
@@ -306,6 +431,8 @@ const listSiteConfigs = async ({ limit = 50, slugs } = {}) => {
   return records.filter(Boolean);
 };
 
+const getAllowedSlugsForUser = (user) => resolveSlugsForUser(user) || null;
+
 const listSitesForUser = async ({ user, limit } = {}) => {
   const allowedSlugs = resolveSlugsForUser(user);
   const records = await listSiteConfigs({ limit, slugs: allowedSlugs || undefined });
@@ -364,9 +491,46 @@ const loadSiteConfig = async (slug) => {
   }
 };
 
+const restoreSiteFromHistory = async ({ slug, historyId }) => {
+  if (!slug || !historyId) {
+    throw new Error('slug and historyId are required');
+  }
+  const history = await loadHistoryEntry({ slug, historyId });
+  if (!history) {
+    const error = new Error('History entry not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  const bucket = history.bucket;
+  const uploads = [];
+  if (history.content) {
+    uploads.push(
+      writeJson({
+        bucket,
+        key: buildContentKey(slug),
+        payload: history.content,
+      })
+    );
+  }
+  if (history.template) {
+    uploads.push(
+      writeJson({
+        bucket,
+        key: buildTemplateKey(slug),
+        payload: history.template,
+      })
+    );
+  }
+  await Promise.all(uploads);
+  return { slug, historyId };
+};
+
 module.exports = {
   saveSiteConfig,
   loadSiteConfig,
   listSiteConfigs,
   listSitesForUser,
+  listHistoryEntries,
+  restoreSiteFromHistory,
+  getAllowedSlugsForUser,
 };

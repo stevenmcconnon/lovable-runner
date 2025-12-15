@@ -1,6 +1,7 @@
 import { Card } from '../ui/card';
 import type { ImageAsset } from '../../content/site-schema';
 import { PortableTextValue, RichText } from '../rich-text';
+import { LightboxImage } from '../ui/lightbox-image';
 
 type SocialLink = { label: string; href: string };
 
@@ -35,11 +36,11 @@ export const TeamGrid = ({ title, subtitle, members }: TeamGridProps) => {
             <Card key={member.name} className="flex flex-col gap-5 bg-white/80">
               <div className="flex items-center gap-4">
                 {member.image?.src ? (
-                  <img
-                    src={member.image.src}
-                    alt={member.image.alt || member.name}
-                    className="h-20 w-20 rounded-2xl object-cover shadow-lg"
-                    loading="lazy"
+                  <LightboxImage
+                    image={member.image}
+                    rounded="rounded-2xl"
+                    className="h-20 w-20"
+                    overlayLabel="View"
                   />
                 ) : (
                   <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[hsl(var(--brand)/0.1)] text-2xl font-semibold text-[hsl(var(--brand))]">

@@ -133,7 +133,7 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     '- Copy must weave in the provided business details and source URL insights (sourceSummary); no lorem ipsum, no AI-SiteMaker messaging, and no generic AI boilerplate.',
     '- Treat sourceSummary as the ground truth: mirror its services, tone, and value props. If sourceSummary is missing, infer the brand from the URL words/businessDetails instead of inventing an AI platform.',
     '- Theme colors should mirror the brand/industry palette and avoid default dark-purple schemes; choose high-conversion, legible combinations that match the reference vibe and never default to ai-sitemaker purple.',
-    '- Include a gallery-carousel section when imagery is important (portfolio, venues, products) with clear captions/badges; add a contact-form section with reassuring copy, clear CTA, and fields (including radio/checkbox options) plus contactEmail to mailto:example@test.com when provided.',
+    '- Include a gallery-carousel section when imagery is important (portfolio, venues, products) with clear captions/badges; set `props.layout` to `"grid"` or `"masonry"` when a static grid works better than a carousel. Add a contact-form section with reassuring copy, clear CTA, and fields (including radio/checkbox options). Every contact-form MUST include contactEmail so submissions are routed through our ai-sitemaker.com sender.',
     '- When multiple pages are requested, include a pages array with up to 5 entries (each path/title/sections); otherwise use the sections array.',
     '- Use `componentId` values exactly as listed. Use unique `id` strings per section.',
     '- Keywords array must include at least 5 SEO phrases.',

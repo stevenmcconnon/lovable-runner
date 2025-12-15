@@ -149,6 +149,10 @@ Parameters:
     NoEcho: true
     Default: ''
     Description: Access key for the Unsplash API (used for stock imagery).
+  ContactFromEmail:
+    Type: String
+    Default: 'formsubmissions@ai-sitemaker.com'
+    Description: Verified SES email used as the From address for contact form submissions.
 
 Conditions:
   HasCustomDomain: !And
@@ -243,6 +247,50 @@ Resources:
     Properties:
       DBSubnetGroupDescription: Subnets for Lovable Runner database
       SubnetIds: !Ref DbSubnetIds
+  LeadInboxTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: slug
+          AttributeType: S
+        - AttributeName: leadId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: slug
+          KeyType: HASH
+        - AttributeName: leadId
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+  SiteAnalyticsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: slug
+          AttributeType: S
+        - AttributeName: statDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: slug
+          KeyType: HASH
+        - AttributeName: statDate
+          KeyType: RANGE
+  SiteReviewsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: slug
+          AttributeType: S
+        - AttributeName: reviewId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: slug
+          KeyType: HASH
+        - AttributeName: reviewId
+          KeyType: RANGE
   RunnerFunction:
     Type: AWS::Serverless::Function
     DependsOn:
@@ -292,6 +340,10 @@ Resources:
           SITE_DOCS_TOKEN: !Ref SiteDocsToken
           THUMBNAIL_SERVICE_BASE: !Ref ThumbnailServiceBase
           UNSPLASH_ACCESS_KEY: !Ref UnsplashAccessKey
+          CONTACT_FROM_EMAIL: !Ref ContactFromEmail
+          LEAD_INBOX_TABLE: !Ref LeadInboxTable
+          SITE_ANALYTICS_TABLE: !Ref SiteAnalyticsTable
+          SITE_REVIEWS_TABLE: !Ref SiteReviewsTable
       Events:
         RootProxy:
           Type: HttpApi
@@ -311,11 +363,28 @@ Resources:
             BucketName: !Ref DeployBucket
         - S3CrudPolicy:
             BucketName: !Ref TemplateUploadBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeadInboxTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAnalyticsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteReviewsTable
         - Statement:
             - Effect: Allow
               Action:
                 - lambda:InvokeFunction
               Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
+
+  ContactEmailIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref ContactFromEmail
 
   UserPool:
     Type: AWS::Cognito::UserPool

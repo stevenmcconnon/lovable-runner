@@ -1,4 +1,3 @@
-import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { PortableTextValue, RichText } from '../rich-text';
 
@@ -62,9 +61,14 @@ export const CaseStudies = ({ title, subtitle, cases }: CaseStudiesProps) => {
                   </div>
                 )}
                 {study.cta ? (
-                  <Button asChild variant="secondary" className="w-full justify-center">
-                    <a href={study.cta.href}>{study.cta.label}</a>
-                  </Button>
+                  <a
+                    href={study.cta.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex w-full items-center justify-center rounded-full border border-[hsl(var(--surface-foreground)/0.2)] px-6 py-3 text-sm font-semibold text-[hsl(var(--surface-foreground))] transition hover:bg-[hsl(var(--surface-foreground)/0.06)]"
+                  >
+                    {study.cta.label}
+                  </a>
                 ) : null}
               </div>
             </Card>

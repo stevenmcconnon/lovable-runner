@@ -2,8 +2,17 @@ const { parseJsonBody, json } = require('./http');
 const { runLaunch } = require('./launch');
 const { runUpdate, approveUpdate, listUpdates } = require('./update');
 const { getUserContext, requireRole } = require('./auth');
-const { listSitesForUser } = require('./site-store');
+const {
+  listSitesForUser,
+  listHistoryEntries,
+  restoreSiteFromHistory,
+  getAllowedSlugsForUser,
+} = require('./site-store');
 const { listDomainsForUser, getDomainRecord, setPrimaryDomain } = require('./domain-store');
+const { submitContactMessage } = require('./contact');
+const { listLeads, sendLeadReply, markLeadStatus } = require('./leads');
+const { listApprovedReviews, submitReview, setReviewStatus } = require('./reviews');
+const { recordAnalyticsEvent, listAnalytics, buildAlerts } = require('./analytics');
 
 const ROUTES = {
   'POST /launch': async (event, user) => {
@@ -71,6 +80,173 @@ const ROUTES = {
   'GET /domains': async (event, user) => {
     const items = await listDomainsForUser({ user });
     return json(200, { items });
+  },
+  'GET /sites/history': async (event) => {
+    const slug = event?.queryStringParameters?.slug;
+    const limit = event?.queryStringParameters?.limit
+      ? Number(event.queryStringParameters.limit)
+      : undefined;
+    if (!slug) {
+      return json(400, { error: 'slug is required' });
+    }
+    const entries = await listHistoryEntries({ slug, limit });
+    return json(200, { slug, entries });
+  },
+  'POST /sites/restore': async (event) => {
+    const body = parseJsonBody(event);
+    if (!body.slug || !body.historyId) {
+      return json(400, { error: 'slug and historyId are required' });
+    }
+    const result = await restoreSiteFromHistory({
+      slug: body.slug,
+      historyId: body.historyId,
+    });
+    return json(200, result);
+  },
+  'POST /contact': async (event) => {
+    const body = parseJsonBody(event);
+    const remoteAddress =
+      event?.requestContext?.http?.sourceIp ||
+      event?.requestContext?.identity?.sourceIp ||
+      null;
+    await submitContactMessage({
+      slug: body.slug,
+      sectionId: body.sectionId,
+      contactEmailHint: body.contactEmail,
+      fields: body.fields,
+      sourceUrl: body.sourceUrl,
+      remoteAddress,
+      userAgent: event?.headers?.['user-agent'] || event?.headers?.['User-Agent'],
+      intent: body.intent,
+    });
+    return json(200, { ok: true });
+  },
+  'GET /leads': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.length) {
+      return json(403, { error: 'No sites assigned to this account yet.' });
+    }
+    const slugParam = event?.queryStringParameters?.slug;
+    const slug = slugParam || allowedSlugs[0];
+    if (!allowedSlugs.includes(slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const limit = event?.queryStringParameters?.limit
+      ? Number(event.queryStringParameters.limit)
+      : undefined;
+    const status = event?.queryStringParameters?.status || undefined;
+    const cursorToken = event?.queryStringParameters?.cursor;
+    let cursor;
+    if (cursorToken && typeof cursorToken === 'string') {
+      try {
+        cursor = JSON.parse(Buffer.from(cursorToken, 'base64').toString('utf8'));
+      } catch (error) {
+        return json(400, { error: 'cursor token is invalid' });
+      }
+    }
+    const result = await listLeads({ slug, limit, status, cursor });
+    const nextCursor = result.nextToken
+      ? Buffer.from(JSON.stringify(result.nextToken)).toString('base64')
+      : null;
+    return json(200, { slug, items: result.items, nextCursor });
+  },
+  'POST /leads/reply': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const body = parseJsonBody(event);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.includes(body.slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const result = await sendLeadReply({
+      slug: body.slug,
+      leadId: body.leadId,
+      message: body.message,
+      subject: body.subject,
+      sender: { targetEmail: body.targetEmailHint },
+    });
+    return json(200, result);
+  },
+  'POST /leads/status': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const body = parseJsonBody(event);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.includes(body.slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const result = await markLeadStatus({
+      slug: body.slug,
+      leadId: body.leadId,
+      status: body.status,
+      followUpAt: body.followUpAt,
+    });
+    return json(200, result);
+  },
+  'GET /reviews': async (event) => {
+    const slug = event?.queryStringParameters?.slug;
+    const limit = event?.queryStringParameters?.limit
+      ? Number(event.queryStringParameters.limit)
+      : undefined;
+    if (!slug) {
+      return json(400, { error: 'slug is required' });
+    }
+    const items = await listApprovedReviews({ slug, limit });
+    return json(200, { slug, items });
+  },
+  'POST /reviews': async (event) => {
+    const body = parseJsonBody(event);
+    const record = await submitReview({
+      slug: body.slug,
+      authorName: body.authorName,
+      rating: body.rating,
+      body: body.body,
+      contactEmail: body.contactEmail,
+      source: body.source,
+    });
+    return json(200, { review: record });
+  },
+  'POST /reviews/status': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const body = parseJsonBody(event);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.includes(body.slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const result = await setReviewStatus({
+      slug: body.slug,
+      reviewId: body.reviewId,
+      status: body.status,
+    });
+    return json(200, result);
+  },
+  'POST /analytics/events': async (event) => {
+    const body = parseJsonBody(event);
+    if (!body.slug || !body.type) {
+      return json(400, { error: 'slug and type are required' });
+    }
+    await recordAnalyticsEvent({
+      slug: body.slug,
+      type: body.type,
+      metadata: body.metadata || { path: body.path, referrer: body.referrer },
+    });
+    return json(200, { ok: true });
+  },
+  'GET /analytics': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.length) {
+      return json(403, { error: 'No sites assigned yet.' });
+    }
+    const slug = event?.queryStringParameters?.slug || allowedSlugs[0];
+    if (!allowedSlugs.includes(slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const days = event?.queryStringParameters?.days
+      ? Number(event.queryStringParameters.days)
+      : undefined;
+    const records = await listAnalytics({ slug, days });
+    const alerts = buildAlerts(records);
+    return json(200, { slug, records, alerts });
   },
 };
 

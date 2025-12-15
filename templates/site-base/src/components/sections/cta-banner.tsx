@@ -1,6 +1,7 @@
 import { Button } from '../ui/button';
 import type { ImageAsset } from '../../content/site-schema';
 import { PortableTextValue, RichText } from '../rich-text';
+import { LightboxImage } from '../ui/lightbox-image';
 
 export type CTABannerProps = {
   title: PortableTextValue;
@@ -33,14 +34,14 @@ export const CTABanner = ({ title, body, primaryCta, secondaryCta, imagePrompt, 
         {image?.src || imagePrompt ? (
           <div className="rounded-2xl border border-white/20 bg-black/30 p-4 text-sm text-white/70">
             {image?.src ? (
-              <figure>
-                <img
-                  src={image.src}
-                  alt={image.alt || (typeof title === 'string' ? title : 'CTA illustration')}
-                  className="h-48 w-full rounded-xl border border-white/10 object-cover"
-                  loading="lazy"
+              <figure className="space-y-2">
+                <LightboxImage
+                  image={image}
+                  rounded="rounded-xl border border-white/10"
+                  className="h-48 w-full"
+                  overlayLabel="Zoom"
                 />
-                {image.alt ? <figcaption className="mt-2 text-xs text-white/60">{image.alt}</figcaption> : null}
+                {image.alt ? <figcaption className="text-xs text-white/60">{image.alt}</figcaption> : null}
               </figure>
             ) : (
               <p className="leading-relaxed text-white/80">{imagePrompt}</p>

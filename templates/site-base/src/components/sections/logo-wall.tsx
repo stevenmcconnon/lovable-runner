@@ -2,6 +2,7 @@ import { Badge } from '../ui/badge';
 import { Card } from '../ui/card';
 import type { ImageAsset } from '../../content/site-schema';
 import { PortableTextValue, RichText } from '../rich-text';
+import { LightboxImage } from '../ui/lightbox-image';
 
 type LogoEntry = {
   name: string;
@@ -44,11 +45,11 @@ export const LogoWall = ({ eyebrow, title, subtitle, logos }: LogoWallProps) => 
               className="flex flex-col items-center gap-4 bg-white/70 text-center shadow-lg shadow-[hsl(var(--brand)/0.15)]/30"
             >
               {logo.image?.src ? (
-                <img
-                  src={logo.image.src}
-                  alt={logo.image.alt || logo.name}
-                  className="h-12 w-auto object-contain opacity-90"
-                  loading="lazy"
+                <LightboxImage
+                  image={logo.image}
+                  rounded="rounded-lg"
+                  className="h-12 w-auto"
+                  overlayLabel="View"
                 />
               ) : (
                 <p className="text-xl font-semibold text-[hsl(var(--surface-foreground))]">{logo.name}</p>

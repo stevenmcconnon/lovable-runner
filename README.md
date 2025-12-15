@@ -37,6 +37,13 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `POST /update` – create a draft update stored under `drafts/<draftId>` in S3 and tracked in DynamoDB (admins/super-admins only).
 - `POST /approve-update` – promote a draft to the live prefix (admins/super-admins only).
 - `GET /updates?projectId=<id>` – list stored drafts for a given project.
+- `GET /leads` – authenticated endpoint returning captured contact + booking requests for a site (includes timeline + pagination).
+- `POST /leads/reply` – send an email response to a stored lead and append the outbound note to the timeline.
+- `POST /leads/status` – mark a lead as open/responded/closed and schedule follow-ups.
+- `GET /reviews` – public endpoint serving owner-approved reviews for on-site components.
+- `POST /reviews` / `POST /reviews/status` – capture visitor reviews and approve/reject them from the admin side.
+- `GET /analytics` – authenticated summary of traffic/leads/bookings plus simple health alerts.
+- `POST /analytics/events` – lightweight pixel endpoint generated sites call for page views, leads, and bookings.
 
 Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, PostgreSQL database, and the Lambda function wired to all routes.
 
