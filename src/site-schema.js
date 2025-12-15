@@ -67,6 +67,7 @@ const SiteSchema = z.object({
     backgroundStyle: z.enum(['gradient', 'mesh', 'texture']),
     vibe: z.enum(['luxury', 'tech', 'playful', 'earthy']),
     textColor: z.string().min(4).optional(),
+    cornerStyle: z.enum(['rounded', 'sharp']).optional(),
   }),
   templateId: z.string().min(2),
   canonical: z.string().url().optional(),

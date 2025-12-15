@@ -1143,7 +1143,7 @@ const normalizeSiteSections = (site = {}) => {
     if (!allowedVibes.has(site.theme.vibe)) {
       site.theme.vibe = 'tech';
     }
-    if (site.theme.cornerStyle !== 'sharp') {
+    if (site.theme.cornerStyle !== 'sharp' && site.theme.cornerStyle !== 'rounded') {
       site.theme.cornerStyle = 'rounded';
     }
   }

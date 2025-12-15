@@ -84,12 +84,80 @@ type SiteUpdateEvent = {
   sourceUrl?: string;
 };
 
+type EditJobEvent = {
+  jobId: string;
+  editRequestId?: string;
+  accountId?: string;
+  description?: string;
+  siteId?: string | null;
+  businessDetails?: BusinessDetailsInput | null;
+};
+
 const updateStatus = async (requestId: string, status: string, extras: Record<string, unknown> = {}) => {
   await db.updateSiteGeneration(requestId, {
     status: status as any,
     ...extras,
   });
   await recordLaunchStatus({ requestId, status, result: extras });
+};
+
+const markEditJobRunning = async (params: { jobId: string; editRequestId?: string }) => {
+  try {
+    await db.updateJob(params.jobId, {
+      status: 'running',
+      errorMessage: null,
+    });
+    if (params.editRequestId) {
+      await db.updateEditRequestStatus(params.editRequestId, 'in_progress', params.jobId);
+    }
+  } catch (error: any) {
+    console.warn('[runner] Failed to mark edit job running', {
+      jobId: params.jobId,
+      err: error?.message,
+    });
+  }
+};
+
+const markEditJobCompleted = async (params: {
+  jobId: string;
+  editRequestId?: string;
+  s3Key?: string | null;
+  previewUrl?: string | null;
+  lovableProjectId?: string | null;
+}) => {
+  try {
+    await db.updateJob(params.jobId, {
+      status: 'completed',
+      s3Key: params.s3Key ?? undefined,
+      previewUrl: params.previewUrl ?? undefined,
+      lovableProjectId: params.lovableProjectId ?? undefined,
+    });
+    if (params.editRequestId) {
+      await db.updateEditRequestStatus(params.editRequestId, 'completed', params.jobId);
+    }
+  } catch (error: any) {
+    console.warn('[runner] Failed to mark edit job completed', {
+      jobId: params.jobId,
+      err: error?.message,
+    });
+  }
+};
+
+const markEditJobFailed = async (params: { jobId: string; editRequestId?: string; errorMessage?: string }) => {
+  try {
+    await db.updateJob(params.jobId, {
+      status: 'failed',
+      errorMessage: params.errorMessage ?? 'Generation failed',
+    });
+    if (params.editRequestId) {
+      await db.updateEditRequestStatus(params.editRequestId, 'rejected', params.jobId);
+    }
+  } catch (error: any) {
+    console.warn('[runner] Failed to mark edit job failed', {
+      jobId: params.jobId,
+      err: error?.message,
+    });
+  }
 };
 
 export const handleSiteLaunchJob = async (event: SiteLaunchEvent) => {
@@ -164,6 +232,48 @@ export const handleSiteUpdateJob = async (event: SiteUpdateEvent) => {
   } catch (error: any) {
     await updateStatus(requestId, 'failed', {
       errorMessage: error?.message || 'Update failed',
+    });
+    throw error;
+  }
+};
+
+export const handleEditRequestJob = async (event: EditJobEvent) => {
+  if (!event?.jobId) throw new Error('jobId is required');
+  const jobId = event.jobId;
+  const referenceUrl = event.siteId && /^https?:/i.test(event.siteId) ? event.siteId : event.siteId || undefined;
+  const description = event.description || '';
+  const businessDetails = event.businessDetails ?? undefined;
+  await markEditJobRunning({
+    jobId,
+    editRequestId: event.editRequestId,
+  });
+  try {
+    const result = await runLaunch({
+      url: referenceUrl,
+      description,
+      businessDetails,
+      requestId: jobId,
+    });
+    const s3Key = result.prefix ? `${result.prefix}/` : null;
+    await markEditJobCompleted({
+      jobId,
+      editRequestId: event.editRequestId,
+      s3Key,
+      previewUrl: result.publicUrl,
+      lovableProjectId: (result as any).lovableProjectId ?? null,
+    });
+    return {
+      jobId,
+      status: 'completed',
+      ...result,
+      s3Key,
+      previewUrl: result.publicUrl,
+    };
+  } catch (error: any) {
+    await markEditJobFailed({
+      jobId,
+      editRequestId: event.editRequestId,
+      errorMessage: error?.message || 'Generation failed',
     });
     throw error;
   }

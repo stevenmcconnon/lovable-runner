@@ -13,6 +13,7 @@ Options:
   --stack <name>     CloudFormation stack name (default: $STACK_NAME or lovable-runner-api)
   --template <path>  SAM template path (default: infra/template.yaml)
   --config-env <env> samconfig environment (default: default)
+  --cloudfront-id    CloudFront distribution id to invalidate after deploy (default: $CLOUDFRONT_DISTRIBUTION_ID)
   --skip-install     Skip npm install
   --skip-build       Skip `npm run build`
   -h, --help         Show this help and exit
@@ -24,6 +25,7 @@ REGION="${AWS_REGION:-us-east-1}"
 STACK_NAME="${STACK_NAME:-lovable-runner-api}"
 SAM_TEMPLATE="${SAM_TEMPLATE:-infra/template.yaml}"
 SAM_CONFIG_ENV="${SAM_CONFIG_ENV:-default}"
+CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-}"
 RUN_INSTALL=1
 RUN_TS_BUILD=1
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,6 +53,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --config-env)
       SAM_CONFIG_ENV="$2"
+      shift 2
+      ;;
+    --cloudfront-id)
+      CLOUDFRONT_DISTRIBUTION_ID="$2"
       shift 2
       ;;
     --skip-install)
@@ -115,5 +121,17 @@ sam deploy \
   --region "${REGION}" \
   --no-fail-on-empty-changeset \
   --force-upload
+
+if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID}" ]]; then
+  echo "Invalidating CloudFront distribution ${CLOUDFRONT_DISTRIBUTION_ID}..."
+  aws cloudfront create-invalidation \
+    --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+    --paths "/*" \
+    --profile "${PROFILE}" \
+    --region "${REGION}" >/dev/null
+  echo "Invalidation request submitted."
+else
+  echo "Skipping CloudFront invalidation (no --cloudfront-id provided)."
+fi
 
 echo "Deployment finished."

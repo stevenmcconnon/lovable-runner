@@ -25,11 +25,56 @@ const postSiteLaunchStage = async (requestId, status) => {
   await postSiteLaunchUpdate(requestId, 'stage', { status });
 };
 
+const markEditJobRunning = async ({ jobId, editRequestId }) => {
+  try {
+    await db.updateJob(jobId, {
+      status: 'running',
+      errorMessage: null,
+    });
+    if (editRequestId) {
+      await db.updateEditRequestStatus(editRequestId, 'in_progress', jobId);
+    }
+  } catch (err) {
+    console.warn('[runner] Failed to mark edit job running', { jobId, err: err?.message });
+  }
+};
+
+const markEditJobCompleted = async ({ jobId, editRequestId, s3Key, previewUrl, lovableProjectId }) => {
+  try {
+    await db.updateJob(jobId, {
+      status: 'completed',
+      s3Key,
+      previewUrl,
+      lovableProjectId,
+    });
+    if (editRequestId) {
+      await db.updateEditRequestStatus(editRequestId, 'completed', jobId);
+    }
+  } catch (err) {
+    console.warn('[runner] Failed to mark edit job completed', { jobId, err: err?.message });
+  }
+};
+
+const markEditJobFailed = async ({ jobId, editRequestId, errorMessage }) => {
+  try {
+    await db.updateJob(jobId, {
+      status: 'failed',
+      errorMessage,
+    });
+    if (editRequestId) {
+      await db.updateEditRequestStatus(editRequestId, 'rejected', jobId);
+    }
+  } catch (err) {
+    console.warn('[runner] Failed to mark edit job failed', { jobId, err: err?.message });
+  }
+};
+
 const handleEditRequestJob = async (event) => {
   const referenceUrl = buildReferenceUrl(event);
   const businessDetails = event.businessDetails || event.business || null;
     const description = event.description || '';
     const jobId = event.jobId || event.id;
+    await markEditJobRunning({ jobId, editRequestId: event.editRequestId });
 
     console.log('[runner] Starting edit job', { jobId, referenceUrl });
     try {
@@ -41,6 +86,13 @@ const handleEditRequestJob = async (event) => {
     });
     const s3Key = result.prefix ? `${result.prefix}/` : '';
     const previewUrl = result.contentUrl;
+    await markEditJobCompleted({
+      jobId,
+      editRequestId: event.editRequestId,
+      s3Key,
+      previewUrl,
+      lovableProjectId: result.lovableProjectId || null,
+    });
     console.log('[runner] Edit job completed', { jobId, s3Key, previewUrl });
     return {
       jobId,
@@ -50,6 +102,11 @@ const handleEditRequestJob = async (event) => {
       previewUrl,
     };
   } catch (error) {
+    await markEditJobFailed({
+      jobId,
+      editRequestId: event.editRequestId,
+      errorMessage: error?.message || 'Generation failed',
+    });
     console.error('[runner] Edit job failed', { jobId, err: error });
     throw error;
   }
