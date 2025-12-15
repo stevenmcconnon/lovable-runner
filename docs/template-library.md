@@ -3,7 +3,7 @@
 This document summarizes the current section components, gaps to fill, and the new starter template manifests for LLM-driven site generation without heavy builds.
 
 ### Current section components
-- Hero with image (CTA + stats), Features grid, Testimonials cards, FAQ accordion, Pricing table, CTA banner, Process timeline, Stats showcase, Gallery carousel, Contact form.
+- Hero with image (CTA + stats), Features grid, **Logo wall**, Testimonials cards, **Team grid**, FAQ accordion, Pricing table, CTA banner, Process timeline, Stats showcase, **Case studies**, Gallery carousel, Contact form.
 
 ### High-value gaps to add next
 - Global shell: sticky nav + anchor links, footer with links/social/legal.
@@ -43,6 +43,11 @@ This document summarizes the current section components, gaps to fill, and the n
   Supported marks: `strong`/`bold`, `em`/`italic`, `underline`, `strike`, `code`, and link markDefs (`_type: "link", href`). If a field doesn’t need formatting you can still send a plain string.
 
 - **Fonts via theme:** Add `theme.displayFont` and `theme.bodyFont` using one of the curated keys – `inter`, `space-grotesk`, `poppins`, `playfair-display`, `lora`, `raleway`. The renderer loads the right Google Fonts and maps them to headings/body. Pick combos that match the vibe (e.g., Playfair + Lora for luxury, Space Grotesk + Inter for tech). Leave them empty to fall back to defaults.
+- **Style profiles:** Pick a `theme.styleProfile` so the renderer can flip between visual treatments:
+  - `rounded-elevated` – our current glassy, softly rounded cards (default).
+  - `sharp-minimal` – squared edges, lighter shadows, and crisp dividers for tech/SaaS looks.
+  - `full-bleed` – edge-to-edge sections with transparent panels so imagery carries the layout.
+  Choose the profile that best fits the request; the build system will automatically sync the corner radius.
 
 - **Schema reference:** Both the API (`src/site-schema.js`) and template app (`templates/site-base/src/content/site-schema.ts`) expect the same shape. Keep generated `content.json` aligned with those types.
 

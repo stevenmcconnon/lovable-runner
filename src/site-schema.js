@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const { SECTION_MANIFEST, SECTION_IDS, SECTION_GROUPS } = require('./sections/registry');
+const { STYLE_PROFILE_IDS } = require('./style-profiles');
 
 const ImageSchema = z.object({
   src: z.string().min(1),
@@ -70,6 +71,7 @@ const SiteSchema = z.object({
     cornerStyle: z.enum(['rounded', 'sharp']).optional(),
     displayFont: z.string().max(64).optional(),
     bodyFont: z.string().max(64).optional(),
+    styleProfile: z.enum(STYLE_PROFILE_IDS).optional(),
   }),
   templateId: z.string().min(2),
   canonical: z.string().url().optional(),

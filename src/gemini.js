@@ -4,6 +4,7 @@ const DEFAULT_MODEL =
 
 const { validateSiteQuality } = require('./site-schema');
 const { SECTION_MANIFEST, SECTION_IDS } = require('./sections/registry');
+const { describeStyleProfiles, STYLE_PROFILE_IDS } = require('./style-profiles');
 
 const THEME_FONT_OPTIONS = [
   'inter',
@@ -47,6 +48,7 @@ const RESPONSE_SCHEMA = {
         vibe: { type: 'string', enum: ['luxury', 'tech', 'playful', 'earthy'] },
         displayFont: { type: 'string', enum: THEME_FONT_OPTIONS },
         bodyFont: { type: 'string', enum: THEME_FONT_OPTIONS },
+        styleProfile: { type: 'string', enum: STYLE_PROFILE_IDS },
       },
       required: ['primaryColor', 'accentColor', 'backgroundStyle', 'vibe'],
     },
@@ -126,6 +128,8 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     '- Rich text: return hero/services/process/testimonial/FAQ copy as Portable Text arrays (e.g., [{"_type":"block","style":"normal","children":[{"_type":"span","text":"Relaxed ","marks":[]},{"_type":"span","text":"underline","marks":["underline"]}]}]). Allowed marks: strong/bold, em/italic, underline, strike, code, and link markDefs (`{"_key":"m1","_type":"link","href":"https://..."}`). Use plain strings only for short labels (CTA button text, stat values, CTA names).',
     `- Fonts: set theme.displayFont and theme.bodyFont to one of ${THEME_FONT_OPTIONS.join(', ')}. Pair faces to match the vibe (e.g., Playfair + Lora for luxury, Space Grotesk + Inter for tech) unless the user gave explicit guidance.`,
     '- meta.brandName/headline/subheadline must reflect the actual reference business (use businessDetails.businessName if provided; otherwise derive from sourceSummary/URL).',
+    'Style profiles control corners, spacing, and how sections render. Set theme.styleProfile using these options (default to rounded-elevated if unsure):',
+    describeStyleProfiles(),
     '- Copy must weave in the provided business details and source URL insights (sourceSummary); no lorem ipsum, no AI-SiteMaker messaging, and no generic AI boilerplate.',
     '- Treat sourceSummary as the ground truth: mirror its services, tone, and value props. If sourceSummary is missing, infer the brand from the URL words/businessDetails instead of inventing an AI platform.',
     '- Theme colors should mirror the brand/industry palette and avoid default dark-purple schemes; choose high-conversion, legible combinations that match the reference vibe and never default to ai-sitemaker purple.',

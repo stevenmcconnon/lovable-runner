@@ -70,6 +70,7 @@ export const applyThemeToDocument = (theme: SiteTheme) => {
   root.dataset.vibe = theme.vibe;
   root.dataset.surface = theme.backgroundStyle;
   root.dataset.corners = theme.cornerStyle || 'rounded';
+  root.dataset.styleProfile = theme.styleProfile || 'rounded-elevated';
 };
 
 const DEFAULT_SURFACE_TEXT = '#0f172a';

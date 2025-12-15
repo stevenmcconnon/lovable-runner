@@ -11,13 +11,20 @@
   --on-brand-foreground: 0 0% 100%;
   --panel-surface: hsla(0, 0%, 100%, 0.78);
   --panel-border: hsla(224, 25%, 16%, 0.08);
+  --section-radius: 1.75rem;
+  --section-shadow: 0 45px 120px rgba(15, 23, 42, 0.25);
+  --section-border-color: var(--panel-border);
+  --section-surface: var(--panel-surface);
+  --section-padding: clamp(1.75rem, 3vw, 3rem);
+  --section-blur: 24px;
+  --page-background: #f8fafc;
   color-scheme: light;
 }
 
 body {
   @apply min-h-screen antialiased;
   color: hsl(var(--surface-foreground));
-  background-color: #f8fafc;
+  background-color: var(--page-background);
   font-family: var(--font-body), 'Inter', sans-serif;
 }
 
@@ -40,14 +47,55 @@ body {
   --panel-border: hsl(var(--surface-foreground) / 0.12);
 }
 
+:root[data-style-profile='sharp-minimal'] {
+  --section-radius: 0.85rem;
+  --section-shadow: 0 25px 60px rgba(15, 23, 42, 0.12);
+  --section-border-color: hsla(224, 25%, 16%, 0.08);
+  --section-surface: rgba(255, 255, 255, 0.98);
+  --section-blur: 10px;
+  --page-background: #f4f6fb;
+}
+
+:root[data-style-profile='full-bleed'] {
+  --section-radius: 0;
+  --section-shadow: none;
+  --section-border-color: transparent;
+  --section-surface: transparent;
+  --section-padding: clamp(1.25rem, 3vw, 2.25rem);
+  --section-blur: 0px;
+  --page-background: #ffffff;
+}
+
 .section-shell {
   @apply w-full px-4 py-16 md:py-24;
 }
 
 .section-card {
-  @apply relative overflow-hidden rounded-3xl border p-10 shadow-2xl backdrop-blur;
-  background: var(--panel-surface);
-  border-color: var(--panel-border);
+  @apply relative w-full overflow-hidden border;
+  border-radius: var(--section-radius);
+  border-color: var(--section-border-color);
+  padding: var(--section-padding);
+  background: var(--section-surface);
+  box-shadow: var(--section-shadow);
+  backdrop-filter: blur(var(--section-blur));
+  -webkit-backdrop-filter: blur(var(--section-blur));
+}
+
+:root[data-style-profile='sharp-minimal'] .section-card {
+  border-color: var(--section-border-color);
+}
+
+:root[data-style-profile='full-bleed'] .section-shell {
+  padding-left: clamp(1.25rem, 4vw, 3rem);
+  padding-right: clamp(1.25rem, 4vw, 3rem);
+}
+
+:root[data-style-profile='full-bleed'] .section-card {
+  padding: var(--section-padding);
+}
+
+:root[data-style-profile='full-bleed'] header {
+  @apply border-transparent bg-white/95;
 }
 
 :root[data-corners='sharp'] .rounded,

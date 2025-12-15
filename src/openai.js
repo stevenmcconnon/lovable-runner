@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { validateSiteQuality } = require('./site-schema');
 const { SECTION_MANIFEST, SECTION_IDS } = require('./sections/registry');
+const { describeStyleProfiles, STYLE_PROFILE_IDS } = require('./style-profiles');
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini-2024-07-18';
 const FALLBACK_MODEL = process.env.OPENAI_FALLBACK_MODEL || 'gpt-5.1';
@@ -58,6 +59,8 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     'Do NOT mention AI SiteMaker/Lovable or any AI generator. All copy must stay grounded in the reference business and the provided businessDetails.',
     'Default to bright, friendly, high-contrast palettes; only deliver a dark theme when explicitly requested.',
     'When cloning an existing site, lightly remix the copy instead of inventing new messaging—preserve the offers, voice, and structure from the reference text.',
+    'Style profiles influence spacing, corners, and backgrounds across the template. Set theme.styleProfile using these options (default to rounded-elevated if unsure):',
+    describeStyleProfiles(),
     'Reuse strong hero/services language from the source; avoid generic AI boilerplate.',
     'Default to a single-page layout (sections array only). If the reference site clearly uses multiple distinct pages or the user explicitly asks, add a `pages` array (max 5) in addition to the core sections.',
     'Set meta.brandName/headline/subheadline to the real business (prefer businessDetails.businessName; otherwise derive from the reference site text or the URL domain words).',
@@ -145,6 +148,7 @@ const buildTextFormat = () => ({
           vibe: { type: 'string', enum: ['luxury', 'tech', 'playful', 'earthy'] },
           displayFont: { type: 'string', enum: THEME_FONT_OPTIONS },
           bodyFont: { type: 'string', enum: THEME_FONT_OPTIONS },
+          styleProfile: { type: 'string', enum: STYLE_PROFILE_IDS },
         },
       },
       templateId: { type: 'string' },

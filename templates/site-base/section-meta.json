@@ -16,12 +16,28 @@
     "group": "services"
   },
   {
+    "id": "logo-wall",
+    "label": "Logo wall",
+    "description": "Grid of partner or client logos with short proof statements and optional links.",
+    "requiredProps": ["title", "subtitle", "logos"],
+    "minWordCount": 40,
+    "group": "social-proof"
+  },
+  {
     "id": "testimonials-cards",
     "label": "Testimonials",
     "description": "Aceternity inspired gradient testimonial cards with quotes and proof labels.",
     "requiredProps": ["title", "subtitle", "testimonials"],
     "minWordCount": 70,
     "group": "social-proof"
+  },
+  {
+    "id": "team-grid",
+    "label": "Team grid",
+    "description": "Showcase of key team members with portraits, roles, bios, and social links.",
+    "requiredProps": ["title", "subtitle", "members"],
+    "minWordCount": 70,
+    "group": "support"
   },
   {
     "id": "faq-accordion",
@@ -61,6 +77,14 @@
     "description": "Animated stat grid showing metrics and outcomes.",
     "requiredProps": ["title", "subtitle", "stats"],
     "minWordCount": 45,
+    "group": "proof"
+  },
+  {
+    "id": "case-studies",
+    "label": "Case studies",
+    "description": "Three card layout featuring project summaries, metrics, and CTA links.",
+    "requiredProps": ["title", "subtitle", "cases"],
+    "minWordCount": 70,
     "group": "proof"
   },
   {

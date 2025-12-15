@@ -8,9 +8,22 @@ const { refineThemePalette } = require('./color-agent');
 const { saveSiteConfig } = require('./site-store');
 const { uploadToS3 } = require('./deploy');
 const { pickUnsplashImages } = require('./unsplash');
+const { STYLE_PROFILE_IDS } = require('./style-profiles');
 const crypto = require('node:crypto');
 
 const MIN_IMAGES = 4;
+const DEFAULT_STYLE_PROFILE = 'rounded-elevated';
+const STYLE_PROFILE_DEFAULTS = {
+  'rounded-elevated': { cornerStyle: 'rounded' },
+  'sharp-minimal': { cornerStyle: 'sharp' },
+  'full-bleed': { cornerStyle: 'sharp' },
+};
+const VIBE_STYLE_SUGGESTIONS = {
+  luxury: 'rounded-elevated',
+  playful: 'rounded-elevated',
+  tech: 'sharp-minimal',
+  earthy: 'full-bleed',
+};
 const UNSPLASH_REQUEST_LIMIT =
   Number.parseInt(process.env.UNSPLASH_REQUEST_LIMIT || '', 10) || 10;
 const MAX_PROMPT_QUERIES = 3;
@@ -1216,6 +1229,21 @@ const ensureCornerStyle = ({ site, slug }) => {
   site.theme.cornerStyle = pickDeterministicCornerStyle(seed);
 };
 
+const ensureStyleProfile = ({ site }) => {
+  if (!site?.theme) return;
+  const current = site.theme.styleProfile;
+  const isValid = STYLE_PROFILE_IDS.includes(current);
+  if (!isValid) {
+    const vibeDefault = VIBE_STYLE_SUGGESTIONS[site.theme.vibe];
+    const cornerDefault = site.theme.cornerStyle === 'sharp' ? 'sharp-minimal' : null;
+    site.theme.styleProfile = vibeDefault || cornerDefault || DEFAULT_STYLE_PROFILE;
+  }
+  const profileMeta = STYLE_PROFILE_DEFAULTS[site.theme.styleProfile];
+  if (profileMeta?.cornerStyle) {
+    site.theme.cornerStyle = profileMeta.cornerStyle;
+  }
+};
+
 const ensureThemeFonts = ({ site }) => {
   if (!site?.theme) return;
   if (!site.theme.displayFont) {
@@ -1295,6 +1323,7 @@ const normalizeSiteSections = (site = {}) => {
     if (site.theme.cornerStyle !== 'sharp' && site.theme.cornerStyle !== 'rounded') {
       site.theme.cornerStyle = 'rounded';
     }
+    ensureStyleProfile({ site });
     ensureThemeFonts({ site });
   }
   if ((!site.sections || site.sections.length === 0) && Array.isArray(site.pages) && site.pages[0]?.sections) {
@@ -1501,6 +1530,7 @@ const runLaunch = async ({
   console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
 
   ensureCornerStyle({ site: siteConfig, slug: finalSlug });
+  ensureStyleProfile({ site: siteConfig });
   // Attach stock imagery from Pexels (if available) and normalize sections before saving
   siteConfig = await attachStockImages({
     site: siteConfig,

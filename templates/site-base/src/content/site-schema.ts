@@ -1,6 +1,7 @@
 export type SectionComponentId =
   | 'hero-with-image'
   | 'features-grid'
+  | 'logo-wall'
   | 'testimonials-cards'
   | 'faq-accordion'
   | 'pricing-table'
@@ -8,6 +9,8 @@ export type SectionComponentId =
   | 'process-timeline'
   | 'stats-showcase'
   | 'gallery-carousel'
+  | 'team-grid'
+  | 'case-studies'
   | 'contact-form';
 
 export type SectionConfig<TProps = Record<string, unknown>> = {
@@ -40,6 +43,7 @@ export type SiteTheme = {
   textColor?: string;
   displayFont?: string;
   bodyFont?: string;
+  styleProfile?: 'rounded-elevated' | 'sharp-minimal' | 'full-bleed';
 };
 
 export type SiteIntegrations = {
