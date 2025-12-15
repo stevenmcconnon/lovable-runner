@@ -44,6 +44,10 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `POST /reviews` / `POST /reviews/status` – capture visitor reviews and approve/reject them from the admin side.
 - `GET /analytics` – authenticated summary of traffic/leads/bookings plus simple health alerts.
 - `POST /analytics/events` – lightweight pixel endpoint generated sites call for page views, leads, and bookings.
+- `GET /appointments`, `POST /appointments/status`, `GET|POST /appointments/settings`, `GET /appointments/ics` – manage booking requests, configure availability/calendar tokens, and export ICS feeds.
+- `POST /appointments/calendar/connect` – start an OAuth connect flow for Google/Outlook calendars or return an Apple ICS link to subscribe manually. OAuth callbacks live at `/oauth/calendar/{provider}/callback`.
+- `POST /domains/check`, `POST /domains/register` – talk to the configured registrar to check availability or request a new domain on behalf of a customer.
+- `GET|POST /notifications/preferences` – fetch or update per-recipient email preferences/unsubscribe flags so owners can opt into specific notification types.
 
 Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, PostgreSQL database, and the Lambda function wired to all routes.
 
@@ -133,6 +137,9 @@ node src/cli.js publish --project 1234-abcd
 - `LOVABLE_DEPLOY_BUCKET` – default bucket for `launch`/`deploy-s3`
 - `LOVABLE_DEPLOY_PREFIX` – optional base prefix appended before slug (e.g., `lovable`)
 - `LOVABLE_PLACEHOLDER_LIMIT` – max placeholder polling attempts before continuing anyway (defaults to 30; set to `0` to disable the limit)
+- `GOOGLE_CALENDAR_CLIENT_ID` / `GOOGLE_CALENDAR_CLIENT_SECRET` / `GOOGLE_CALENDAR_REDIRECT_URI` – OAuth credentials for Google Calendar syncing (`redirect_uri` defaults to `https://api.ai-sitemaker.com/oauth/calendar/google/callback`).
+- `OUTLOOK_CALENDAR_CLIENT_ID` / `OUTLOOK_CALENDAR_CLIENT_SECRET` / `OUTLOOK_CALENDAR_REDIRECT_URI` – OAuth credentials for Microsoft/Outlook calendar syncing (`redirect_uri` defaults to `https://api.ai-sitemaker.com/oauth/calendar/outlook/callback`).
+- Apple Calendar uses the generated ICS feed (`/appointments/ics?slug=...&token=...`), no OAuth required.
 
 You can also pass `--token` on the CLI to override `LOVABLE_ID_TOKEN`.
 

@@ -1,3 +1,4 @@
+const { randomUUID } = require('crypto');
 const { parseJsonBody, json } = require('./http');
 const { runLaunch } = require('./launch');
 const { runUpdate, approveUpdate, listUpdates } = require('./update');
@@ -13,6 +14,140 @@ const { submitContactMessage } = require('./contact');
 const { listLeads, sendLeadReply, markLeadStatus } = require('./leads');
 const { listApprovedReviews, submitReview, setReviewStatus } = require('./reviews');
 const { recordAnalyticsEvent, listAnalytics, buildAlerts } = require('./analytics');
+const {
+  listAppointments,
+  getAppointment,
+  updateAppointmentStatus,
+  saveAppointmentSettings,
+  getAppointmentSettings,
+  setOAuthState,
+  clearOAuthState,
+  setAppointmentCalendarEvent,
+  buildICS,
+} = require('./appointments');
+const calendar = require('./calendar');
+const { checkAvailability, registerDomain } = require('./domain-provisioning');
+const { getPreferences, savePreferences } = require('./notification-preferences');
+
+const buildHtmlResponse = (statusCode, message) => ({
+  statusCode,
+  headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  body: `<html><body><h1>${message}</h1><p>You can close this window.</p></body></html>`,
+});
+
+const decodeOAuthState = (stateParam) => {
+  try {
+    const decoded = Buffer.from(stateParam, 'base64url').toString('utf8');
+    const payload = JSON.parse(decoded);
+    if (!payload.slug || !payload.nonce) {
+      throw new Error('Invalid state payload');
+    }
+    return payload;
+  } catch (error) {
+    throw new Error('Invalid state parameter');
+  }
+};
+
+const syncAppointmentWithProvider = async ({ slug, appointmentId }) => {
+  const appointment = await getAppointment({ slug, appointmentId });
+  if (!appointment) return;
+  const settings = await getAppointmentSettings({ slug });
+  if (!settings?.calendarProvider) return;
+  if (!['google', 'outlook'].includes(settings.calendarProvider)) return;
+  const expiresAt = settings.calendarExpiresAt
+    ? new Date(settings.calendarExpiresAt).getTime()
+    : null;
+  const access = await calendar.ensureAccessToken({
+    provider: settings.calendarProvider,
+    token: settings.calendarToken,
+    refreshToken: settings.calendarRefreshToken,
+    expiresAt,
+  });
+  if (!access?.accessToken) {
+    throw new Error('Unable to obtain calendar access token');
+  }
+  const updates = {};
+  if (access.expiresAt) {
+    updates.calendarExpiresAt = new Date(access.expiresAt).toISOString();
+  }
+  if (access.refreshToken && access.refreshToken !== settings.calendarRefreshToken) {
+    updates.calendarRefreshToken = access.refreshToken;
+  }
+  updates.calendarToken = access.accessToken;
+  if (Object.keys(updates).length) {
+    await saveAppointmentSettings({ slug, ...updates });
+  }
+  const result = await calendar.syncAppointment({
+    provider: settings.calendarProvider,
+    appointment: {
+      ...appointment,
+      timezone: settings.timezone || 'UTC',
+    },
+    accessToken: access.accessToken,
+    slug,
+    calendarEventId: appointment.calendarEventId,
+  });
+  await setAppointmentCalendarEvent({
+    slug,
+    appointmentId: appointment.appointmentId,
+    provider: settings.calendarProvider,
+    eventId: result.eventId || null,
+    eventLink: result.htmlLink || result.webLink || null,
+  });
+};
+
+const handleCalendarCallback = async (provider, event) => {
+  const query = event?.queryStringParameters || {};
+  const code = query.code;
+  const stateParam = query.state;
+  if (!code || !stateParam) {
+    return buildHtmlResponse(400, 'Missing authorization parameters.');
+  }
+  let payload;
+  try {
+    payload = decodeOAuthState(stateParam);
+  } catch (error) {
+    return buildHtmlResponse(400, error.message);
+  }
+  const slug = payload.slug;
+  try {
+    const settings = await getAppointmentSettings({ slug });
+    if (!settings?.oauthState || settings.oauthState !== payload.nonce) {
+      return buildHtmlResponse(400, 'State mismatch. Please restart the connection flow.');
+    }
+    if (settings.oauthStateExpiresAt) {
+      const expiresAt = new Date(settings.oauthStateExpiresAt).getTime();
+      if (Date.now() > expiresAt) {
+        await clearOAuthState({ slug });
+        return buildHtmlResponse(400, 'Authorization state expired. Please try again.');
+      }
+    }
+    if (
+      settings.oauthStateProvider &&
+      settings.oauthStateProvider !== provider
+    ) {
+      return buildHtmlResponse(400, 'Mismatched provider state.');
+    }
+    const tokens = await calendar.exchangeCodeForTokens({ provider, code });
+    const expiresAtIso = tokens.expires_in
+      ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+      : settings.calendarExpiresAt || null;
+    await saveAppointmentSettings({
+      slug,
+      calendarProvider: provider,
+      calendarToken: tokens.access_token || settings.calendarToken || null,
+      calendarRefreshToken:
+        tokens.refresh_token || settings.calendarRefreshToken || null,
+      calendarExpiresAt: expiresAtIso,
+      calendarAccountEmail: tokens.accountEmail || settings.calendarAccountEmail || null,
+    });
+    await clearOAuthState({ slug });
+    return buildHtmlResponse(200, 'Calendar connected!');
+  } catch (error) {
+    console.error('[calendar callback] failed', { provider, error: error.message });
+    return buildHtmlResponse(500, 'Calendar connection failed.');
+  }
+};
 
 const ROUTES = {
   'POST /launch': async (event, user) => {
@@ -81,6 +216,26 @@ const ROUTES = {
     const items = await listDomainsForUser({ user });
     return json(200, { items });
   },
+  'POST /domains/check': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const body = parseJsonBody(event);
+    const result = await checkAvailability({ domain: body.domain });
+    return json(200, result);
+  },
+  'POST /domains/register': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin']);
+    const body = parseJsonBody(event);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (body.slug && !allowedSlugs?.includes(body.slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const result = await registerDomain({
+      domain: body.domain,
+      contact: body.contact,
+      slug: body.slug,
+    });
+    return json(200, result);
+  },
   'GET /sites/history': async (event) => {
     const slug = event?.queryStringParameters?.slug;
     const limit = event?.queryStringParameters?.limit
@@ -120,6 +275,170 @@ const ROUTES = {
       intent: body.intent,
     });
     return json(200, { ok: true });
+  },
+  'GET /appointments': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.length) {
+      return json(403, { error: 'No sites assigned to this account yet.' });
+    }
+    const slug = event?.queryStringParameters?.slug || allowedSlugs[0];
+    if (!allowedSlugs.includes(slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const status = event?.queryStringParameters?.status;
+    const limit = event?.queryStringParameters?.limit
+      ? Number(event.queryStringParameters.limit)
+      : undefined;
+    const cursorToken = event?.queryStringParameters?.cursor;
+    let cursor;
+    if (cursorToken) {
+      try {
+        cursor = JSON.parse(Buffer.from(cursorToken, 'base64').toString('utf8'));
+      } catch (error) {
+        return json(400, { error: 'cursor token is invalid' });
+      }
+    }
+    const result = await listAppointments({ slug, status, limit, cursor });
+    const nextCursor = result.nextCursor
+      ? Buffer.from(JSON.stringify(result.nextCursor)).toString('base64')
+      : null;
+    return json(200, { slug, items: result.items, nextCursor });
+  },
+  'POST /appointments/status': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const body = parseJsonBody(event);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.includes(body.slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const result = await updateAppointmentStatus({
+      slug: body.slug,
+      appointmentId: body.appointmentId,
+      status: body.status,
+      confirmedStart: body.confirmedStart,
+      confirmedEnd: body.confirmedEnd,
+      metadata: body.metadata,
+    });
+    if (body.status && body.status.toLowerCase() === 'confirmed') {
+      try {
+        await syncAppointmentWithProvider({
+          slug: body.slug,
+          appointmentId: body.appointmentId,
+        });
+      } catch (error) {
+        console.warn('[calendar] failed to sync appointment', {
+          slug: body.slug,
+          appointmentId: body.appointmentId,
+          err: error.message,
+        });
+      }
+    }
+    return json(200, result);
+  },
+  'GET /appointments/settings': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.length) {
+      return json(403, { error: 'No sites assigned yet.' });
+    }
+    const slug = event?.queryStringParameters?.slug || allowedSlugs[0];
+    if (!allowedSlugs.includes(slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const settings = await getAppointmentSettings({ slug });
+    return json(200, settings);
+  },
+  'POST /appointments/settings': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const body = parseJsonBody(event);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.includes(body.slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const settings = await saveAppointmentSettings({
+      slug: body.slug,
+      availability: body.availability,
+      timezone: body.timezone,
+      calendarProvider: body.calendarProvider,
+      calendarToken: body.calendarToken,
+    });
+    return json(200, settings);
+  },
+  'GET /appointments/ics': async (event) => {
+    const slug = event?.queryStringParameters?.slug;
+    const token = event?.queryStringParameters?.token;
+    if (!slug || !token) {
+      return json(400, { error: 'slug and token are required' });
+    }
+    const settings = await getAppointmentSettings({ slug });
+    if (!settings?.calendarIcsToken || settings.calendarIcsToken !== token) {
+      return json(403, { error: 'Invalid calendar token' });
+    }
+    const result = await listAppointments({ slug, limit: 200 });
+    const calendarBody = buildICS({
+      slug,
+      appointments: result.items || [],
+      siteName: slug,
+    });
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/calendar; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      },
+      body: calendarBody,
+    };
+  },
+  'POST /appointments/calendar/connect': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const body = parseJsonBody(event);
+    const provider = (body.provider || '').toLowerCase();
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    if (!allowedSlugs?.length) {
+      return json(403, { error: 'No sites assigned yet.' });
+    }
+    const slug = body.slug || allowedSlugs[0];
+    if (!allowedSlugs.includes(slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    if (provider === 'apple') {
+      const settings = await getAppointmentSettings({ slug });
+      let token = settings.calendarIcsToken;
+      if (!token) {
+        token = randomUUID();
+        await saveAppointmentSettings({ slug, calendarIcsToken: token });
+      }
+      const apiBase =
+        process.env.RUNNER_API_BASE ||
+        `https://${process.env.ApiCustomDomainName || 'api.ai-sitemaker.com'}`;
+      const icsUrl = `${apiBase.replace(/\/+$/, '')}/appointments/ics?slug=${slug}&token=${token}`;
+      await saveAppointmentSettings({
+        slug,
+        calendarProvider: 'apple-ics',
+      });
+      return json(200, {
+        provider: 'apple',
+        icsUrl,
+        instructions: 'Subscribe to this ICS feed in Apple Calendar to mirror appointments.',
+      });
+    }
+    if (!['google', 'outlook'].includes(provider)) {
+      return json(400, { error: 'Unsupported provider' });
+    }
+    const nonce = randomUUID();
+    const statePayload = Buffer.from(
+      JSON.stringify({ slug, nonce }),
+      'utf8'
+    ).toString('base64url');
+    await setOAuthState({
+      slug,
+      provider,
+      state: nonce,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    });
+    const url = calendar.buildConnectUrl({ provider, slug, state: statePayload });
+    return json(200, { provider, url });
   },
   'GET /leads': async (event, user) => {
     requireRole(user, ['admin', 'super-admin', 'user']);
@@ -219,6 +538,33 @@ const ROUTES = {
     });
     return json(200, result);
   },
+  'GET /notifications/preferences': async (event, user) => {
+    requireRole(user, ['admin', 'super-admin', 'user']);
+    const allowedSlugs = getAllowedSlugsForUser(user);
+    const slug = event?.queryStringParameters?.slug || allowedSlugs?.[0];
+    const recipient = event?.queryStringParameters?.recipient;
+    if (!slug || !recipient) {
+      return json(400, { error: 'slug and recipient are required' });
+    }
+    if (!allowedSlugs?.includes(slug)) {
+      return json(403, { error: 'You do not have access to this site.' });
+    }
+    const prefs = await getPreferences({ slug, recipient });
+    return json(200, prefs);
+  },
+  'POST /notifications/preferences': async (event) => {
+    const body = parseJsonBody(event);
+    if (!body.slug || !body.recipient) {
+      return json(400, { error: 'slug and recipient are required' });
+    }
+    const prefs = await savePreferences({
+      slug: body.slug,
+      recipient: body.recipient,
+      preferences: body.preferences,
+      unsubscribeAll: body.unsubscribeAll,
+    });
+    return json(200, prefs);
+  },
   'POST /analytics/events': async (event) => {
     const body = parseJsonBody(event);
     if (!body.slug || !body.type) {
@@ -248,6 +594,10 @@ const ROUTES = {
     const alerts = buildAlerts(records);
     return json(200, { slug, records, alerts });
   },
+  'GET /oauth/calendar/google/callback': async (event) =>
+    handleCalendarCallback('google', event),
+  'GET /oauth/calendar/outlook/callback': async (event) =>
+    handleCalendarCallback('outlook', event),
 };
 
 const buildRouteKey = (event) => {

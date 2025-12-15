@@ -153,6 +153,32 @@ Parameters:
     Type: String
     Default: 'formsubmissions@ai-sitemaker.com'
     Description: Verified SES email used as the From address for contact form submissions.
+  GoogleCalendarClientId:
+    Type: String
+    Default: ''
+    Description: Google OAuth client ID for calendar syncing.
+  GoogleCalendarClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Google OAuth client secret for calendar syncing.
+  GoogleCalendarRedirectUri:
+    Type: String
+    Default: 'https://api.ai-sitemaker.com/oauth/calendar/google/callback'
+    Description: Redirect URI registered for Google Calendar OAuth.
+  OutlookCalendarClientId:
+    Type: String
+    Default: ''
+    Description: Microsoft/Outlook app client ID for calendar syncing.
+  OutlookCalendarClientSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Microsoft/Outlook app client secret for calendar syncing.
+  OutlookCalendarRedirectUri:
+    Type: String
+    Default: 'https://api.ai-sitemaker.com/oauth/calendar/outlook/callback'
+    Description: Redirect URI registered for Outlook calendar OAuth.
 
 Conditions:
   HasCustomDomain: !And
@@ -291,6 +317,44 @@ Resources:
           KeyType: HASH
         - AttributeName: reviewId
           KeyType: RANGE
+  SiteAppointmentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: slug
+          AttributeType: S
+        - AttributeName: appointmentId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: slug
+          KeyType: HASH
+        - AttributeName: appointmentId
+          KeyType: RANGE
+  AppointmentSettingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: slug
+          AttributeType: S
+      KeySchema:
+        - AttributeName: slug
+          KeyType: HASH
+  NotificationPreferencesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: slug
+          AttributeType: S
+        - AttributeName: recipient
+          AttributeType: S
+      KeySchema:
+        - AttributeName: slug
+          KeyType: HASH
+        - AttributeName: recipient
+          KeyType: RANGE
   RunnerFunction:
     Type: AWS::Serverless::Function
     DependsOn:
@@ -344,6 +408,15 @@ Resources:
           LEAD_INBOX_TABLE: !Ref LeadInboxTable
           SITE_ANALYTICS_TABLE: !Ref SiteAnalyticsTable
           SITE_REVIEWS_TABLE: !Ref SiteReviewsTable
+          SITE_APPOINTMENTS_TABLE: !Ref SiteAppointmentsTable
+          APPOINTMENT_SETTINGS_TABLE: !Ref AppointmentSettingsTable
+          NOTIFICATION_PREFS_TABLE: !Ref NotificationPreferencesTable
+          GOOGLE_CALENDAR_CLIENT_ID: !Ref GoogleCalendarClientId
+          GOOGLE_CALENDAR_CLIENT_SECRET: !Ref GoogleCalendarClientSecret
+          GOOGLE_CALENDAR_REDIRECT_URI: !Ref GoogleCalendarRedirectUri
+          OUTLOOK_CALENDAR_CLIENT_ID: !Ref OutlookCalendarClientId
+          OUTLOOK_CALENDAR_CLIENT_SECRET: !Ref OutlookCalendarClientSecret
+          OUTLOOK_CALENDAR_REDIRECT_URI: !Ref OutlookCalendarRedirectUri
       Events:
         RootProxy:
           Type: HttpApi
@@ -369,6 +442,12 @@ Resources:
             TableName: !Ref SiteAnalyticsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref SiteReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAppointmentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppointmentSettingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationPreferencesTable
         - Statement:
             - Effect: Allow
               Action:

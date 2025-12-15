@@ -48,17 +48,32 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "slug": { "type": "string" },
-                    "publicUrl": { "type": "string", "format": "uri" },
-                    "thumbnailUrl": { "type": "string", "format": "uri" }
+                    "slug": {
+                      "type": "string"
+                    },
+                    "publicUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "thumbnailUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    }
                   },
-                  "required": ["slug", "thumbnailUrl"]
+                  "required": [
+                    "slug",
+                    "thumbnailUrl"
+                  ]
                 }
               }
             }
           },
-          "404": { "description": "Site not found" },
-          "503": { "description": "Thumbnail service not configured" }
+          "404": {
+            "description": "Site not found"
+          },
+          "503": {
+            "description": "Thumbnail service not configured"
+          }
         }
       }
     },
@@ -72,19 +87,31 @@
             "name": "slug",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "event",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["view", "cta"] },
+            "schema": {
+              "type": "string",
+              "enum": [
+                "view",
+                "cta"
+              ]
+            },
             "description": "Defaults to view when omitted."
           }
         ],
         "responses": {
-          "204": { "description": "Recorded" },
-          "400": { "description": "Invalid payload" }
+          "204": {
+            "description": "Recorded"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
         }
       }
     },
@@ -97,7 +124,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ContactSubmissionRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/ContactSubmissionRequest"
+              }
             }
           }
         },
@@ -106,12 +135,18 @@
             "description": "Submission accepted",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ContactSubmissionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ContactSubmissionResponse"
+                }
               }
             }
           },
-          "400": { "description": "Missing slug, fields, or contact email" },
-          "404": { "description": "Site not found" }
+          "400": {
+            "description": "Missing slug, fields, or contact email"
+          },
+          "404": {
+            "description": "Site not found"
+          }
         }
       }
     },
@@ -121,21 +156,58 @@
         "description": "Returns the latest lead submissions (contact + booking) stored for a site. Requires authentication and access to the site slug.",
         "operationId": "listLeads",
         "parameters": [
-          { "name": "slug", "in": "query", "schema": { "type": "string" }, "description": "Site slug to fetch leads for" },
-          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["open", "responded", "closed"] } },
-          { "name": "cursor", "in": "query", "schema": { "type": "string" }, "description": "Opaque pagination cursor returned by the previous call" },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 25, "maximum": 100 } }
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Site slug to fetch leads for"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "responded",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque pagination cursor returned by the previous call"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25,
+              "maximum": 100
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Lead list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LeadListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/LeadListResponse"
+                }
               }
             }
           },
-          "403": { "description": "Caller does not have access to the slug" }
+          "403": {
+            "description": "Caller does not have access to the slug"
+          }
         }
       }
     },
@@ -148,14 +220,22 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LeadReplyRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/LeadReplyRequest"
+              }
             }
           }
         },
         "responses": {
-          "200": { "description": "Reply sent" },
-          "400": { "description": "Missing slug, leadId, or message" },
-          "403": { "description": "Caller cannot access this lead" }
+          "200": {
+            "description": "Reply sent"
+          },
+          "400": {
+            "description": "Missing slug, leadId, or message"
+          },
+          "403": {
+            "description": "Caller cannot access this lead"
+          }
         }
       }
     },
@@ -168,13 +248,19 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LeadStatusRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/LeadStatusRequest"
+              }
             }
           }
         },
         "responses": {
-          "200": { "description": "Lead status updated" },
-          "400": { "description": "Invalid payload" }
+          "200": {
+            "description": "Lead status updated"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
         }
       }
     },
@@ -184,15 +270,32 @@
         "description": "Public endpoint returning reviews that the owner has approved for on-site display.",
         "operationId": "listReviews",
         "parameters": [
-          { "name": "slug", "in": "query", "required": true, "schema": { "type": "string" } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "maximum": 50, "default": 12 } }
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "default": 12
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Review list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ReviewListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
               }
             }
           }
@@ -206,13 +309,26 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ReviewSubmissionRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/ReviewSubmissionRequest"
+              }
             }
           }
         },
         "responses": {
-          "200": { "description": "Review captured", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReviewSubmissionResponse" } } } },
-          "400": { "description": "Invalid payload" }
+          "200": {
+            "description": "Review captured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSubmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
         }
       }
     },
@@ -225,13 +341,19 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ReviewStatusRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/ReviewStatusRequest"
+              }
             }
           }
         },
         "responses": {
-          "200": { "description": "Review status updated" },
-          "400": { "description": "Invalid payload" }
+          "200": {
+            "description": "Review status updated"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
         }
       }
     },
@@ -241,12 +363,37 @@
         "description": "Returns recent daily metrics (page views, leads, bookings) plus simple alerts for the requested site.",
         "operationId": "getAnalytics",
         "parameters": [
-          { "name": "slug", "in": "query", "schema": { "type": "string" } },
-          { "name": "days", "in": "query", "schema": { "type": "integer", "maximum": 60, "default": 30 } }
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 60,
+              "default": 30
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Analytics summary", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnalyticsResponse" } } } },
-          "403": { "description": "Caller does not have access to this site" }
+          "200": {
+            "description": "Analytics summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller does not have access to this site"
+          }
         }
       }
     },
@@ -259,13 +406,19 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AnalyticsEventRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/AnalyticsEventRequest"
+              }
             }
           }
         },
         "responses": {
-          "200": { "description": "Event recorded" },
-          "400": { "description": "Missing slug or type" }
+          "200": {
+            "description": "Event recorded"
+          },
+          "400": {
+            "description": "Missing slug or type"
+          }
         }
       }
     },
@@ -407,13 +560,19 @@
             "name": "slug",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "limit",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 50 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         ],
         "responses": {
@@ -421,11 +580,15 @@
             "description": "History listings",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SiteHistoryList" }
+                "schema": {
+                  "$ref": "#/components/schemas/SiteHistoryList"
+                }
               }
             }
           },
-          "400": { "description": "Missing slug" }
+          "400": {
+            "description": "Missing slug"
+          }
         }
       }
     },
@@ -438,7 +601,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SiteRestoreRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SiteRestoreRequest"
+              }
             }
           }
         },
@@ -447,19 +612,25 @@
             "description": "Restore complete",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SiteRestoreResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/SiteRestoreResponse"
+                }
               }
             }
           },
-          "400": { "description": "Missing slug/historyId" },
-          "404": { "description": "History entry not found" }
+          "400": {
+            "description": "Missing slug/historyId"
+          },
+          "404": {
+            "description": "History entry not found"
+          }
         }
       }
     },
     "/sites/{slug}/instructions": {
       "post": {
         "summary": "Apply natural-language instructions",
-        "description": "LLM-assisted editing flow. Sends the stored site + human instructions to GPT‑5.1 to produce a SitePatch, applies it, and redeploys the preview slug.",
+        "description": "LLM-assisted editing flow. Sends the stored site + human instructions to GPT\u20115.1 to produce a SitePatch, applies it, and redeploys the preview slug.",
         "operationId": "applyInstructions",
         "parameters": [
           {
@@ -526,7 +697,7 @@
     "/sites/{slug}/assets": {
       "get": {
         "summary": "List uploaded assets",
-        "description": "Returns objects stored under the site’s asset prefix.",
+        "description": "Returns objects stored under the site\u2019s asset prefix.",
         "operationId": "listAssets",
         "parameters": [
           {
@@ -1837,6 +2008,361 @@
           }
         }
       }
+    },
+    "/appointments": {
+      "get": {
+        "summary": "List appointments",
+        "description": "Authenticated owners can list pending/confirmed appointments for a site.",
+        "operationId": "listAppointments",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentListResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/appointments/status": {
+      "post": {
+        "summary": "Update appointment status",
+        "operationId": "updateAppointmentStatus",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/appointments/settings": {
+      "get": {
+        "summary": "Get appointment settings",
+        "operationId": "getAppointmentSettings",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Save appointment settings",
+        "operationId": "saveAppointmentSettings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved"
+          }
+        }
+      }
+    },
+    "/appointments/ics": {
+      "get": {
+        "summary": "Download ICS feed",
+        "operationId": "getAppointmentsICS",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ICS feed",
+            "content": {
+              "text/calendar": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid token"
+          }
+        }
+      }
+    },
+    "/domains/check": {
+      "post": {
+        "summary": "Check domain availability",
+        "operationId": "checkDomain",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainCheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/domains/register": {
+      "post": {
+        "summary": "Register a domain",
+        "operationId": "registerDomain",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainRegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainRegisterResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/preferences": {
+      "get": {
+        "summary": "Get notification preferences",
+        "operationId": "getNotificationPreferences",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipient",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "email"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Save notification preferences or unsubscribe",
+        "operationId": "saveNotificationPreferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferencesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated prefs"
+          }
+        }
+      }
+    },
+    "/appointments/calendar/connect": {
+      "post": {
+        "summary": "Create a calendar connection",
+        "description": "Returns an OAuth URL (Google/Outlook) or ICS subscription link (Apple) so the owner can sync appointments to their calendar.",
+        "operationId": "connectCalendar",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarConnectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connection instructions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarConnectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported provider"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/oauth/calendar/google/callback": {
+      "get": {
+        "summary": "Google Calendar OAuth callback",
+        "operationId": "googleCalendarCallback",
+        "responses": {
+          "200": {
+            "description": "HTML success page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid state or parameters"
+          }
+        }
+      }
+    },
+    "/oauth/calendar/outlook/callback": {
+      "get": {
+        "summary": "Outlook Calendar OAuth callback",
+        "operationId": "outlookCalendarCallback",
+        "responses": {
+          "200": {
+            "description": "HTML success page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid state or parameters"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2042,18 +2568,34 @@
             "items": {
               "type": "object",
               "properties": {
-                "from": { "type": "string" },
-                "to": { "type": "string" },
-                "type": { "type": "integer", "enum": [301, 302] }
+                "from": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "integer",
+                  "enum": [
+                    301,
+                    302
+                  ]
+                }
               }
             }
           },
           "openGraph": {
             "type": "object",
             "properties": {
-              "title": { "type": "string" },
-              "description": { "type": "string" },
-              "imagePrompt": { "type": "string" }
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "imagePrompt": {
+                "type": "string"
+              }
             }
           },
           "schemaMarkup": {
@@ -2068,24 +2610,44 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "type": { "type": "string", "enum": ["ga", "meta", "gtm", "other"] },
-                    "id": { "type": "string" }
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ga",
+                        "meta",
+                        "gtm",
+                        "other"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
                   }
                 }
               },
               "chat": {
                 "type": "object",
                 "properties": {
-                  "provider": { "type": "string" },
-                  "key": { "type": "string" }
+                  "provider": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  }
                 }
               },
               "newsletter": {
                 "type": "object",
                 "properties": {
-                  "provider": { "type": "string" },
-                  "listId": { "type": "string" },
-                  "formAction": { "type": "string" }
+                  "provider": {
+                    "type": "string"
+                  },
+                  "listId": {
+                    "type": "string"
+                  },
+                  "formAction": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -2202,9 +2764,9 @@
           }
         }
       },
-    "SiteRecord": {
-      "type": "object",
-      "properties": {
+      "SiteRecord": {
+        "type": "object",
+        "properties": {
           "slug": {
             "type": "string"
           },
@@ -2443,216 +3005,472 @@
               },
               "required": [
                 "url"
-        ]
-      }
-    },
-    "SiteHistoryList": {
-      "type": "object",
-      "properties": {
-        "slug": { "type": "string" },
-        "entries": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "timestamp": { "type": "string" }
+              ]
             }
-          }
-        }
-      },
-      "required": ["slug", "entries"]
-    },
-    "SiteRestoreRequest": {
-      "type": "object",
-      "required": ["slug", "historyId"],
-      "properties": {
-        "slug": { "type": "string" },
-        "historyId": { "type": "string" }
-      }
-    },
-    "SiteRestoreResponse": {
-      "type": "object",
-      "properties": {
-        "slug": { "type": "string" },
-        "historyId": { "type": "string" }
-      },
-      "required": ["slug", "historyId"]
-    },
-    "ContactSubmissionRequest": {
-      "type": "object",
-      "required": ["slug", "fields"],
-      "properties": {
-        "slug": { "type": "string", "description": "Site slug taken from /content.json" },
-        "sectionId": { "type": "string", "description": "Optional section id for the contact-form that triggered the submission" },
-        "sourceUrl": { "type": "string", "format": "uri" },
-        "intent": { "type": "string", "description": "Categorizes the submission (contact, booking, quote, etc.)" },
-        "fields": {
-          "type": "array",
-          "items": {
+          },
+          "SiteHistoryList": {
             "type": "object",
-            "required": ["label", "value"],
             "properties": {
-              "label": { "type": "string" },
-              "name": { "type": "string" },
-              "type": { "type": "string" },
+              "slug": {
+                "type": "string"
+              },
+              "entries": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "required": [
+              "slug",
+              "entries"
+            ]
+          },
+          "SiteRestoreRequest": {
+            "type": "object",
+            "required": [
+              "slug",
+              "historyId"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "historyId": {
+                "type": "string"
+              }
+            }
+          },
+          "SiteRestoreResponse": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "historyId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "slug",
+              "historyId"
+            ]
+          },
+          "ContactSubmissionRequest": {
+            "type": "object",
+            "required": [
+              "slug",
+              "fields"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string",
+                "description": "Site slug taken from /content.json"
+              },
+              "sectionId": {
+                "type": "string",
+                "description": "Optional section id for the contact-form that triggered the submission"
+              },
+              "sourceUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "intent": {
+                "type": "string",
+                "description": "Categorizes the submission (contact, booking, quote, etc.)"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "label",
+                    "value"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "ContactSubmissionResponse": {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          },
+          "LeadMessage": {
+            "type": "object",
+            "properties": {
+              "messageId": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "inbound",
+                  "outbound"
+                ]
+              },
+              "channel": {
+                "type": "string"
+              },
+              "body": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "Lead": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "leadId": {
+                "type": "string"
+              },
+              "intent": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ContactField"
+                }
+              },
+              "messages": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/LeadMessage"
+                }
+              }
+            },
+            "required": [
+              "slug",
+              "leadId",
+              "status",
+              "createdAt"
+            ]
+          },
+          "ContactField": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
               "value": {
                 "oneOf": [
-                  { "type": "string" },
+                  {
+                    "type": "string"
+                  },
                   {
                     "type": "array",
-                    "items": { "type": "string" }
+                    "items": {
+                      "type": "string"
+                    }
                   }
                 ]
               }
             }
-          }
-        }
-      }
-    },
-    "ContactSubmissionResponse": {
-      "type": "object",
-      "properties": {
-        "ok": { "type": "boolean", "default": true }
-      }
-    },
-    "LeadMessage": {
-      "type": "object",
-      "properties": {
-        "messageId": { "type": "string" },
-        "direction": { "type": "string", "enum": ["inbound", "outbound"] },
-        "channel": { "type": "string" },
-        "body": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "Lead": {
-      "type": "object",
-      "properties": {
-        "slug": { "type": "string" },
-        "leadId": { "type": "string" },
-        "intent": { "type": "string" },
-        "status": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" },
-        "fields": { "type": "array", "items": { "$ref": "#/components/schemas/ContactField" } },
-        "messages": { "type": "array", "items": { "$ref": "#/components/schemas/LeadMessage" } }
-      },
-      "required": ["slug", "leadId", "status", "createdAt"]
-    },
-    "ContactField": {
-      "type": "object",
-      "properties": {
-        "label": { "type": "string" },
-        "name": { "type": "string" },
-        "type": { "type": "string" },
-        "value": {
-          "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
-        }
-      }
-    },
-    "LeadListResponse": {
-      "type": "object",
-      "properties": {
-        "slug": { "type": "string" },
-        "items": { "type": "array", "items": { "$ref": "#/components/schemas/Lead" } },
-        "nextCursor": { "type": "string", "nullable": true }
-      }
-    },
-    "LeadReplyRequest": {
-      "type": "object",
-      "required": ["slug", "leadId", "message"],
-      "properties": {
-        "slug": { "type": "string" },
-        "leadId": { "type": "string" },
-        "message": { "type": "string" },
-        "subject": { "type": "string" }
-      }
-    },
-    "LeadStatusRequest": {
-      "type": "object",
-      "required": ["slug", "leadId", "status"],
-      "properties": {
-        "slug": { "type": "string" },
-        "leadId": { "type": "string" },
-        "status": { "type": "string", "enum": ["open", "responded", "closed"] },
-        "followUpAt": { "type": "string", "format": "date-time", "nullable": true }
-      }
-    },
-    "Review": {
-      "type": "object",
-      "properties": {
-        "reviewId": { "type": "string" },
-        "authorName": { "type": "string" },
-        "body": { "type": "string" },
-        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
-        "status": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "ReviewListResponse": {
-      "type": "object",
-      "properties": {
-        "slug": { "type": "string" },
-        "items": { "type": "array", "items": { "$ref": "#/components/schemas/Review" } }
-      }
-    },
-    "ReviewSubmissionRequest": {
-      "type": "object",
-      "required": ["slug", "body"],
-      "properties": {
-        "slug": { "type": "string" },
-        "authorName": { "type": "string" },
-        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
-        "body": { "type": "string" },
-        "contactEmail": { "type": "string", "format": "email" },
-        "source": { "type": "string" }
-      }
-    },
-    "ReviewSubmissionResponse": {
-      "type": "object",
-      "properties": {
-        "review": { "$ref": "#/components/schemas/Review" }
-      }
-    },
-    "ReviewStatusRequest": {
-      "type": "object",
-      "required": ["slug", "reviewId", "status"],
-      "properties": {
-        "slug": { "type": "string" },
-        "reviewId": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] }
-      }
-    },
-    "AnalyticsRecord": {
-      "type": "object",
-      "properties": {
-        "statDate": { "type": "string" },
-        "pageViewCount": { "type": "integer" },
-        "leadCount": { "type": "integer" },
-        "bookingCount": { "type": "integer" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "AnalyticsResponse": {
-      "type": "object",
-      "properties": {
-        "slug": { "type": "string" },
-        "records": { "type": "array", "items": { "$ref": "#/components/schemas/AnalyticsRecord" } },
-        "alerts": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "AnalyticsEventRequest": {
-      "type": "object",
-      "required": ["slug", "type"],
-      "properties": {
-        "slug": { "type": "string" },
-        "type": { "type": "string", "enum": ["page_view", "lead", "booking"] },
-        "path": { "type": "string" },
-        "referrer": { "type": "string" },
-        "metadata": { "type": "object", "additionalProperties": { "type": "string" } }
-      }
-    },
+          },
+          "LeadListResponse": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Lead"
+                }
+              },
+              "nextCursor": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          "LeadReplyRequest": {
+            "type": "object",
+            "required": [
+              "slug",
+              "leadId",
+              "message"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "leadId": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              }
+            }
+          },
+          "LeadStatusRequest": {
+            "type": "object",
+            "required": [
+              "slug",
+              "leadId",
+              "status"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "leadId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "responded",
+                  "closed"
+                ]
+              },
+              "followUpAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              }
+            }
+          },
+          "Review": {
+            "type": "object",
+            "properties": {
+              "reviewId": {
+                "type": "string"
+              },
+              "authorName": {
+                "type": "string"
+              },
+              "body": {
+                "type": "string"
+              },
+              "rating": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "status": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "ReviewListResponse": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "ReviewSubmissionRequest": {
+            "type": "object",
+            "required": [
+              "slug",
+              "body"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "authorName": {
+                "type": "string"
+              },
+              "rating": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "body": {
+                "type": "string"
+              },
+              "contactEmail": {
+                "type": "string",
+                "format": "email"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "ReviewSubmissionResponse": {
+            "type": "object",
+            "properties": {
+              "review": {
+                "$ref": "#/components/schemas/Review"
+              }
+            }
+          },
+          "ReviewStatusRequest": {
+            "type": "object",
+            "required": [
+              "slug",
+              "reviewId",
+              "status"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "reviewId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "approved",
+                  "rejected"
+                ]
+              }
+            }
+          },
+          "AnalyticsRecord": {
+            "type": "object",
+            "properties": {
+              "statDate": {
+                "type": "string"
+              },
+              "pageViewCount": {
+                "type": "integer"
+              },
+              "leadCount": {
+                "type": "integer"
+              },
+              "bookingCount": {
+                "type": "integer"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "AnalyticsResponse": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "records": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AnalyticsRecord"
+                }
+              },
+              "alerts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "AnalyticsEventRequest": {
+            "type": "object",
+            "required": [
+              "slug",
+              "type"
+            ],
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "page_view",
+                  "lead",
+                  "booking"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "referrer": {
+                "type": "string"
+              },
+              "metadata": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "regenerateImages": {
             "type": "boolean",
             "default": false,
@@ -3677,31 +4495,55 @@
           "billing": {
             "type": "object",
             "properties": {
-              "planKey": { "type": "string" },
-              "planName": { "type": "string" },
-              "status": { "type": "string" },
-              "isTrial": { "type": "boolean" },
-              "allowOverage": { "type": "boolean" },
+              "planKey": {
+                "type": "string"
+              },
+              "planName": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "isTrial": {
+                "type": "boolean"
+              },
+              "allowOverage": {
+                "type": "boolean"
+              },
               "coupons": {
                 "type": "array",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
           "metrics": {
             "type": "object",
             "properties": {
-              "windowDays": { "type": "integer" },
-              "views": { "type": "integer" },
-              "ctaClicks": { "type": "integer" },
+              "windowDays": {
+                "type": "integer"
+              },
+              "views": {
+                "type": "integer"
+              },
+              "ctaClicks": {
+                "type": "integer"
+              },
               "sites": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "properties": {
-                    "slug": { "type": "string" },
-                    "views": { "type": "integer" },
-                    "ctaClicks": { "type": "integer" }
+                    "slug": {
+                      "type": "string"
+                    },
+                    "views": {
+                      "type": "integer"
+                    },
+                    "ctaClicks": {
+                      "type": "integer"
+                    }
                   }
                 }
               }
@@ -3746,6 +4588,325 @@
             "items": {
               "$ref": "#/components/schemas/SiteGeneration"
             }
+          }
+        }
+      },
+      "Appointment": {
+        "type": "object",
+        "properties": {
+          "appointmentId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "customerEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "preferredDate": {
+            "type": "string"
+          },
+          "preferredTime": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "calendarEventId": {
+            "type": "string",
+            "nullable": true
+          },
+          "calendarEventProvider": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AppointmentListResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AppointmentStatusRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "appointmentId",
+          "status"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "appointmentId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "confirmedStart": {
+            "type": "string"
+          },
+          "confirmedEnd": {
+            "type": "string"
+          }
+        }
+      },
+      "AppointmentSettings": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "availability": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": {
+                  "type": "string"
+                },
+                "slots": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "start": {
+                        "type": "string"
+                      },
+                      "end": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "calendarProvider": {
+            "type": "string"
+          },
+          "calendarToken": {
+            "type": "string"
+          },
+          "calendarRefreshToken": {
+            "type": "string",
+            "nullable": true
+          },
+          "calendarExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "calendarAccountEmail": {
+            "type": "string",
+            "format": "email",
+            "nullable": true
+          },
+          "calendarIcsToken": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DomainCheckRequest": {
+        "type": "object",
+        "required": [
+          "domain"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          }
+        }
+      },
+      "DomainCheckResponse": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DomainRegisterRequest": {
+        "type": "object",
+        "required": [
+          "domain",
+          "contact"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "contact": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "email"
+            ]
+          }
+        }
+      },
+      "DomainRegisterResponse": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "nameservers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "verification": {
+            "type": "object"
+          }
+        }
+      },
+      "NotificationPreferences": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string",
+            "format": "email"
+          },
+          "preferences": {
+            "type": "object",
+            "properties": {
+              "contact": {
+                "type": "boolean"
+              },
+              "booking": {
+                "type": "boolean"
+              },
+              "newsletter": {
+                "type": "boolean"
+              },
+              "productUpdates": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "NotificationPreferencesRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "recipient"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string",
+            "format": "email"
+          },
+          "preferences": {
+            "type": "object"
+          },
+          "unsubscribeAll": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarConnectRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "provider"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "google",
+              "outlook",
+              "apple"
+            ]
+          }
+        }
+      },
+      "CalendarConnectResponse": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "icsUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true
           }
         }
       }

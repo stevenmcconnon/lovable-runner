@@ -1,6 +1,8 @@
 const AWS = require('aws-sdk');
 const { loadSiteConfig } = require('./site-store');
 const { captureLeadSubmission } = require('./leads');
+const { createAppointment } = require('./appointments');
+const { getPreferences } = require('./notification-preferences');
 const { CONTACT_FROM_EMAIL } = require('./email-config');
 
 const ses = new AWS.SES();
@@ -100,6 +102,23 @@ const buildEmailBodies = ({ brandName, slug, fields, sourceUrl }) => {
   return { textBody, htmlBody };
 };
 
+const shouldSendNotification = async ({ slug, targetEmail, intent }) => {
+  try {
+    const prefs = await getPreferences({
+      slug,
+      recipient: targetEmail,
+    });
+    if (!prefs?.preferences) return true;
+    if (intent === 'booking') {
+      return Boolean(prefs.preferences.booking);
+    }
+    return Boolean(prefs.preferences.contact);
+  } catch (error) {
+    console.warn('[contact] Failed to load notification preferences', error.message);
+    return true;
+  }
+};
+
 const submitContactMessage = async ({
   slug,
   sectionId,
@@ -158,21 +177,35 @@ const submitContactMessage = async ({
       ? `[${config.site.meta?.brandName || slug}] Booking request`
       : `[${config.site.meta?.brandName || slug}] New website inquiry`;
 
-  await ses
-    .sendEmail({
-      Source: CONTACT_FROM_EMAIL,
-      Destination: { ToAddresses: [targetEmail] },
-      CcAddresses: replyTo ? [replyTo] : undefined,
-      ReplyToAddresses: replyTo ? [replyTo] : undefined,
-      Message: {
-        Subject: { Data: subject, Charset: 'UTF-8' },
-        Body: {
-          Text: { Data: textBody, Charset: 'UTF-8' },
-          Html: { Data: htmlBody, Charset: 'UTF-8' },
+  const shouldDeliver = await shouldSendNotification({
+    slug,
+    targetEmail,
+    intent,
+  });
+
+  if (shouldDeliver) {
+    await ses
+      .sendEmail({
+        Source: CONTACT_FROM_EMAIL,
+        Destination: { ToAddresses: [targetEmail] },
+        CcAddresses: replyTo ? [replyTo] : undefined,
+        ReplyToAddresses: replyTo ? [replyTo] : undefined,
+        Message: {
+          Subject: { Data: subject, Charset: 'UTF-8' },
+          Body: {
+            Text: { Data: textBody, Charset: 'UTF-8' },
+            Html: { Data: htmlBody, Charset: 'UTF-8' },
+          },
         },
-      },
-    })
-    .promise();
+      })
+      .promise();
+  } else {
+    console.log('[contact] Notification suppressed by user preferences', {
+      slug,
+      targetEmail,
+      intent,
+    });
+  }
 
   captureLeadSubmission({
     slug,
@@ -185,6 +218,18 @@ const submitContactMessage = async ({
     userAgent,
     intent: intent || 'contact',
   }).catch((err) => console.warn('[contact] failed to store lead', err?.message));
+
+  if (intent === 'booking') {
+    createAppointment({
+      slug,
+      sectionId,
+      submittedBy: replyTo,
+      fields: normalizedFields,
+      sourceUrl,
+    }).catch((error) =>
+      console.warn('[contact] failed to store appointment', error?.message)
+    );
+  }
 
   console.log('[contact] Submission delivered', {
     slug,
