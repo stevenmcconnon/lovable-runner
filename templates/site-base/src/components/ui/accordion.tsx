@@ -1,10 +1,11 @@
 import { cn } from '../../lib/cn';
 import { useState } from 'react';
+import { PortableTextValue, RichText } from '../rich-text';
 
 type AccordionItem = {
   id: string;
-  question: string;
-  answer: string;
+  question: PortableTextValue;
+  answer: PortableTextValue;
 };
 
 type AccordionProps = {
@@ -23,7 +24,11 @@ export const Accordion = ({ items }: AccordionProps) => {
           onClick={() => setOpenId((prev) => (prev === item.id ? '' : item.id))}
         >
           <div className="flex items-center justify-between px-6 py-5">
-            <span className="text-lg font-semibold text-[hsl(var(--surface-foreground)/0.9)]">{item.question}</span>
+            <RichText
+              value={item.question}
+              className="text-lg font-semibold text-[hsl(var(--surface-foreground)/0.9)]"
+              inline
+            />
             <span className="text-[hsl(var(--brand))]">{openId === item.id ? '-' : '+'}</span>
           </div>
           <div
@@ -32,7 +37,7 @@ export const Accordion = ({ items }: AccordionProps) => {
               openId === item.id ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
             )}
           >
-            {item.answer}
+            <RichText value={item.answer} />
           </div>
         </button>
       ))}

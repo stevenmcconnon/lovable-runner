@@ -10,6 +10,13 @@ const { uploadToS3 } = require('./deploy');
 const { pickUnsplashImages } = require('./unsplash');
 const crypto = require('node:crypto');
 
+const MIN_IMAGES = 4;
+const UNSPLASH_REQUEST_LIMIT =
+  Number.parseInt(process.env.UNSPLASH_REQUEST_LIMIT || '', 10) || 10;
+const MAX_PROMPT_QUERIES = 3;
+const MAX_KEYWORD_QUERIES = 3;
+const MAX_ADAPTIVE_QUERIES = 4;
+
 const loadDotEnvIfPresent = () => {
   const envPath = path.join(process.cwd(), '.env');
   if (!fs.existsSync(envPath)) return;
@@ -448,6 +455,81 @@ const OFF_TOPIC_IMAGE_TERMS = [
   'cartoon',
 ];
 
+const ADAPTIVE_QUERY_SUFFIXES = [
+  'services',
+  'solutions',
+  'team',
+  'crew',
+  'project',
+  'worksite',
+  'portfolio',
+  'studio',
+  'workshop',
+  'installation',
+  'local business',
+];
+
+const buildAdaptiveImageQueries = ({
+  heroKeywords = new Set(),
+  serviceKeywords = new Set(),
+  businessDetails = {},
+  site = {},
+  description = '',
+  generalQuery = '',
+  heroSection = null,
+}) => {
+  const queries = new Set();
+  const push = (value) => {
+    if (typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (trimmed.length < 3) return;
+    queries.add(trimmed);
+  };
+
+  [
+    generalQuery,
+    businessDetails.businessType,
+    businessDetails.additionalDetails,
+    site.meta?.headline,
+    site.meta?.subheadline,
+    site.meta?.location,
+    site.theme?.vibe ? `${site.theme.vibe} aesthetic` : '',
+    description,
+  ].forEach(push);
+
+  [heroSection?.props?.title, heroSection?.props?.subtitle, heroSection?.props?.eyebrow].forEach(push);
+
+  const baseTokens = Array.from(new Set([...heroKeywords, ...serviceKeywords])).filter(
+    (token) => token.length > 2
+  );
+  const businessDescriptor =
+    businessDetails.businessType ||
+    businessDetails.industry ||
+    site.meta?.brandName ||
+    site.meta?.headline ||
+    '';
+
+  baseTokens.slice(0, 12).forEach((token) => {
+    if (businessDescriptor) push(`${token} ${businessDescriptor}`);
+    ADAPTIVE_QUERY_SUFFIXES.forEach((suffix) => push(`${token} ${suffix}`));
+  });
+
+  const location = businessDetails.location || site.meta?.location || '';
+  if (location) {
+    baseTokens.slice(0, 8).forEach((token) => push(`${token} ${location}`));
+    if (businessDescriptor) push(`${businessDescriptor} ${location}`);
+  }
+
+  for (let i = 0; i < Math.min(baseTokens.length, 6); i += 1) {
+    for (let j = i + 1; j < Math.min(baseTokens.length, i + 4); j += 1) {
+      const combo = `${baseTokens[i]} ${baseTokens[j]} ${businessDescriptor}`.trim();
+      push(combo);
+    }
+  }
+
+  return Array.from(queries).slice(0, 30);
+};
+
 const describePhotoText = (photo) => {
   if (!photo) return '';
   return [
@@ -472,6 +554,7 @@ const isOffTopicPhoto = (photo) => {
 };
 
 const buildGeneralImageQuery = ({ site = {}, businessDetails = {}, slug = '', description = '' }) => {
+  const details = businessDetails && typeof businessDetails === 'object' ? businessDetails : {};
   const phrases = [];
   const push = (value) => {
     if (typeof value === 'string' && value.trim().length > 0) {
@@ -479,8 +562,8 @@ const buildGeneralImageQuery = ({ site = {}, businessDetails = {}, slug = '', de
     }
   };
 
-  push(businessDetails.businessType);
-  push(businessDetails.additionalDetails);
+  push(details.businessType);
+  push(details.additionalDetails);
   push(site.meta?.headline);
   push(site.meta?.subheadline);
   push(site.meta?.location);
@@ -655,6 +738,14 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
     const url = typeof src === 'string' ? src.trim() : '';
     if (!url || !/^https?:/i.test(url)) return url;
     try {
+      const parsed = new URL(url);
+      if (parsed.hostname && parsed.hostname.includes('unsplash.com')) {
+        return url;
+      }
+    } catch (error) {
+      // fall through to caching attempt for non-Unsplash URLs
+    }
+    try {
       const extMatch = url.match(/\.(jpg|jpeg|png|webp)(\?.*)?$/i);
       const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
       const hash = crypto.createHash('sha1').update(url).digest('hex').slice(0, 20);
@@ -727,6 +818,15 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
 
   const collectedPhotos = [];
   const seen = new Set();
+  const attemptedQueries = new Set();
+  const desiredPhotoCount = Math.max(estimatedNeed * 3, MIN_IMAGES * 5);
+  const unsplashBudget = Math.max(1, UNSPLASH_REQUEST_LIMIT || 10);
+  let unsplashRequests = 0;
+  let unsplashRateLimited = false;
+  const shouldFetchMore = () =>
+    !unsplashRateLimited &&
+    collectedPhotos.length < desiredPhotoCount &&
+    unsplashRequests < unsplashBudget;
   const addPhotos = (items = []) => {
     items.forEach((photo) => {
       if (!photo?.src) return;
@@ -736,81 +836,121 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
       collectedPhotos.push(photo);
     });
   };
+  const fetchAndAddPhotos = async ({ query, count = 4, seedValue = '' }) => {
+    const trimmed = typeof query === 'string' ? query.trim() : '';
+    if (!trimmed || attemptedQueries.has(trimmed)) return;
+    if (!shouldFetchMore()) return;
+    attemptedQueries.add(trimmed);
+    try {
+      unsplashRequests += 1;
+      const photos = await pickUnsplashImages({
+        query: trimmed,
+        count,
+        seedValue,
+      });
+      addPhotos(photos);
+    } catch (error) {
+      if (error?.rateLimited || error?.status === 403) {
+        unsplashRateLimited = true;
+        console.warn('[images] Unsplash rate limit reached; skipping remaining fetches');
+      } else {
+        console.warn('[images] Unsplash fetch failed', { query: trimmed, err: error?.message });
+      }
+    }
+  };
+
+  const heroImagePrompt =
+    typeof heroSourceSection?.props?.imagePrompt === 'string'
+      ? heroSourceSection.props.imagePrompt.trim()
+      : '';
+  const prioritizedPrompts = [];
+  if (heroImagePrompt) prioritizedPrompts.push(heroImagePrompt);
+  promptQueries.forEach((prompt) => {
+    if (typeof prompt !== 'string') return;
+    const trimmed = prompt.trim();
+    if (!trimmed) return;
+    if (!prioritizedPrompts.includes(trimmed)) {
+      prioritizedPrompts.push(trimmed);
+    }
+  });
+  const promptQueue = prioritizedPrompts.slice(0, MAX_PROMPT_QUERIES);
+
+  if (generalQuery) {
+    await fetchAndAddPhotos({
+      query: generalQuery,
+      count: Math.min(Math.max(estimatedNeed * 3, 18), 30),
+      seedValue: `${seed}-general`,
+    });
+  }
 
   let promptIndex = 0;
-  for (const prompt of promptQueries.slice(0, 6)) {
+  for (const prompt of promptQueue) {
     promptIndex += 1;
-    const promptPhotos = await pickUnsplashImages({
+    await fetchAndAddPhotos({
       query: prompt,
       count: 4,
       seedValue: `${seed}-prompt-${promptIndex}`,
     });
-    addPhotos(promptPhotos);
   }
 
-  if (generalQuery) {
-    const generalPhotos = await pickUnsplashImages({
-      query: generalQuery,
-      count: Math.min(Math.max(estimatedNeed * 2, 12), 24),
-      seedValue: `${seed}-general`,
-    });
-    addPhotos(generalPhotos);
-  }
+  const ensureKeywordPhotoCoverage = async () => {
+    const minimumTargets = Math.max(estimatedNeed, 8);
+    if (collectedPhotos.length >= minimumTargets || !shouldFetchMore()) return;
+    const keywordPool = Array.from(new Set([...heroKeywords, ...serviceKeywords])).filter(
+      (token) => token && token.length > 2
+    );
+    let keywordIndex = 0;
+    for (const keyword of keywordPool.slice(0, MAX_KEYWORD_QUERIES)) {
+      keywordIndex += 1;
+      const combinedQuery = [
+        keyword,
+        businessDetails?.businessType,
+        site.meta?.brandName,
+      ]
+        .filter(Boolean)
+        .join(' ');
+      await fetchAndAddPhotos({
+        query: combinedQuery || keyword,
+        count: 3,
+        seedValue: `${seed}-keyword-${keywordIndex}`,
+      });
+      if (collectedPhotos.length >= minimumTargets * 1.5 || !shouldFetchMore()) break;
+    }
+  };
+
+  await ensureKeywordPhotoCoverage();
+
+  const ensureAdaptiveImageSweep = async () => {
+    const desired = Math.max(estimatedNeed * 2, MIN_IMAGES * 4);
+    if (collectedPhotos.length >= desired || !shouldFetchMore()) return;
+    const adaptiveQueries = buildAdaptiveImageQueries({
+      heroKeywords,
+      serviceKeywords,
+      businessDetails,
+      site,
+      description,
+      generalQuery,
+      heroSection: heroSourceSection,
+    }).slice(0, MAX_ADAPTIVE_QUERIES);
+    let adaptiveIndex = 0;
+    for (const query of adaptiveQueries) {
+      adaptiveIndex += 1;
+      await fetchAndAddPhotos({
+        query,
+        count: 4,
+        seedValue: `${seed}-adaptive-${adaptiveIndex}`,
+      });
+      if (collectedPhotos.length >= desired || !shouldFetchMore()) break;
+    }
+  };
+
+  await ensureAdaptiveImageSweep();
 
   const rawPhotos = collectedPhotos.length ? collectedPhotos : [];
-  const photos = filterRelevantPhotos(rawPhotos, { heroKeywords, serviceKeywords });
-  const fallbackPool = [
-    {
-      id: 'outdoor-1',
-      src: 'https://images.pexels.com/photos/953249/pexels-photo-953249.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Crew using chainsaw on a fallen tree trunk',
-      description: 'Arbor crew cutting a tree trunk outdoors',
-      photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/person-cutting-tree-953249/',
-    },
-    {
-      id: 'outdoor-2',
-      src: 'https://images.pexels.com/photos/1782268/pexels-photo-1782268.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Worker grinding a stump in a backyard',
-      description: 'Outdoor crew using a stump grinder in a backyard',
-      photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/person-using-stump-grinder-1782268/',
-    },
-    {
-      id: 'outdoor-3',
-      src: 'https://images.pexels.com/photos/953219/pexels-photo-953219.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Hands holding work gloves and small tool outdoors',
-      description: 'Hands holding work gloves and tools outside',
-      photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/person-holding-gray-gloves-953219/',
-    },
-    {
-      id: 'outdoor-4',
-      src: 'https://images.pexels.com/photos/442297/pexels-photo-442297.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Palm trees under a clear sky',
-      description: 'Palm trees and sunshine',
-      photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/green-palm-trees-under-blue-sky-442297/',
-    },
-    {
-      id: 'outdoor-5',
-      src: 'https://images.pexels.com/photos/629158/pexels-photo-629158.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Cut wood stacked on the ground',
-      description: 'Freshly cut firewood stacked neatly',
-      photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/stack-of-firewoods-629158/',
-    },
-    {
-      id: 'outdoor-6',
-      src: 'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      alt: 'Sunlit path through greenery',
-      description: 'Sunlit garden pathway surrounded by greenery',
-      photographer: 'Pexels',
-      creditUrl: 'https://www.pexels.com/photo/landscape-photo-of-pathway-surrounded-by-green-leaf-trees-1301856/',
-    },
-  ];
+  let photos = filterRelevantPhotos(rawPhotos, { heroKeywords, serviceKeywords });
+  if (!photos.length) photos = rawPhotos;
 
-  const pool = photos.length ? photos : fallbackPool;
+  let pool = photos.length ? [...photos] : [];
   let availablePhotos = [...pool];
   let recycledPhotos = [];
   const takePhoto = (selectIndexFn, options = {}) => {
@@ -951,7 +1091,6 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
   }
 
   // Ensure at least 3 images are sprinkled across sections by attaching to eligible sections lacking imagery.
-  const MIN_IMAGES = 4;
   const eligibleForImages = new Set([
     'hero-with-image',
     'cta-banner',
@@ -1077,6 +1216,16 @@ const ensureCornerStyle = ({ site, slug }) => {
   site.theme.cornerStyle = pickDeterministicCornerStyle(seed);
 };
 
+const ensureThemeFonts = ({ site }) => {
+  if (!site?.theme) return;
+  if (!site.theme.displayFont) {
+    site.theme.displayFont = site.theme.vibe === 'luxury' ? 'playfair-display' : 'space-grotesk';
+  }
+  if (!site.theme.bodyFont) {
+    site.theme.bodyFont = site.theme.vibe === 'luxury' ? 'lora' : 'inter';
+  }
+};
+
 const normalizeSiteSections = (site = {}) => {
   const normalizePrice = (value) => {
     if (typeof value !== 'string') return value;
@@ -1146,6 +1295,7 @@ const normalizeSiteSections = (site = {}) => {
     if (site.theme.cornerStyle !== 'sharp' && site.theme.cornerStyle !== 'rounded') {
       site.theme.cornerStyle = 'rounded';
     }
+    ensureThemeFonts({ site });
   }
   if ((!site.sections || site.sections.length === 0) && Array.isArray(site.pages) && site.pages[0]?.sections) {
     site.sections = site.pages[0].sections;

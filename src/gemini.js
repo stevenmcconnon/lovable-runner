@@ -5,6 +5,15 @@ const DEFAULT_MODEL =
 const { validateSiteQuality } = require('./site-schema');
 const { SECTION_MANIFEST, SECTION_IDS } = require('./sections/registry');
 
+const THEME_FONT_OPTIONS = [
+  'inter',
+  'space-grotesk',
+  'poppins',
+  'playfair-display',
+  'lora',
+  'raleway',
+];
+
 const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
@@ -36,6 +45,8 @@ const RESPONSE_SCHEMA = {
         accentColor: { type: 'string' },
         backgroundStyle: { type: 'string', enum: ['gradient', 'mesh', 'texture'] },
         vibe: { type: 'string', enum: ['luxury', 'tech', 'playful', 'earthy'] },
+        displayFont: { type: 'string', enum: THEME_FONT_OPTIONS },
+        bodyFont: { type: 'string', enum: THEME_FONT_OPTIONS },
       },
       required: ['primaryColor', 'accentColor', 'backgroundStyle', 'vibe'],
     },
@@ -101,7 +112,7 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     'Anchor the brand/offer in the provided sourceUrl text (sourceSummary) and keep the same business name (e.g., stevenmcconnon.com stays stevenmcconnon.com).',
     'Default to bright, friendly, high-contrast palettes; avoid dark/neo-purple themes unless the user explicitly requests a dark look.',
     'Select layouts by industry: proof-heavy for B2B/consulting, visual-forward for hospitality/creative, trust + service cards for home services.',
-    'If the user asks for multiple pages or you are cloning a multi-page site, emit up to 5 pages with path/title/sections; otherwise use a single-page sections array.',
+    'Default to a single scrolling page (sections array only). If the reference clearly uses multiple distinct pages or the user explicitly says “make subpages,” include a pages array (max 5) alongside sections.',
     'Output a single JSON object that matches the Site schema (meta, seo, theme, sections/pages) for our base Vite + shadcn project.',
     'Do NOT include HTML, JSX, Markdown, or file payloads. All copy must live inside the JSON fields.',
     '',
@@ -109,9 +120,11 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     sectionsInventory,
     '',
     'Requirements:',
-    '- Include at least 8 sections covering hero, services/features, process, social proof, FAQ, pricing, CTA, and stats/proof.',
+    '- Include at least 8 sections covering hero, services/features, process, social proof, FAQ, pricing, CTA, and stats/proof. Stick to a single page unless you intentionally emit pages per the rule above.',
     '- Each section should contain 3+ persuasive sentences (>=80 words for hero/services, >=40 words elsewhere).',
     '- Provide vivid `imagePrompt` guidance for hero, features, stats, and CTA sections so Midjourney/Imagen can recreate the look.',
+    '- Rich text: return hero/services/process/testimonial/FAQ copy as Portable Text arrays (e.g., [{"_type":"block","style":"normal","children":[{"_type":"span","text":"Relaxed ","marks":[]},{"_type":"span","text":"underline","marks":["underline"]}]}]). Allowed marks: strong/bold, em/italic, underline, strike, code, and link markDefs (`{"_key":"m1","_type":"link","href":"https://..."}`). Use plain strings only for short labels (CTA button text, stat values, CTA names).',
+    `- Fonts: set theme.displayFont and theme.bodyFont to one of ${THEME_FONT_OPTIONS.join(', ')}. Pair faces to match the vibe (e.g., Playfair + Lora for luxury, Space Grotesk + Inter for tech) unless the user gave explicit guidance.`,
     '- meta.brandName/headline/subheadline must reflect the actual reference business (use businessDetails.businessName if provided; otherwise derive from sourceSummary/URL).',
     '- Copy must weave in the provided business details and source URL insights (sourceSummary); no lorem ipsum, no AI-SiteMaker messaging, and no generic AI boilerplate.',
     '- Treat sourceSummary as the ground truth: mirror its services, tone, and value props. If sourceSummary is missing, infer the brand from the URL words/businessDetails instead of inventing an AI platform.',

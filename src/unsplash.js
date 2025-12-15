@@ -2,6 +2,10 @@ const fetch = global.fetch;
 
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY || process.env.UNSPLASH_TOKEN || '';
 const UNSPLASH_BASE = 'https://api.unsplash.com/search/photos';
+const UNSPLASH_HEADERS = {
+  Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
+  'Accept-Version': 'v1',
+};
 
 const seededShuffle = (array, seed) => {
   const result = [...array];
@@ -32,11 +36,16 @@ const fetchUnsplashPhotos = async ({ query, perPage = 12, page = 1 }) => {
   url.searchParams.set('orientation', 'landscape');
   url.searchParams.set('content_filter', 'high');
   url.searchParams.set('order_by', 'relevant');
-  const response = await fetch(url.toString(), {
-    headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
-  });
+  const response = await fetch(url.toString(), { headers: UNSPLASH_HEADERS });
   if (!response.ok) {
-    const err = new Error(`Unsplash request failed: ${response.status}`);
+    let errorText = '';
+    try {
+      errorText = await response.text();
+    } catch (error) {
+      errorText = '';
+    }
+    const message = errorText ? `${response.status} ${errorText}` : String(response.status);
+    const err = new Error(`Unsplash request failed: ${message}`);
     err.status = response.status;
     throw err;
   }
@@ -67,6 +76,11 @@ const pickUnsplashImages = async ({ query, count = 4, seedValue = '' }) => {
       creditUrl: photo.links?.html,
     }));
   } catch (error) {
+    if (error?.status === 403) {
+      error.rateLimited = true;
+      console.warn('[unsplash] Rate limit hit; halting further requests');
+      throw error;
+    }
     console.warn('[unsplash] Failed to fetch photos', error?.message || error);
     return [];
   }

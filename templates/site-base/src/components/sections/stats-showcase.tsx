@@ -1,8 +1,9 @@
 import type { ImageAsset } from '../../content/site-schema';
+import { PortableTextValue, RichText } from '../rich-text';
 
 export type StatsShowcaseProps = {
-  title: string;
-  subtitle: string;
+  title: PortableTextValue;
+  subtitle: PortableTextValue;
   imagePrompt?: string;
   image?: ImageAsset;
   stats: Array<{ label: string; value: string; helper?: string }>;
@@ -12,8 +13,15 @@ export const StatsShowcase = ({ title, subtitle, stats, imagePrompt, image }: St
   <section className="section-shell" id="results">
     <div className="mx-auto max-w-4xl text-center">
       <p className="text-sm uppercase tracking-[0.3em] text-[hsl(var(--brand-accent))]">Proof</p>
-      <h2 className="mt-3 text-4xl font-semibold text-[hsl(var(--surface-foreground))]">{title}</h2>
-      <p className="mt-4 text-lg text-[hsl(var(--surface-foreground)/0.75)]">{subtitle}</p>
+      <RichText
+        value={title}
+        as="h2"
+        className="mt-3 text-4xl font-semibold text-[hsl(var(--surface-foreground))]"
+      />
+      <RichText
+        value={subtitle}
+        className="mt-4 text-lg text-[hsl(var(--surface-foreground)/0.75)]"
+      />
     </div>
     <div className="mt-12 grid gap-6 md:grid-cols-4">
       {stats.map((stat) => (
@@ -33,7 +41,7 @@ export const StatsShowcase = ({ title, subtitle, stats, imagePrompt, image }: St
           <figure>
             <img
               src={image.src}
-              alt={image.alt || title}
+              alt={image.alt || (typeof title === 'string' ? title : 'Showcase image')}
               className="max-h-80 w-full rounded-xl border border-[hsl(var(--surface-foreground)/0.15)] object-cover"
               loading="lazy"
             />

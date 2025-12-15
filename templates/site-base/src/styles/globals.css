@@ -18,6 +18,11 @@ body {
   @apply min-h-screen antialiased;
   color: hsl(var(--surface-foreground));
   background-color: #f8fafc;
+  font-family: var(--font-body), 'Inter', sans-serif;
+}
+
+:is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-display), 'Inter', sans-serif;
 }
 
 :root[data-surface='gradient'] {

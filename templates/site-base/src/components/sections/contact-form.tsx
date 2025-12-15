@@ -1,3 +1,5 @@
+import { PortableTextValue, RichText } from '../rich-text';
+
 type Field = {
   label: string;
   placeholder?: string;
@@ -7,12 +9,12 @@ type Field = {
 };
 
 type Props = {
-  title: string;
-  subtitle?: string;
+  title: PortableTextValue;
+  subtitle?: PortableTextValue;
   fields: Field[];
   submitLabel: string;
   contactEmail?: string;
-  reassurance?: string;
+  reassurance?: PortableTextValue;
 };
 
 export const ContactForm = ({
@@ -29,11 +31,15 @@ export const ContactForm = ({
       <div className="mx-auto grid max-w-6xl gap-10 rounded-3xl bg-gradient-to-r from-white via-white to-blue-50 p-8 shadow-lg shadow-slate-900/5 md:grid-cols-2 md:p-12">
         <div className="flex flex-col gap-3">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">Contact</p>
-          <h2 className="text-3xl font-semibold leading-tight md:text-4xl">{title}</h2>
-          {subtitle ? <p className="text-base text-slate-600">{subtitle}</p> : null}
+          <RichText
+            value={title}
+            as="h2"
+            className="text-3xl font-semibold leading-tight md:text-4xl"
+          />
+          {subtitle ? <RichText value={subtitle} className="text-base text-slate-600" /> : null}
           {reassurance ? (
             <div className="mt-2 rounded-2xl bg-white/80 p-4 text-sm text-slate-700 shadow-sm">
-              {reassurance}
+              <RichText value={reassurance} />
             </div>
           ) : null}
           {contactEmail ? (

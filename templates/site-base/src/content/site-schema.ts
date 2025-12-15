@@ -38,6 +38,8 @@ export type SiteTheme = {
   vibe: 'luxury' | 'tech' | 'playful' | 'earthy';
   cornerStyle?: 'rounded' | 'sharp';
   textColor?: string;
+  displayFont?: string;
+  bodyFont?: string;
 };
 
 export type SiteIntegrations = {

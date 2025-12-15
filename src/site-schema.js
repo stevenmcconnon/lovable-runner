@@ -68,6 +68,8 @@ const SiteSchema = z.object({
     vibe: z.enum(['luxury', 'tech', 'playful', 'earthy']),
     textColor: z.string().min(4).optional(),
     cornerStyle: z.enum(['rounded', 'sharp']).optional(),
+    displayFont: z.string().max(64).optional(),
+    bodyFont: z.string().max(64).optional(),
   }),
   templateId: z.string().min(2),
   canonical: z.string().url().optional(),

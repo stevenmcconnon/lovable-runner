@@ -1,5 +1,59 @@
 import type { SiteTheme } from '../content/site-schema';
 
+const FONT_LIBRARY: Record<
+  string,
+  {
+    stack: string;
+    href?: string;
+  }
+> = {
+  inter: {
+    stack: '"Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+    href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+  },
+  'playfair-display': {
+    stack: '"Playfair Display", "Times New Roman", serif',
+    href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap',
+  },
+  'space-grotesk': {
+    stack: '"Space Grotesk", "Inter", system-ui, sans-serif',
+    href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap',
+  },
+  poppins: {
+    stack: '"Poppins", "Inter", system-ui, sans-serif',
+    href: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap',
+  },
+  lora: {
+    stack: '"Lora", "Georgia", serif',
+    href: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&display=swap',
+  },
+  raleway: {
+    stack: '"Raleway", "Inter", system-ui, sans-serif',
+    href: 'https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600&display=swap',
+  },
+};
+
+const normalizeFontKey = (value?: string | null) => {
+  if (!value) return null;
+  return value.trim().toLowerCase().replace(/\s+/g, '-');
+};
+
+const resolveFont = (value?: string | null) => {
+  const key = normalizeFontKey(value) || 'inter';
+  return FONT_LIBRARY[key] ? { key, ...FONT_LIBRARY[key] } : { key: 'inter', ...FONT_LIBRARY.inter };
+};
+
+const ensureFontLink = (fontKey: string, href?: string) => {
+  if (!href || typeof document === 'undefined') return;
+  const existing = document.getElementById(`font-${fontKey}`);
+  if (existing) return;
+  const link = document.createElement('link');
+  link.id = `font-${fontKey}`;
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+};
+
 export const applyThemeToDocument = (theme: SiteTheme) => {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
@@ -7,6 +61,12 @@ export const applyThemeToDocument = (theme: SiteTheme) => {
   root.style.setProperty('--brand-accent', hexToHSL(theme.accentColor));
   root.style.setProperty('--surface-foreground', hexToHSL(resolveSurfaceTextColor(theme)));
   root.style.setProperty('--on-brand-foreground', hexToHSL(resolveOnBrandTextColor(theme)));
+  const displayFont = resolveFont(theme.displayFont);
+  const bodyFont = resolveFont(theme.bodyFont);
+  root.style.setProperty('--font-display', displayFont.stack);
+  root.style.setProperty('--font-body', bodyFont.stack);
+  ensureFontLink(displayFont.key, displayFont.href);
+  ensureFontLink(bodyFont.key, bodyFont.href);
   root.dataset.vibe = theme.vibe;
   root.dataset.surface = theme.backgroundStyle;
   root.dataset.corners = theme.cornerStyle || 'rounded';

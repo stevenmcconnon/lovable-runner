@@ -1,6 +1,8 @@
+import { PortableTextValue, RichText } from '../rich-text';
+
 type GalleryItem = {
-  title?: string;
-  caption?: string;
+  title?: PortableTextValue;
+  caption?: PortableTextValue;
   badge?: string;
   image?: {
     src: string;
@@ -9,8 +11,8 @@ type GalleryItem = {
 };
 
 type Props = {
-  title: string;
-  subtitle?: string;
+  title: PortableTextValue;
+  subtitle?: PortableTextValue;
   items: GalleryItem[];
 };
 
@@ -23,8 +25,17 @@ export const GalleryCarousel = ({ title, subtitle, items = [] }: Props) => {
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">Gallery</p>
-            <h2 className="text-3xl font-semibold leading-tight text-slate-900 md:text-4xl">{title}</h2>
-            {subtitle ? <p className="mt-2 max-w-3xl text-base text-slate-600">{subtitle}</p> : null}
+            <RichText
+              value={title}
+              as="h2"
+              className="text-3xl font-semibold leading-tight text-slate-900 md:text-4xl"
+            />
+            {subtitle ? (
+              <RichText
+                value={subtitle}
+                className="mt-2 max-w-3xl text-base text-slate-600"
+              />
+            ) : null}
           </div>
         </div>
         <div className="relative">
@@ -33,14 +44,16 @@ export const GalleryCarousel = ({ title, subtitle, items = [] }: Props) => {
           <div className="flex snap-x gap-4 overflow-x-auto pb-4">
             {items.map((item, idx) => (
               <figure
-                key={item.title || idx}
+                key={idx}
                 className="group relative flex w-72 min-w-[18rem] snap-start flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-md transition hover:-translate-y-1 hover:shadow-xl md:w-80"
               >
                 {item.image?.src ? (
                   <div className="relative h-48 w-full overflow-hidden bg-slate-100">
                     <img
                       src={item.image.src}
-                      alt={item.image.alt || item.title || 'Gallery image'}
+                      alt={
+                        item.image.alt || (typeof item.title === 'string' ? item.title : 'Gallery image')
+                      }
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                       loading="lazy"
                     />
@@ -52,8 +65,19 @@ export const GalleryCarousel = ({ title, subtitle, items = [] }: Props) => {
                   </div>
                 ) : null}
                 <figcaption className="flex flex-1 flex-col gap-2 p-4">
-                  {item.title ? <h3 className="text-lg font-semibold text-slate-900">{item.title}</h3> : null}
-                  {item.caption ? <p className="text-sm text-slate-600">{item.caption}</p> : null}
+                  {item.title ? (
+                    <RichText
+                      value={item.title}
+                      as="h3"
+                      className="text-lg font-semibold text-slate-900"
+                    />
+                  ) : null}
+                  {item.caption ? (
+                    <RichText
+                      value={item.caption}
+                      className="text-sm text-slate-600"
+                    />
+                  ) : null}
                 </figcaption>
               </figure>
             ))}

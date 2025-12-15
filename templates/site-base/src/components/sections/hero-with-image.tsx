@@ -1,12 +1,13 @@
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { RichText, PortableTextValue } from '../rich-text';
 import type { ImageAsset } from '../../content/site-schema';
 
 export type HeroWithImageProps = {
-  eyebrow: string;
-  title: string;
-  subtitle: string;
+  eyebrow: PortableTextValue;
+  title: PortableTextValue;
+  subtitle: PortableTextValue;
   primaryCta: { label: string; href: string };
   secondaryCta?: { label: string; href: string };
   stats: Array<{ label: string; value: string }>;
@@ -18,9 +19,18 @@ export const HeroWithImage = ({ eyebrow, title, subtitle, primaryCta, secondaryC
   <section className="section-shell" id="top">
     <div className="section-card grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-6">
-        <Badge>{eyebrow}</Badge>
-        <h1 className="text-4xl font-bold leading-tight text-[hsl(var(--surface-foreground))] md:text-5xl lg:text-6xl">{title}</h1>
-        <p className="text-lg text-[hsl(var(--surface-foreground)/0.75)] md:text-xl">{subtitle}</p>
+        <Badge>
+          <RichText value={eyebrow} inline />
+        </Badge>
+        <RichText
+          value={title}
+          as="h1"
+          className="text-4xl font-bold leading-tight text-[hsl(var(--surface-foreground))] md:text-5xl lg:text-6xl"
+        />
+        <RichText
+          value={subtitle}
+          className="text-lg text-[hsl(var(--surface-foreground)/0.75)] md:text-xl"
+        />
         <div className="flex flex-wrap gap-4">
           <Button>{primaryCta.label}</Button>
           {secondaryCta ? (
@@ -42,7 +52,7 @@ export const HeroWithImage = ({ eyebrow, title, subtitle, primaryCta, secondaryC
             <figure>
               <img
                 src={image.src}
-                alt={image.alt || title}
+                alt={image.alt || (typeof title === 'string' ? title : 'Hero image')}
                 className="h-64 w-full rounded-xl border border-white/10 object-cover"
                 loading="lazy"
               />

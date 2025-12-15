@@ -1,9 +1,10 @@
 import { Button } from '../ui/button';
 import type { ImageAsset } from '../../content/site-schema';
+import { PortableTextValue, RichText } from '../rich-text';
 
 export type CTABannerProps = {
-  title: string;
-  body: string;
+  title: PortableTextValue;
+  body: PortableTextValue;
   primaryCta: { label: string; href: string };
   secondaryCta?: { label: string; href: string };
   imagePrompt?: string;
@@ -15,8 +16,15 @@ export const CTABanner = ({ title, body, primaryCta, secondaryCta, imagePrompt, 
     <div className="section-card bg-gradient-to-r from-[hsl(var(--brand))]/30 to-[hsl(var(--brand-accent))]/20">
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div>
-          <h2 className="text-4xl font-bold text-[hsl(var(--surface-foreground))]">{title}</h2>
-          <p className="mt-4 text-lg text-[hsl(var(--surface-foreground)/0.8)]">{body}</p>
+          <RichText
+            value={title}
+            as="h2"
+            className="text-4xl font-bold text-[hsl(var(--surface-foreground))]"
+          />
+          <RichText
+            value={body}
+            className="mt-4 text-lg text-[hsl(var(--surface-foreground)/0.8)]"
+          />
           <div className="mt-8 flex flex-wrap gap-4">
             <Button>{primaryCta.label}</Button>
             {secondaryCta ? <Button variant="secondary">{secondaryCta.label}</Button> : null}
@@ -28,7 +36,7 @@ export const CTABanner = ({ title, body, primaryCta, secondaryCta, imagePrompt, 
               <figure>
                 <img
                   src={image.src}
-                  alt={image.alt || title}
+                  alt={image.alt || (typeof title === 'string' ? title : 'CTA illustration')}
                   className="h-48 w-full rounded-xl border border-white/10 object-cover"
                   loading="lazy"
                 />

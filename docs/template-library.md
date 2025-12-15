@@ -19,6 +19,33 @@ This document summarizes the current section components, gaps to fill, and the n
 - `templates/template-copy-presets.json` – 10 drop-in `site.json` payloads (plumber, electrician, HVAC, law, dental, trainer, wedding photographer, SaaS, ecommerce, restaurant) matching `templates/site-base/src/content/site-schema.ts`.
 - Usage: pick `templateId`, load matching copy preset (or generate new copy using the section order in the manifest), adjust props, and write to `src/content/site.json` (or runtime JSON fetch once we decouple from bundling).
 
+### Content schema & styling (LLM guidance)
+- **Portable Text everywhere:** Any section prop that carries long-form copy (hero text, features, testimonials, FAQs, CTAs, etc.) now accepts [Portable Text](https://portabletext.org/) blocks in addition to plain strings. Prefer emitting blocks so we can preserve italics, underline, strike, code, and links.
+
+  ```jsonc
+  [
+    {
+      "_type": "block",
+      "style": "normal",
+      "children": [
+        { "_type": "span", "text": "Relaxed ", "marks": [] },
+        { "_type": "span", "text": "underline", "marks": ["underline"] },
+        { "_type": "span", "text": " + ", "marks": [] },
+        { "_type": "span", "text": "bold", "marks": ["strong"] }
+      ],
+      "markDefs": [
+        { "_key": "m1", "_type": "link", "href": "https://example.com" }
+      ]
+    }
+  ]
+  ```
+
+  Supported marks: `strong`/`bold`, `em`/`italic`, `underline`, `strike`, `code`, and link markDefs (`_type: "link", href`). If a field doesn’t need formatting you can still send a plain string.
+
+- **Fonts via theme:** Add `theme.displayFont` and `theme.bodyFont` using one of the curated keys – `inter`, `space-grotesk`, `poppins`, `playfair-display`, `lora`, `raleway`. The renderer loads the right Google Fonts and maps them to headings/body. Pick combos that match the vibe (e.g., Playfair + Lora for luxury, Space Grotesk + Inter for tech). Leave them empty to fall back to defaults.
+
+- **Schema reference:** Both the API (`src/site-schema.js`) and template app (`templates/site-base/src/content/site-schema.ts`) expect the same shape. Keep generated `content.json` aligned with those types.
+
 ### Quick template lookup examples
 - Local services (plumbing): `home-services-plumber` — emergency-first hero, stats, features, process, proof, FAQ, contact.
 - SaaS: `saas-product` — product hero, features, stats, pricing, testimonials, FAQ, CTA, contact.

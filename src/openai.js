@@ -8,6 +8,8 @@ const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini-2024-07-18';
 const FALLBACK_MODEL = process.env.OPENAI_FALLBACK_MODEL || 'gpt-5.1';
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
 
+const THEME_FONT_OPTIONS = ['inter', 'space-grotesk', 'poppins', 'playfair-display', 'lora', 'raleway'];
+
 const TEMPLATE_INDEX_PATH = path.join(__dirname, '..', 'templates', 'template-library.json');
 const TEMPLATE_LIBRARY_DIR = path.join(__dirname, '..', 'templates', 'library');
 
@@ -57,7 +59,7 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     'Default to bright, friendly, high-contrast palettes; only deliver a dark theme when explicitly requested.',
     'When cloning an existing site, lightly remix the copy instead of inventing new messaging—preserve the offers, voice, and structure from the reference text.',
     'Reuse strong hero/services language from the source; avoid generic AI boilerplate.',
-    'If the reference spans multiple pages or the user asks, emit up to 5 pages (path/title/sections). Otherwise, use a single-page sections array.',
+    'Default to a single-page layout (sections array only). If the reference site clearly uses multiple distinct pages or the user explicitly asks, add a `pages` array (max 5) in addition to the core sections.',
     'Set meta.brandName/headline/subheadline to the real business (prefer businessDetails.businessName; otherwise derive from the reference site text or the URL domain words).',
     'The JSON must follow the Site schema (meta, seo, theme, sections[] or pages[]) and every section entry must include a props object with all copy, CTAs, lists, and imagePrompt text needed to render that block.',
     'Template library (choose the closest fit and set site.templateId accordingly, follow its section order, and extend with additional sections to reach a full-length site):',
@@ -71,9 +73,13 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     '- Assume a US audience: use US spellings, US phone/address formatting, and price everything in USD with the $ symbol (no other currencies).',
     '- Match the templateId to the business type inferred from sourceSummary and businessDetails (e.g., plumber/roofer/home-services, blue-collar trades, photographers/artists, ecommerce/online store, personal brand/portfolio, hospitality/restaurant, SaaS).',
     '- For trades/blue-collar/home-services/photography/personal brand/ecommerce templates, avoid B2B SaaS tone/structure; make the layout and copy feel like that industry (service areas, offers, packages, galleries/portfolios, trust, hours, location).',
-    '- Include 8–10 rich sections covering hero, services/features, process, testimonials/social proof, FAQ, pricing or CTA, stats/proof, gallery/media, and contact. Add more only when the source text is long.',
+    '- Include 8–10 rich sections covering hero, services/features, process, testimonials/social proof, FAQ, pricing or CTA, stats/proof, gallery/media, and contact. Keep everything on a single scrolling page unless you intentionally emit pages per the rule above.',
     '- Limit stats/proof/outcome metrics to 3 items per stats section unless the user explicitly asks for more. Prefer a single stats block by default.',
     '- Each section needs depth: hero/services >=80–90 words; other sections >=70–80 words; use vivid, business-specific `imagePrompt` guidance where visuals matter.',
+    '- Rich text fields (hero/services/process/testimonials/FAQ/case study copy, CTA bodies, pricing descriptions) must use Portable Text arrays so we can preserve underline/italic/strike/code/link marks. Example: [{"_type":"block","style":"normal","children":[{"_type":"span","text":"Relaxed ","marks":[]},{"_type":"span","text":"underline","marks":["underline"]},{"_type":"span","text":" + bold","marks":["strong"]}]}]. Keep short labels (button text, stat values, tier names) as plain strings.',
+    `- Fonts: set theme.displayFont and theme.bodyFont to one of ${THEME_FONT_OPTIONS.join(
+      ', '
+    )}. Pair faces to the vibe (Playfair + Lora for luxury, Space Grotesk + Inter for tech, Raleway/Poppins for playful).`,
     '- meta.brandName/headline/subheadline must reflect the real business (use businessDetails.businessName if provided; otherwise derive from sourceSummary/URL) and the brand name must appear in the on-page copy.',
     '- Copy must be grounded in the provided source site text or businessDetails—use the real services/products, locations, offers, and differentiators. Include local/service-area cues for trades and hospitality; include products/offers for ecommerce; include portfolio language for photographers/artists/personal brands.',
     '- Always generate SEO fields: write seo.title/seo.description from the source text and add 5+ specific seo.keywords; if the user provided overrides in the instructions, honor those overrides.',
@@ -137,6 +143,8 @@ const buildTextFormat = () => ({
           accentColor: { type: 'string', minLength: 4 },
           backgroundStyle: { type: 'string', enum: ['gradient', 'mesh', 'texture'] },
           vibe: { type: 'string', enum: ['luxury', 'tech', 'playful', 'earthy'] },
+          displayFont: { type: 'string', enum: THEME_FONT_OPTIONS },
+          bodyFont: { type: 'string', enum: THEME_FONT_OPTIONS },
         },
       },
       templateId: { type: 'string' },
@@ -328,6 +336,7 @@ const buildEditPrompt = ({ siteJson, instructions, assets }) =>
     'You are the creative director + product manager for AI-SiteMaker.',
     'A human described edits they want on the existing site.',
     'Return compact JSON describing a SitePatch we can apply. Only touch sections relevant to the request; keep prior copy when not mentioned.',
+    'Rich text fields may be Portable Text arrays (`[{ "_type": "block", "children": [{"text": "..."}]}]`). Preserve the array format when editing long-form copy and prefer returning Portable Text for multi-sentence updates; only keep short labels (button text, stat values) as raw strings.',
     'Use insert/remove/update actions for sections, keep CTAs concrete, and remember tone/voice expectations from the current page.',
     assets?.length ? formatAssetsForPrompt(assets) : '',
     '',
