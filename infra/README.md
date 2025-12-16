@@ -8,6 +8,8 @@ Infrastructure-as-code for the AI SiteMaker backend lives in `infra/` and is exp
 - Cognito user pool with three groups (`user`, `admin`, `super-admin`) and two app clients (interactive + machine-to-machine).
 - PostgreSQL (RDS) with a Secrets Manager entry for credentials, plus a security group/subnet group targeting your VPC.
 - S3 buckets for generated site bundles (`DeployBucket`) and uploaded templates (`TemplateUploadBucket`).
+- Private Lambda subnets + a NAT gateway with a fixed Elastic IP so outbound calls can be IP-restricted (Namecheap, Stripe webhooks, etc).
+- Optional Namecheap automation wiring so the API can check/register domains directly from customers.
 - Environment wiring for Stripe, Gemini/OpenAI models, preview domain, and feature flags (`SITE_BUILDER_API_ENABLED`, `SITE_DOCS_TOKEN`).
 
 ## Prerequisites
@@ -15,6 +17,8 @@ Infrastructure-as-code for the AI SiteMaker backend lives in `infra/` and is exp
 - Node 20+ and npm (for rebuilding the Lambda bundle) and `make` (SAM uses the repo makefile).
 - An S3 bucket to hold generated sites (`DeployBucket`) and one for uploaded templates.
 - VPC id + two subnet ids for the RDS subnet group, plus a CIDR that can reach port 5432 (lock this down for production).
+- A public subnet id in that VPC that already routes to an internet gateway (where the NAT gateway will live) and two unused CIDR blocks inside the VPC for the Lambda-only private subnets.
+- Namecheap credentials (API user + key + account username) if you plan to let customers search/purchase domains without leaving the app.
 - Optional: ACM cert in `us-east-1` if you want a custom API domain.
 
 ## Quick deploy
@@ -40,7 +44,14 @@ sam deploy \
     DBPassword='<strong-password>' \
     DbVpcId='vpc-xxxx' \
     DbSubnetIds='subnet-a,subnet-b' \
-    DbAllowedCidr='1.2.3.4/32'
+    DbAllowedCidr='1.2.3.4/32' \
+    NatGatewaySubnetId='subnet-public-for-nat' \
+    LambdaPrivateSubnetACidr='172.31.96.0/20' \
+    LambdaPrivateSubnetBCidr='172.31.112.0/20' \
+    NamecheapApiUser='aisitemaker' \
+    NamecheapApiKey='<namecheap-api-key>' \
+    NamecheapUsername='aisitemaker' \
+    NamecheapApiBase='https://api.namecheap.com/xml.response'
 ```
 Notes:
 - `DBPassword` is required; other DB parameters have defaults (`DBName=aisitemaker`, `DBUsername=lovable_runner`, `DBInstanceClass=db.t4g.micro`, `DBAllocatedStorage=20`).
@@ -48,6 +59,8 @@ Notes:
 - Stripe keys are required and should correspond to the same mode (test vs live) as your front-end Stripe integration.
 - `GeminiApiKey`/`OpenAIApiKey` can be passed directly or via Secrets Manager ARNs (`GeminiApiKeySecretArn`/`OpenAIApiKeySecretArn`).
 - `PreviewDomainName` is optional and adds CloudFront-style preview URLs.
+- `NamecheapApiUser` + `NamecheapApiKey` enable the `/domains` flows to call Namecheap directly. Leave them blank to keep the legacy stub registrar.
+- `StaticEgressIpAddress` is exported as a stack output—hand this Elastic IP to upstream providers (Namecheap) when they need a fixed source address.
 
 ## Apply the database schema
 After the stack is up, seed the database using `infra/db/schema.sql`.
@@ -83,6 +96,12 @@ API_DOMAIN_NAME=api.ai-sitemaker.com scripts/create-api-alias.sh <hosted-zone-id
 STACK=lovable-runner-api
 aws cloudformation describe-stacks --stack-name "$STACK" --query "Stacks[0].Outputs"
 ```
+- Retrieve the static Lambda egress IP (same output call as above) to whitelist it with vendors:
+  ```bash
+  aws cloudformation describe-stacks --stack-name "$STACK" \
+    --query "Stacks[0].Outputs[?OutputKey=='StaticEgressIpAddress'].[OutputValue]" \
+    --output text
+  ```
 - Health check the API: `curl https://<api-domain-or-endpoint>/health`.
 - Smoke test the endpoints:
   - If you already have Cognito tokens, export `TEST_CUSTOMER_TOKEN` and `TEST_ADMIN_TOKEN`.

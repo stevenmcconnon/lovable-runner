@@ -58,6 +58,18 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
     Description: CIDR block allowed to access the PostgreSQL port (adjust to your frontend's IP range)
+  NatGatewaySubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-04c228a7b5b68ff53
+    Description: Public subnet (with an internet gateway route) where the Lambda NAT gateway will live
+  LambdaPrivateSubnetACidr:
+    Type: String
+    Default: 172.31.96.0/20
+    Description: CIDR block for the first private subnet used by the Lambda function (must be inside the VPC and not overlap)
+  LambdaPrivateSubnetBCidr:
+    Type: String
+    Default: 172.31.112.0/20
+    Description: CIDR block for the second private subnet used by the Lambda function (must be inside the VPC and not overlap)
   StripeSecretKey:
     Type: String
     NoEcho: true
@@ -149,6 +161,23 @@ Parameters:
     NoEcho: true
     Default: ''
     Description: Access key for the Unsplash API (used for stock imagery).
+  NamecheapApiUser:
+    Type: String
+    Default: ''
+    Description: Namecheap API user (set to enable managed domain purchases)
+  NamecheapApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Namecheap API key paired with the user
+  NamecheapUsername:
+    Type: String
+    Default: ''
+    Description: Optional override for the Namecheap account username (defaults to NamecheapApiUser)
+  NamecheapApiBase:
+    Type: String
+    Default: https://api.namecheap.com/xml.response
+    Description: Base URL for the Namecheap API (use the sandbox URL when testing)
   ContactFromEmail:
     Type: String
     Default: 'formsubmissions@ai-sitemaker.com'
@@ -267,12 +296,88 @@ Resources:
           FromPort: 5432
           ToPort: 5432
           CidrIp: !Ref DbAllowedCidr
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref RunnerFunctionSecurityGroup
 
   RunnerDbSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupDescription: Subnets for Lovable Runner database
       SubnetIds: !Ref DbSubnetIds
+  RunnerLambdaPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DbVpcId
+      CidrBlock: !Ref LambdaPrivateSubnetACidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lambda-private-a
+  RunnerLambdaPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DbVpcId
+      CidrBlock: !Ref LambdaPrivateSubnetBCidr
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lambda-private-b
+  RunnerStaticEgressEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lambda-egress
+  RunnerStaticNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt RunnerStaticEgressEip.AllocationId
+      ConnectivityType: public
+      SubnetId: !Ref NatGatewaySubnetId
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lambda-nat
+  RunnerLambdaPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DbVpcId
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-lambda-private
+  RunnerLambdaPrivateRoute:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - RunnerStaticNatGateway
+    Properties:
+      RouteTableId: !Ref RunnerLambdaPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref RunnerStaticNatGateway
+  RunnerLambdaPrivateSubnetAAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RunnerLambdaPrivateRouteTable
+      SubnetId: !Ref RunnerLambdaPrivateSubnetA
+  RunnerLambdaPrivateSubnetBAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RunnerLambdaPrivateRouteTable
+      SubnetId: !Ref RunnerLambdaPrivateSubnetB
+  RunnerFunctionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the runner Lambda ENIs
+      VpcId: !Ref DbVpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-runner-lambda
   LeadInboxTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -365,6 +470,12 @@ Resources:
       CodeUri: ../
       Handler: dist/lambda.handler
       Description: Backend API for AI SiteMaker
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref RunnerFunctionSecurityGroup
+        SubnetIds:
+          - !Ref RunnerLambdaPrivateSubnetA
+          - !Ref RunnerLambdaPrivateSubnetB
       Environment:
         Variables:
           NODE_ENV: production
@@ -404,6 +515,11 @@ Resources:
           SITE_DOCS_TOKEN: !Ref SiteDocsToken
           THUMBNAIL_SERVICE_BASE: !Ref ThumbnailServiceBase
           UNSPLASH_ACCESS_KEY: !Ref UnsplashAccessKey
+          NAMECHEAP_API_USER: !Ref NamecheapApiUser
+          NAMECHEAP_API_KEY: !Ref NamecheapApiKey
+          NAMECHEAP_USERNAME: !Ref NamecheapUsername
+          NAMECHEAP_API_BASE: !Ref NamecheapApiBase
+          NAMECHEAP_CLIENT_IP: !Ref RunnerStaticEgressEip
           CONTACT_FROM_EMAIL: !Ref ContactFromEmail
           LEAD_INBOX_TABLE: !Ref LeadInboxTable
           SITE_ANALYTICS_TABLE: !Ref SiteAnalyticsTable
@@ -550,3 +666,6 @@ Outputs:
   DatabaseCredentialsSecretArn:
     Description: Secret ARN containing database credentials
     Value: !Ref DatabaseCredentialsSecret
+  StaticEgressIpAddress:
+    Description: Elastic IP address used for Lambda outbound traffic
+    Value: !Ref RunnerStaticEgressEip

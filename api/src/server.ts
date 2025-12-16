@@ -60,7 +60,9 @@ export const buildServer = (): FastifyInstance => {
   const database = new DatabaseService();
   const stripe = new StripeService();
   const runner = new RunnerService();
-  const domainService = new DomainService();
+  const domainService = new DomainService({
+    namecheap: config.domainRegistrar?.namecheap ?? null,
+  });
 
   app.register(buildAuthPlugin(database));
   app.register(async (instance) => {

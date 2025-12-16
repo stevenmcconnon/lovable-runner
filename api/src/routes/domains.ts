@@ -1,8 +1,27 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { DatabaseService } from '../services/database';
-import { DomainService, domainHelpers } from '../services/domain';
+import { DomainService, domainHelpers, DnsConfig } from '../services/domain';
 import { DomainRecord, UserRole } from '../types';
+
+const contactSchema = z.object({
+  firstName: z.string().min(2).max(120).optional(),
+  lastName: z.string().min(2).max(120).optional(),
+  name: z.string().min(2).max(160).optional(),
+  email: z.string().email(),
+  phone: z.string().min(6).max(40),
+  phoneCountryCode: z.string().max(4).optional(),
+  phoneExt: z.string().max(10).optional(),
+  address1: z.string().min(3).max(160),
+  address2: z.string().max(160).optional(),
+  city: z.string().min(2).max(120),
+  state: z.string().min(2).max(120),
+  postalCode: z.string().min(2).max(20),
+  country: z.string().min(2).max(2),
+  organization: z.string().max(160).optional(),
+  jobTitle: z.string().max(120).optional(),
+  promotionCode: z.string().max(120).optional(),
+});
 
 const searchSchema = z.object({
   query: z.string().min(2).max(120),
@@ -24,13 +43,8 @@ const purchaseSchema = z.object({
   domain: z.string().min(3).max(253),
   slug: z.string().min(3).max(120),
   termYears: z.number().int().min(1).max(10).optional(),
-  contact: z
-    .object({
-      name: z.string().min(3).max(120),
-      email: z.string().email(),
-      phone: z.string().max(64).optional(),
-    })
-    .optional(),
+  contact: contactSchema,
+  wire: z.boolean().optional(),
 });
 
 const manualSchema = z.object({
@@ -100,7 +114,7 @@ export const registerDomainRoutes = (
       return reply.code(403).send({ message: 'Forbidden' });
     }
     const body = searchSchema.parse(request.body);
-    const candidates = domainService.search(body.query, body.tlds, body.limit);
+    const candidates = await domainService.search(body.query, body.tlds, body.limit);
     const enriched = await Promise.all(
       candidates.map(async (candidate) => {
         const existing = await db.getDomainByName(candidate.domain);
@@ -124,8 +138,29 @@ export const registerDomainRoutes = (
     if (existing && existing.slug !== body.slug) {
       return reply.code(409).send({ message: 'Domain is already connected to another site' });
     }
-
-    const purchase = domainService.purchaseDomain(sanitizedDomain);
+    const shouldWire = Boolean(body.wire);
+    if (shouldWire && !domainService.supportsManagedRegistrar()) {
+      return reply.code(400).send({ message: 'Automatic domain wiring is not available' });
+    }
+    let purchase;
+    try {
+      purchase = await domainService.purchaseDomain({
+        domain: sanitizedDomain,
+        slug: body.slug,
+        years: body.termYears,
+        contact: body.contact,
+      });
+    } catch (error) {
+      request.log.error(
+        {
+          domain: sanitizedDomain,
+          slug: body.slug,
+          err: (error as Error)?.message,
+        },
+        '[domains] purchase failed'
+      );
+      return reply.code(502).send({ message: 'Unable to register domain' });
+    }
     const dnsConfig = domainService.buildDnsConfig({
       slug: body.slug,
       domain: sanitizedDomain,
@@ -148,16 +183,37 @@ export const registerDomainRoutes = (
       slug: body.slug,
       domain: sanitizedDomain,
       type: 'managed',
-      provider: 'stub-reseller',
-      status: purchase.status === 'processing' ? 'configuring' : 'pending',
+      provider: domainService.getProviderCode(),
+      status: shouldWire ? 'configuring' : purchase.status ?? 'pending',
       verificationToken: dnsConfig.verificationToken,
       dnsSettings: dnsConfig,
     });
+
+    let wired = false;
+    if (shouldWire) {
+      try {
+        await domainService.wireDomain({ domain: sanitizedDomain, dnsConfig });
+        wired = true;
+      } catch (error) {
+        request.log.error(
+          {
+            domain: sanitizedDomain,
+            slug: body.slug,
+            err: (error as Error)?.message,
+          },
+          '[domains] automatic wiring failed'
+        );
+        return reply
+          .code(502)
+          .send({ message: 'Domain purchase succeeded but wiring failed. Please try again.' });
+      }
+    }
 
     return {
       order,
       domain: record,
       dns: dnsConfig,
+      wired,
     };
   });
 
@@ -240,6 +296,61 @@ export const registerDomainRoutes = (
       return {
         domain: record,
         dns: dnsConfig,
+      };
+    }
+  );
+
+  app.post(
+    '/sites/:slug/domains/:domain/wire',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
+        return reply.code(403).send({ message: 'Forbidden' });
+      }
+      if (!domainService.supportsManagedRegistrar()) {
+        return reply.code(400).send({ message: 'Automatic wiring is not enabled' });
+      }
+      const params = slugDomainParams.parse(request.params);
+      const sanitizedDomain = sanitizeDomainOrThrow(params.domain);
+      const record = await db.getDomainByName(sanitizedDomain);
+      if (!record || record.slug !== params.slug) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      const sameAccount =
+        !record.accountId || record.accountId === request.auth.profile.accountId;
+      const isSuperAdmin = request.auth.roles.includes('super-admin');
+      if (!sameAccount && !isSuperAdmin) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      if (record.type !== 'managed') {
+        return reply
+          .code(400)
+          .send({ message: 'Only managed domains purchased through AI SiteMaker can be wired automatically.' });
+      }
+      const existingDns = (record.dnsSettings as Partial<DnsConfig> | null) ?? null;
+      const dnsConfig = domainService.buildDnsConfig({
+        slug: params.slug,
+        domain: sanitizedDomain,
+        verificationToken: existingDns?.verificationToken ?? record.verificationToken ?? undefined,
+      });
+      try {
+        await domainService.wireDomain({ domain: sanitizedDomain, dnsConfig });
+      } catch (error) {
+        request.log.error(
+          {
+            domain: sanitizedDomain,
+            slug: params.slug,
+            err: (error as Error)?.message,
+          },
+          '[domains] manual wire failed'
+        );
+        return reply.code(502).send({ message: 'Unable to wire domain at this time' });
+      }
+      const updated = await db.updateSiteDomain(sanitizedDomain, { dnsSettings: dnsConfig });
+      return {
+        domain: updated ? withDns(updated, domainService) : null,
+        dns: dnsConfig,
+        wired: true,
       };
     }
   );

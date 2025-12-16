@@ -233,6 +233,7 @@ const ROUTES = {
       domain: body.domain,
       contact: body.contact,
       slug: body.slug,
+      years: body.years || body.termYears,
     });
     return json(200, result);
   },

@@ -1701,6 +1701,48 @@
         }
       }
     },
+    "/sites/{slug}/domains/{domain}/wire": {
+      "post": {
+        "summary": "Automatically wire a managed domain to the site DNS records",
+        "operationId": "wireDomain",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain wired successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainAttachResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Automatic wiring unavailable"
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
     "/sites/{slug}/domains/status": {
       "get": {
         "summary": "List domains + DNS instructions for a site",
@@ -4335,6 +4377,12 @@
           "contact": {
             "type": "object",
             "properties": {
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
               "name": {
                 "type": "string"
               },
@@ -4344,8 +4392,53 @@
               },
               "phone": {
                 "type": "string"
+              },
+              "phoneCountryCode": {
+                "type": "string"
+              },
+              "phoneExt": {
+                "type": "string"
+              },
+              "address1": {
+                "type": "string"
+              },
+              "address2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "organization": {
+                "type": "string"
+              },
+              "jobTitle": {
+                "type": "string"
+              },
+              "promotionCode": {
+                "type": "string"
               }
-            }
+            },
+            "required": [
+              "email",
+              "phone",
+              "address1",
+              "city",
+              "state",
+              "postalCode",
+              "country"
+            ]
+          },
+          "wire": {
+            "type": "boolean"
           }
         }
       },
@@ -4371,6 +4464,9 @@
           },
           "dns": {
             "$ref": "#/components/schemas/DomainDnsConfig"
+          },
+          "wired": {
+            "type": "boolean"
           }
         }
       },
@@ -4780,19 +4876,74 @@
           "slug": {
             "type": "string"
           },
+          "years": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
           "contact": {
             "type": "object",
             "properties": {
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
               "email": {
                 "type": "string",
                 "format": "email"
               },
+              "phone": {
+                "type": "string"
+              },
+              "phoneCountryCode": {
+                "type": "string"
+              },
+              "phoneExt": {
+                "type": "string"
+              },
               "name": {
+                "type": "string"
+              },
+              "organization": {
+                "type": "string"
+              },
+              "jobTitle": {
+                "type": "string"
+              },
+              "address1": {
+                "type": "string"
+              },
+              "address2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "promotionCode": {
                 "type": "string"
               }
             },
             "required": [
-              "email"
+              "email",
+              "firstName",
+              "lastName",
+              "address1",
+              "city",
+              "state",
+              "postalCode",
+              "country",
+              "phone"
             ]
           }
         }

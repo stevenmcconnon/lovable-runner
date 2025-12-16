@@ -31,6 +31,11 @@ const envSchema = z
     SITE_BUILDER_API_ENABLED: z.string().optional(),
     SITE_DOCS_TOKEN: z.string().optional(),
     THUMBNAIL_SERVICE_BASE: z.string().optional(),
+    NAMECHEAP_API_USER: z.string().optional(),
+    NAMECHEAP_API_KEY: z.string().optional(),
+    NAMECHEAP_USERNAME: z.string().optional(),
+    NAMECHEAP_API_BASE: z.string().optional(),
+    NAMECHEAP_CLIENT_IP: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -79,6 +84,11 @@ const rawEnv = envSchema.parse({
   SITE_BUILDER_API_ENABLED: process.env.SITE_BUILDER_API_ENABLED,
   SITE_DOCS_TOKEN: process.env.SITE_DOCS_TOKEN,
   THUMBNAIL_SERVICE_BASE: process.env.THUMBNAIL_SERVICE_BASE,
+  NAMECHEAP_API_USER: process.env.NAMECHEAP_API_USER,
+  NAMECHEAP_API_KEY: process.env.NAMECHEAP_API_KEY,
+  NAMECHEAP_USERNAME: process.env.NAMECHEAP_USERNAME,
+  NAMECHEAP_API_BASE: process.env.NAMECHEAP_API_BASE,
+  NAMECHEAP_CLIENT_IP: process.env.NAMECHEAP_CLIENT_IP,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -90,6 +100,21 @@ const cognitoDomain =
   `ai-sitemaker-auth.auth.${rawEnv.COGNITO_USER_POOL_REGION}.amazonaws.com`;
 const cognitoClientId = rawEnv.COGNITO_CLIENT_ID ?? rawEnv.COGNITO_APP_CLIENT_ID;
 const cognitoClientSecret = rawEnv.COGNITO_CLIENT_SECRET ?? rawEnv.COGNITO_APP_CLIENT_SECRET;
+
+const namecheapConfigured =
+  rawEnv.NAMECHEAP_API_USER && rawEnv.NAMECHEAP_API_KEY && rawEnv.NAMECHEAP_CLIENT_IP;
+
+const domainRegistrar = namecheapConfigured
+  ? {
+      namecheap: {
+        apiUser: rawEnv.NAMECHEAP_API_USER!,
+        apiKey: rawEnv.NAMECHEAP_API_KEY!,
+        username: rawEnv.NAMECHEAP_USERNAME || rawEnv.NAMECHEAP_API_USER!,
+        clientIp: rawEnv.NAMECHEAP_CLIENT_IP!,
+        baseUrl: rawEnv.NAMECHEAP_API_BASE || 'https://api.namecheap.com/xml.response',
+      },
+    }
+  : undefined;
 
 const buildDatabaseUrl = () => {
   if (rawEnv.DATABASE_URL) return rawEnv.DATABASE_URL;
@@ -147,4 +172,5 @@ export const config = {
   thumbnail: {
     serviceBase: rawEnv.THUMBNAIL_SERVICE_BASE ?? '',
   },
+  domainRegistrar,
 } as const;
