@@ -63,6 +63,9 @@ export const buildServer = (): FastifyInstance => {
   const runner = new RunnerService();
   const domainService = new DomainService({
     namecheap: config.domainRegistrar?.namecheap ?? null,
+    pricing: {
+      defaultBasePriceCents: config.domains?.defaultBasePriceCents,
+    },
   });
   const domainOrderService = new DomainOrderService({ db: database, domainService });
 

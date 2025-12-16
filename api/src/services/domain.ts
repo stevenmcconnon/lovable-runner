@@ -6,7 +6,7 @@ export type DomainSearchResult = {
   tld: string;
   available: boolean;
   currency: string;
-  priceCents: number;
+  priceCents?: number;
   termYears: number;
 };
 
@@ -80,6 +80,10 @@ type DomainPurchaseResult = {
 
 type DomainServiceOptions = {
   namecheap?: NamecheapConfig | null;
+  pricing?: {
+    defaultBasePriceCents?: number;
+    cacheTtlMs?: number;
+  };
 };
 
 type NamecheapConfig = {
@@ -242,6 +246,37 @@ class NamecheapClient {
     return payload?.CommandResponse || {};
   }
 
+  async getPricing(): Promise<Map<string, number>> {
+    const commandResponse = await this.request('namecheap.users.getPricing', {
+      ProductType: 'DOMAIN',
+      ProductCategory: 'DOMAINS',
+      ActionName: 'REGISTER',
+    });
+    const items = commandResponse?.UserGetPricingResult?.ProductType;
+    const priceMap = new Map<string, number>();
+    const productsArray = Array.isArray(items) ? items : items ? [items] : [];
+    productsArray.forEach((product: any) => {
+      const productCategories = product?.ProductCategory;
+      const categories = Array.isArray(productCategories)
+        ? productCategories
+        : productCategories
+        ? [productCategories]
+        : [];
+      categories.forEach((category: any) => {
+        const products = category?.Product;
+        const productEntries = Array.isArray(products) ? products : products ? [products] : [];
+        productEntries.forEach((entry: any) => {
+          const tld = (entry?.['@_Name'] || '').toLowerCase();
+          const price = Number(entry?.['@_Price'] || entry?.['@_RetailPrice'] || 0);
+          if (tld && Number.isFinite(price) && price > 0) {
+            priceMap.set(tld, Math.round(price * 100));
+          }
+        });
+      });
+    });
+    return priceMap;
+  }
+
   private extractErrors(payload: any): string | null {
     const errors = payload?.Errors?.Error;
     if (!errors) return null;
@@ -354,12 +389,17 @@ export class DomainService {
 
   private managedProvider: NamecheapClient | null = null;
   private providerName = 'stub-reseller';
+  private defaultBasePriceCents: number;
+  private pricingCache: { expiresAt: number; map: Map<string, number> } | null = null;
+  private pricingCacheTtlMs: number;
 
   constructor(options: DomainServiceOptions = {}) {
     if (options.namecheap?.apiUser && options.namecheap.apiKey && options.namecheap.clientIp) {
       this.managedProvider = new NamecheapClient(options.namecheap);
       this.providerName = 'namecheap';
     }
+    this.defaultBasePriceCents = Math.max(options.pricing?.defaultBasePriceCents ?? 1500, 100);
+    this.pricingCacheTtlMs = options.pricing?.cacheTtlMs ?? 30 * 60 * 1000;
   }
 
   supportsManagedRegistrar(): boolean {
@@ -384,7 +424,10 @@ export class DomainService {
         termYears: 1,
       }));
     }
-    const availability = await this.managedProvider.checkDomains(candidates);
+    const [availability, pricing] = await Promise.all([
+      this.managedProvider.checkDomains(candidates),
+      this.getPricingMap(),
+    ]);
     return suffixes.map((tld) => {
       const domain = `${base}.${tld}`;
       return {
@@ -392,10 +435,33 @@ export class DomainService {
         tld,
         available: availability.get(domain.toLowerCase()) ?? false,
         currency: 'USD',
-        priceCents: 3500,
+        priceCents: pricing.get(tld) ?? undefined,
         termYears: 1,
       };
     });
+  }
+
+  private async getPricingMap(): Promise<Map<string, number>> {
+    if (!this.managedProvider) return new Map();
+    const now = Date.now();
+    if (this.pricingCache && this.pricingCache.expiresAt > now) {
+      return this.pricingCache.map;
+    }
+    const pricing = await this.managedProvider.getPricing().catch(() => new Map<string, number>());
+    this.pricingCache = {
+      map: pricing,
+      expiresAt: now + this.pricingCacheTtlMs,
+    };
+    return pricing;
+  }
+
+  async lookupBasePrice(domain: string): Promise<number> {
+    const tld = domain.split('.').pop()?.toLowerCase();
+    if (!tld || !this.managedProvider) {
+      return this.defaultBasePriceCents;
+    }
+    const pricing = await this.getPricingMap();
+    return pricing.get(tld) ?? this.defaultBasePriceCents;
   }
 
   async purchaseDomain(params: {

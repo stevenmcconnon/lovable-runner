@@ -114,7 +114,8 @@ const cartCheckoutSchema = z.object({
     .max(10),
 });
 
-const DEFAULT_DOMAIN_PRICE_CENTS = config.domains?.defaultPriceCents ?? 1500;
+const DEFAULT_DOMAIN_PRICE_CENTS = config.domains?.defaultBasePriceCents ?? 1500;
+const PRICE_MARKUP_CENTS = config.domains?.priceMarkupCents ?? 300;
 
 export const registerDomainRoutes = (
   app: FastifyInstance,
@@ -148,6 +149,9 @@ export const registerDomainRoutes = (
         return {
           ...candidate,
           available: !existing,
+          priceCents: candidate.priceCents
+            ? candidate.priceCents + PRICE_MARKUP_CENTS
+            : undefined,
         };
       })
     );
@@ -271,7 +275,10 @@ export const registerDomainRoutes = (
           domain: sanitizedDomain,
           verificationToken: existing?.verificationToken ?? undefined,
         });
-        const priceCents = (item.termYears ?? 1) * DEFAULT_DOMAIN_PRICE_CENTS;
+        const basePrice = await domainService
+          .lookupBasePrice(sanitizedDomain)
+          .catch(() => DEFAULT_DOMAIN_PRICE_CENTS);
+        const priceCents = Math.round((item.termYears ?? 1) * (basePrice + PRICE_MARKUP_CENTS));
         const order = await domainOrderService.createPendingOrder({
           accountId: profile.accountId,
           slug: item.slug,
