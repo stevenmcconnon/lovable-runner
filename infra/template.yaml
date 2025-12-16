@@ -140,6 +140,45 @@ Parameters:
     Type: String
     Default: ''
     Description: Optional preview domain (e.g., preview.ai-sitemaker.com) served via CloudFront
+  LiveDomainName:
+    Type: String
+    Default: ''
+    Description: Primary live domain used when publishing customer sites (e.g., sites.ai-sitemaker.com)
+  CustomDomainOriginHost:
+    Type: String
+    Default: ''
+    Description: Optional internal hostname that CloudFront should use as the origin for customer domains (defaults to LiveDomainName or PreviewDomainName)
+  CustomDomainCanonicalDefault:
+    Type: String
+    AllowedValues:
+      - apex
+      - www
+    Default: apex
+    Description: Default canonical option when customers connect a domain (apex or www)
+  CustomDomainDistributionId:
+    Type: String
+    Default: ''
+    Description: Shared CloudFront distribution id that serves all customer domains (leave blank to disable automatic alias attachment)
+  CustomDomainCertRegion:
+    Type: String
+    Default: us-east-1
+    Description: Region where ACM should request certificates for custom domains
+  CustomDomainPriceClass:
+    Type: String
+    AllowedValues:
+      - PriceClass_100
+      - PriceClass_200
+      - PriceClass_All
+    Default: PriceClass_100
+    Description: Price class used when provisioning per-domain distributions (legacy compatibility)
+  DomainBasePriceCents:
+    Type: Number
+    Default: 1200
+    Description: Default fallback Namecheap base price in cents when pricing lookup fails
+  DomainPriceMarkupCents:
+    Type: Number
+    Default: 300
+    Description: Markup (in cents) added on top of Namecheap’s price when customers buy domains
   SiteBuilderApiEnabled:
     Type: String
     AllowedValues:
@@ -498,6 +537,14 @@ Resources:
           TEMPLATE_UPLOAD_BUCKET: !Ref TemplateUploadBucket
           DEFAULT_TRIAL_EDIT_LIMIT: !Ref DefaultTrialEditLimit
           PREVIEW_DOMAIN: !Ref PreviewDomainName
+          LIVE_DOMAIN: !Ref LiveDomainName
+          CUSTOM_DOMAIN_ORIGIN: !Ref CustomDomainOriginHost
+          CUSTOM_DOMAIN_CANONICAL_DEFAULT: !Ref CustomDomainCanonicalDefault
+          CUSTOM_DOMAIN_DISTRIBUTION_ID: !Ref CustomDomainDistributionId
+          CUSTOM_DOMAIN_CERT_REGION: !Ref CustomDomainCertRegion
+          CUSTOM_DOMAIN_PRICE_CLASS: !Ref CustomDomainPriceClass
+          DOMAIN_BASE_PRICE_CENTS: !Ref DomainBasePriceCents
+          DOMAIN_PRICE_MARKUP_CENTS: !Ref DomainPriceMarkupCents
           GEMINI_API_KEY: !If
             - HasGeminiSecret
             - !Sub "{{resolve:secretsmanager:${GeminiApiKeySecretArn}:SecretString}}"
@@ -588,6 +635,27 @@ Resources:
                 - cloudfront:DescribeFunction
                 - cloudfront:PublishFunction
               Resource: '*'
+
+  DomainHttpsRefreshRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-domain-refresh
+      Description: Periodically refreshes custom domain HTTPS status
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Id: DomainHttpsRefreshTarget
+          Arn: !GetAtt RunnerFunction.Arn
+          Input: |
+            {"action":"RUN_DOMAIN_HTTPS_REFRESH","limit":25}
+
+  DomainHttpsRefreshInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RunnerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DomainHttpsRefreshRule.Arn
 
   ContactEmailIdentity:
     Type: AWS::SES::EmailIdentity

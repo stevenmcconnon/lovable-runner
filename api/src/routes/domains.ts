@@ -230,6 +230,10 @@ export const registerDomainRoutes = (
     if (shouldWire && !domainService.supportsManagedRegistrar()) {
       return reply.code(400).send({ message: 'Automatic domain wiring is not available' });
     }
+    const basePrice = await domainService
+      .lookupBasePrice(sanitizedDomain)
+      .catch(() => DEFAULT_DOMAIN_PRICE_CENTS);
+    const priceCents = Math.round((body.termYears ?? 1) * (basePrice + PRICE_MARKUP_CENTS));
     let purchase;
     try {
       purchase = await domainService.purchaseDomain({
@@ -267,7 +271,7 @@ export const registerDomainRoutes = (
       domain: sanitizedDomain,
       status: purchase.status,
       providerOrderId: purchase.providerOrderId,
-      priceCents: (body.termYears ?? 1) * 4000,
+      priceCents,
       currency: 'USD',
       metadata: body.contact ? { contact: body.contact } : null,
     });

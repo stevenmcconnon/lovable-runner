@@ -14,7 +14,8 @@
     "dev:api": "ts-node --transpile-only api/src/dev-server.ts",
     "test:api": "node scripts/test-api.js",
     "test:api:full": "node scripts/test-openapi-full.js",
-    "test:quota": "npm run build && node --test api/tests/launch-quota.test.js"
+    "test:quota": "npm run build && node --test api/tests/launch-quota.test.js",
+    "domains:refresh": "ts-node --transpile-only scripts/refresh-domain-https.ts"
   },
   "keywords": [
     "lovable",

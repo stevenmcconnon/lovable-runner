@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import {
   ACMClient,
   CertificateSummary,
@@ -8,12 +8,10 @@ import {
 } from '@aws-sdk/client-acm';
 import {
   CloudFrontClient,
-  CreateDistributionCommand,
-  CreateFunctionCommand,
-  DescribeFunctionCommand,
   GetDistributionCommand,
-  PublishFunctionCommand,
-  UpdateFunctionCommand,
+  GetDistributionConfigCommand,
+  UpdateDistributionCommand,
+  type DistributionConfig,
 } from '@aws-sdk/client-cloudfront';
 
 export type CanonicalMode = 'apex' | 'www';
@@ -38,38 +36,24 @@ export type DistributionInfo = {
   status: string;
 };
 
-export type RedirectFunctionInfo = {
-  name: string;
-  arn: string;
-};
-
 export type DomainEdgeOptions = {
-  originHostname: string;
   certificateRegion: string;
-  priceClass?: 'PriceClass_100' | 'PriceClass_200' | 'PriceClass_All';
   canonicalDefault?: CanonicalMode;
+  distributionId?: string | null;
 };
-
-const stripProtocol = (value: string) => value.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
 
 export class DomainEdgeService {
   private readonly acm: ACMClient;
 
   private readonly cloudfront: CloudFrontClient;
 
-  private readonly originHostname: string;
-
-  private readonly priceClass: 'PriceClass_100' | 'PriceClass_200' | 'PriceClass_All';
-
   private readonly canonicalDefault: CanonicalMode;
 
+  private readonly distributionId: string | null;
+
   constructor(options: DomainEdgeOptions) {
-    if (!options.originHostname) {
-      throw new Error('DomainEdgeService requires an origin hostname');
-    }
-    this.originHostname = stripProtocol(options.originHostname);
-    this.priceClass = options.priceClass ?? 'PriceClass_100';
     this.canonicalDefault = options.canonicalDefault === 'www' ? 'www' : 'apex';
+    this.distributionId = options.distributionId || null;
     this.acm = new ACMClient({
       region: options.certificateRegion || 'us-east-1',
     });
@@ -139,228 +123,71 @@ export class DomainEdgeService {
     return this.formatCertificate(response.Certificate);
   }
 
-  async ensureRedirectFunction(canonicalHost: string): Promise<RedirectFunctionInfo> {
-    const functionName = this.buildFunctionName(canonicalHost);
-    const code = this.buildRedirectFunctionCode(canonicalHost);
-    const functionConfig = {
-      Comment: `Redirect ${canonicalHost} canonical host`,
-      Runtime: 'cloudfront-js-1.0',
-    } as const;
-    let etag: string | null = null;
-    try {
-      const describe = await this.cloudfront.send(
-        new DescribeFunctionCommand({
-          Name: functionName,
-          Stage: 'DEVELOPMENT',
-        })
-      );
-      etag = describe.ETag ?? null;
-    } catch (error: any) {
-      if (error?.name !== 'NoSuchFunctionExists') {
-        throw error;
-      }
-    }
-    if (!etag) {
-      const created = await this.cloudfront.send(
-        new CreateFunctionCommand({
-          Name: functionName,
-          FunctionCode: Buffer.from(code),
-          FunctionConfig: functionConfig,
-        })
-      );
-      etag = created.ETag ?? null;
-    } else {
-      const updated = await this.cloudfront.send(
-        new UpdateFunctionCommand({
-          Name: functionName,
-          FunctionCode: Buffer.from(code),
-          FunctionConfig: functionConfig,
-          IfMatch: etag,
-        })
-      );
-      etag = updated.ETag ?? null;
-    }
-    if (!etag) {
-      throw new Error('Unable to create or update CloudFront function');
-    }
-    const published = await this.cloudfront.send(
-      new PublishFunctionCommand({
-        Name: functionName,
-        IfMatch: etag,
+  async getDistribution(id?: string | null): Promise<DistributionInfo | null> {
+    const targetId = id || this.distributionId;
+    if (!targetId) return null;
+    const response = await this.cloudfront.send(
+      new GetDistributionCommand({
+        Id: targetId,
       })
     );
-    const arn = published.FunctionSummary?.FunctionMetadata?.FunctionARN;
-    if (!arn) {
-      throw new Error('CloudFront did not return a function ARN');
-    }
-    return { name: functionName, arn };
-  }
-
-  async ensureDistribution(params: {
-    domain: string;
-    slug: string;
-    certificateArn: string;
-    aliases: string[];
-    canonicalHost: string;
-    redirectFunctionArn: string;
-  }): Promise<DistributionInfo> {
-    const originId = `origin-${params.slug}`;
-    const callerReference = randomUUID();
-    const distribution = await this.cloudfront.send(
-      new CreateDistributionCommand({
-        DistributionConfig: {
-          CallerReference: callerReference,
-          Comment: `AI SiteMaker domain ${params.domain}`,
-          Enabled: true,
-          PriceClass: this.priceClass,
-          IsIPV6Enabled: true,
-          Aliases: {
-            Quantity: params.aliases.length,
-            Items: params.aliases,
-          },
-          DefaultCacheBehavior: {
-            TargetOriginId: originId,
-            ViewerProtocolPolicy: 'redirect-to-https',
-            TrustedSigners: { Enabled: false, Quantity: 0 },
-            TrustedKeyGroups: { Enabled: false, Quantity: 0 },
-            ForwardedValues: {
-              QueryString: true,
-              Cookies: {
-                Forward: 'none',
-              },
-              Headers: { Quantity: 0 },
-              QueryStringCacheKeys: { Quantity: 0 },
-            },
-            Compress: true,
-            AllowedMethods: {
-              Items: ['GET', 'HEAD', 'OPTIONS'],
-              Quantity: 3,
-              CachedMethods: {
-                Items: ['GET', 'HEAD'],
-                Quantity: 2,
-              },
-            },
-            FunctionAssociations: {
-              Quantity: 1,
-              Items: [
-                {
-                  EventType: 'viewer-request',
-                  FunctionARN: params.redirectFunctionArn,
-                },
-              ],
-            },
-          },
-          Origins: {
-            Quantity: 1,
-            Items: [
-              {
-                Id: originId,
-                DomainName: this.originHostname,
-                OriginPath: `/${params.slug}`,
-                CustomOriginConfig: {
-                  OriginProtocolPolicy: 'https-only',
-                  OriginSslProtocols: {
-                    Quantity: 1,
-                    Items: ['TLSv1.2'],
-                  },
-                  OriginReadTimeout: 30,
-                  OriginKeepaliveTimeout: 5,
-                  HTTPPort: 80,
-                  HTTPSPort: 443,
-                },
-              },
-            ],
-          },
-          ViewerCertificate: {
-            ACMCertificateArn: params.certificateArn,
-            SSLSupportMethod: 'sni-only',
-            MinimumProtocolVersion: 'TLSv1.2_2021',
-          },
-          HttpVersion: 'http2',
-          DefaultRootObject: '',
-        },
-      })
-    );
-    const summary = distribution.Distribution;
-    if (!summary?.Id || !summary.DomainName) {
-      throw new Error('CloudFront did not return distribution details');
-    }
+    if (!response.Distribution?.Id) return null;
     return {
-      id: summary.Id,
-      domainName: summary.DomainName,
-      status: summary.Status || 'InProgress',
+      id: response.Distribution.Id,
+      domainName: response.Distribution.DomainName ?? '',
+      status: response.Distribution.Status ?? 'Unknown',
     };
   }
 
-  async getDistribution(distributionId: string): Promise<DistributionInfo | null> {
-    if (!distributionId) return null;
-    const response = await this.cloudfront.send(
-      new GetDistributionCommand({
-        Id: distributionId,
+  async attachAliases(aliases: string[]): Promise<DistributionInfo | null> {
+    if (!this.distributionId) return null;
+    if (!aliases.length) return this.getDistribution();
+    const configResponse = await this.cloudfront.send(
+      new GetDistributionConfigCommand({
+        Id: this.distributionId,
       })
     );
-    const summary = response.Distribution;
-    if (!summary?.Id || !summary.DomainName) return null;
+    const config = configResponse.DistributionConfig;
+    const etag = configResponse.ETag;
+    if (!config || !etag) {
+      throw new Error('Unable to load CloudFront distribution config');
+    }
+    const aliasSet = new Set<string>(config.Aliases?.Items ?? []);
+    let changed = false;
+    aliases.forEach((alias) => {
+      const normalized = alias.toLowerCase();
+      if (!aliasSet.has(normalized)) {
+        aliasSet.add(normalized);
+        changed = true;
+      }
+    });
+    if (!changed) {
+      return this.getDistribution(this.distributionId);
+    }
+    const updatedConfig: DistributionConfig = {
+      ...config,
+      Aliases: {
+        Quantity: aliasSet.size,
+        Items: Array.from(aliasSet),
+      },
+    };
+    const updated = await this.cloudfront.send(
+      new UpdateDistributionCommand({
+        Id: this.distributionId,
+        IfMatch: etag,
+        DistributionConfig: updatedConfig,
+      })
+    );
+    const summary = updated.Distribution;
     return {
-      id: summary.Id,
-      domainName: summary.DomainName,
-      status: summary.Status || 'InProgress',
+      id: summary?.Id ?? this.distributionId,
+      domainName: summary?.DomainName ?? '',
+      status: summary?.Status ?? 'InProgress',
     };
   }
 
   private normalizeDomain(value: string): string {
     return value.trim().toLowerCase();
-  }
-
-  private buildFunctionName(canonicalHost: string): string {
-    const normalized = canonicalHost.replace(/[^a-z0-9-]+/gi, '-');
-    const digest = createHash('sha256').update(canonicalHost).digest('hex').slice(0, 8);
-    const base = `aisite-${normalized}`.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-    const truncated = base.length > 30 ? `${base.slice(0, 30)}-${digest}` : `${base}-${digest}`;
-    return truncated.slice(0, 64);
-  }
-
-  private buildRedirectFunctionCode(canonicalHost: string): string {
-    return `
-function handler(event) {
-  var request = event.request;
-  var headers = request.headers || {};
-  var hostHeader = headers.host && headers.host.value ? headers.host.value.toLowerCase() : '';
-  var canonical = '${canonicalHost}';
-  if (hostHeader && hostHeader !== canonical) {
-    var path = request.uri || '/';
-    var query = '';
-    var qs = request.querystring || {};
-    var keys = Object.keys(qs);
-    if (keys.length > 0) {
-      var parts = [];
-      for (var i = 0; i < keys.length; i++) {
-        var key = keys[i];
-        if (!qs[key]) continue;
-        var value = qs[key].value;
-        if (value === undefined || value === null) {
-          parts.push(encodeURIComponent(key));
-        } else if (value === '') {
-          parts.push(encodeURIComponent(key));
-        } else {
-          parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
-        }
-      }
-      if (parts.length > 0) {
-        query = '?' + parts.join('&');
-      }
-    }
-    return {
-      statusCode: 301,
-      statusDescription: 'Moved Permanently',
-      headers: {
-        location: { value: 'https://' + canonical + path + query },
-      },
-    };
-  }
-  return request;
-}
-`.trim();
   }
 
   private formatCertificate(detail: any): CertificateInfo {

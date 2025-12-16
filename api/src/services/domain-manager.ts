@@ -47,6 +47,7 @@ export class DomainManager {
   async persistEdgeMetadata(domain: string, metadata: PreparedEdgeMetadata): Promise<void> {
     const now = new Date().toISOString();
     const httpsStatus = metadata.certificate.status === 'ISSUED' ? 'provisioning' : 'validating';
+    const distribution = await this.deps.edge.getDistribution();
     await this.deps.db.updateSiteDomain(domain, {
       canonicalHost: metadata.canonicalHost,
       canonicalMode: metadata.canonicalMode,
@@ -56,6 +57,10 @@ export class DomainManager {
       certificateValidation: metadata.certificate.validationRecords,
       httpsStatus,
       httpsCheckedAt: now,
+      edgeDistributionId: distribution?.id ?? null,
+      edgeDomain: distribution?.domainName ?? null,
+      edgeStatus: distribution?.status ?? null,
+      edgeStatusAt: distribution ? now : undefined,
     });
   }
 
@@ -78,27 +83,22 @@ export class DomainManager {
         dirty = true;
         if (certificate.status !== 'ISSUED') {
           patch.httpsStatus = 'validating';
-        } else if (!record.edgeDistributionId) {
-          const redirectFn = await this.deps.edge.ensureRedirectFunction(canonicalHost);
+        } else {
           const aliases = this.deps.edge.buildAliasList(record.domain);
-          const distribution = await this.deps.edge.ensureDistribution({
-            domain: record.domain,
-            slug: record.slug,
-            certificateArn: certificate.arn,
-            aliases,
-            canonicalHost,
-            redirectFunctionArn: redirectFn.arn,
-          });
-          patch.edgeFunctionName = redirectFn.name;
-          patch.edgeFunctionArn = redirectFn.arn;
-          patch.edgeDistributionId = distribution.id;
-          patch.edgeDomain = distribution.domainName;
-          patch.edgeStatus = distribution.status;
-          patch.edgeStatusAt = now;
-          patch.httpsStatus = distribution.status === 'Deployed' ? 'live' : 'provisioning';
-          if (distribution.status === 'Deployed') {
-            patch.httpsReadyAt = now;
-            patch.routingError = null;
+          const distribution = await this.deps.edge.attachAliases(aliases);
+          if (!distribution) {
+            patch.routingError = 'Custom domain distribution is not configured';
+          }
+          if (distribution) {
+            patch.edgeDistributionId = distribution.id;
+            patch.edgeDomain = distribution.domainName;
+            patch.edgeStatus = distribution.status;
+            patch.edgeStatusAt = now;
+            patch.httpsStatus = distribution.status === 'Deployed' ? 'live' : 'provisioning';
+            if (distribution.status === 'Deployed') {
+              patch.httpsReadyAt = patch.httpsReadyAt ?? now;
+              patch.routingError = null;
+            }
           }
         }
       } catch (error: any) {

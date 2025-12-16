@@ -60,6 +60,16 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
   - `scripts/deploy-sam.sh` – deploys the SAM stack (configure env vars inside the script).
   - `scripts/create-api-alias.sh <hosted-zone-id>` – creates/updates the Route 53 alias once `API_DOMAIN_NAME` is exported.
 
+#### Customer site domains
+- **Namecheap integration** – provide `NAMECHEAP_API_USER`, `NAMECHEAP_API_KEY`, and (optionally) `NAMECHEAP_USERNAME` / `NAMECHEAP_API_BASE`. The SAM template wires the static NAT IP into `NAMECHEAP_CLIENT_IP` (stack output `StaticEgressIpAddress`, currently `52.2.69.55`), so whitelist that IP inside Namecheap before hitting the API.
+- **Pricing & markup** – `DOMAIN_BASE_PRICE_CENTS` is the fallback registrar price (defaults to \$12), while `DOMAIN_PRICE_MARKUP_CENTS` controls the \$3 upcharge. Both can be overridden via SAM parameters/environment variables.
+- **DNS payload** – every purchase/manual attach returns `dns.records` that already include:
+  - `A @` records pointing at the Global Accelerator IPs (`LIVE_APEX_IPS`).
+  - `CNAME www` pointing to `<slug>.<preview-domain>` until the shared CloudFront distribution is ready.
+  - `_aisite` TXT verification and ACM validation CNAMEs so DNS can be copy/pasted directly into Namecheap.
+- **Shared CloudFront distribution** – set `CUSTOM_DOMAIN_DISTRIBUTION_ID` (SAM parameter) to the single distribution that fronts all customer domains. Once ACM reports a certificate as `ISSUED`, the backend will call `UpdateDistribution` to add the apex + `www` aliases. Because CloudFront can only use one ACM certificate at a time, keep a dedicated SAN certificate (e.g., `arn:aws:acm:us-east-1:...:certificate/customer-domains`) up to date: append every new domain to that cert, re-run DNS validation, and then update the distribution’s `ViewerCertificate`. Until certificate automation lands, follow that runbook after every purchase.
+- **Polling HTTPS state** – the API calls `refreshHttps` opportunistically (e.g., when listing domains), but you should also run the new helper on a cron: `npm run domains:refresh -- --limit 50`. The deployed stack now includes an EventBridge rule (`lovable-runner-api-domain-refresh`) that invokes the Lambda every 5 minutes with the `RUN_DOMAIN_HTTPS_REFRESH` action, so HTTPS status advances even without dashboard traffic. You can still call the script manually for ad-hoc retries.
+
 ### Database (Amazon RDS)
 - The SAM stack provisions a managed PostgreSQL instance (`RunnerDatabase`) plus a Secrets Manager entry storing the username/password. Lambda receives `DATABASE_URL` automatically; local tooling can either rely on the stack metadata or pass `TEST_DATABASE_URL`.
 - Required SAM parameters: `DBName`, `DBUsername`, `DBPassword`, `DBInstanceClass`, `DBAllocatedStorage`, `DbVpcId`, `DbSubnetIds`, and `DbAllowedCidr`. Defaults target the default VPC in `us-east-1` with subnets `subnet-04c228a7b5b68ff53`/`subnet-0b80e76ccd6b56ac6` and allow public access from `0.0.0.0/0` (tighten this CIDR for production).

@@ -45,6 +45,7 @@ const envSchema = z
     CUSTOM_DOMAIN_CERT_REGION: z.string().optional(),
     CUSTOM_DOMAIN_PRICE_CLASS: z.string().optional(),
     CUSTOM_DOMAIN_CANONICAL_DEFAULT: z.string().optional(),
+    CUSTOM_DOMAIN_DISTRIBUTION_ID: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -107,6 +108,7 @@ const rawEnv = envSchema.parse({
   CUSTOM_DOMAIN_CERT_REGION: process.env.CUSTOM_DOMAIN_CERT_REGION,
   CUSTOM_DOMAIN_PRICE_CLASS: process.env.CUSTOM_DOMAIN_PRICE_CLASS,
   CUSTOM_DOMAIN_CANONICAL_DEFAULT: process.env.CUSTOM_DOMAIN_CANONICAL_DEFAULT,
+  CUSTOM_DOMAIN_DISTRIBUTION_ID: process.env.CUSTOM_DOMAIN_DISTRIBUTION_ID,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -157,6 +159,7 @@ const previewDomain = sanitizeHostname(rawEnv.PREVIEW_DOMAIN) || 'preview.ai-sit
 const liveDomain = sanitizeHostname(rawEnv.LIVE_DOMAIN) || '';
 const edgeOriginHostname =
   sanitizeHostname(rawEnv.CUSTOM_DOMAIN_ORIGIN) || liveDomain || previewDomain || 'sites.ai-sitemaker.com';
+const edgeDistributionId = rawEnv.CUSTOM_DOMAIN_DISTRIBUTION_ID || '';
 
 const buildDatabaseUrl = () => {
   if (rawEnv.DATABASE_URL) return rawEnv.DATABASE_URL;
@@ -231,6 +234,7 @@ export const config = {
       certificateRegion: rawEnv.CUSTOM_DOMAIN_CERT_REGION || rawEnv.AWS_REGION || 'us-east-1',
       priceClass: edgePriceClass,
       canonicalDefault,
+      distributionId: edgeDistributionId,
     },
   },
 } as const;

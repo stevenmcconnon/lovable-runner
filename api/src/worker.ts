@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { config } from './env';
 
 const resolveRootModule = (relativePath: string) => {
   try {
@@ -44,9 +45,19 @@ const { updateSite }: { updateSite: UpdateSiteFn } = resolveRootModule('src/site
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { recordLaunchStatus }: { recordLaunchStatus: RecordStatus } = resolveRootModule('src/launch-tracker');
 import { DatabaseService } from './services/database';
-import { BusinessDetailsInput } from './types';
+import { DomainEdgeService } from './services/domain-edge';
+import { DomainManager } from './services/domain-manager';
+import { domainHelpers } from './services/domain';
+import { BusinessDetailsInput, DomainRecord } from './types';
 
 const db = new DatabaseService();
+const domainEdge = new DomainEdgeService({
+  certificateRegion: config.domains.edge.certificateRegion,
+  canonicalDefault: config.domains.edge.canonicalDefault,
+  distributionId: config.domains.edge.distributionId,
+});
+const domainManager = new DomainManager({ db, edge: domainEdge });
+const defaultRefreshLimit = Number(process.env.DOMAIN_REFRESH_LIMIT || 25);
 
 type SiteLaunchEvent = {
   requestId: string;
@@ -91,6 +102,11 @@ type EditJobEvent = {
   description?: string;
   siteId?: string | null;
   businessDetails?: BusinessDetailsInput | null;
+};
+
+type DomainRefreshEvent = {
+  limit?: number;
+  domain?: string;
 };
 
 const updateStatus = async (requestId: string, status: string, extras: Record<string, unknown> = {}) => {
@@ -160,6 +176,14 @@ const markEditJobFailed = async (params: { jobId: string; editRequestId?: string
   }
 };
 
+const summarizeDomain = (record: DomainRecord | null) => ({
+  domain: record?.domain ?? null,
+  httpsStatus: record?.httpsStatus ?? null,
+  certificateStatus: record?.certificateStatus ?? null,
+  edgeStatus: record?.edgeStatus ?? null,
+  routingError: record?.routingError ?? null,
+});
+
 export const handleSiteLaunchJob = async (event: SiteLaunchEvent) => {
   if (!event?.requestId) throw new Error('requestId is required');
   const requestId = event.requestId;
@@ -202,6 +226,57 @@ export const handleSiteLaunchJob = async (event: SiteLaunchEvent) => {
     });
     throw error;
   }
+};
+
+export const handleDomainRefreshJob = async (event: DomainRefreshEvent = {}) => {
+  const limit = Math.max(1, Math.min(Number(event.limit) || defaultRefreshLimit, 500));
+  let targets: DomainRecord[] = [];
+  if (event.domain) {
+    const sanitized = domainHelpers.sanitizeDomainInput(event.domain);
+    if (!sanitized) {
+      throw new Error('Invalid domain for HTTPS refresh');
+    }
+    const record = await db.getDomainByName(sanitized);
+    if (!record) {
+      return { processed: 0, refreshed: 0, domains: [], detail: `Domain ${sanitized} not found` };
+    }
+    targets = [record];
+  } else {
+    targets = await db.listDomainsNeedingHttpsRefresh(limit);
+  }
+  if (!targets.length) {
+    return { processed: 0, refreshed: 0, domains: [] };
+  }
+  const rows: Array<
+    ReturnType<typeof summarizeDomain> & {
+      refreshed: boolean;
+    }
+  > = [];
+  let refreshedCount = 0;
+  for (const record of targets) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const updated = await domainManager.refreshHttps(record);
+      if (updated) {
+        refreshedCount += 1;
+      }
+      rows.push({
+        ...summarizeDomain(updated ?? record),
+        refreshed: Boolean(updated),
+      });
+    } catch (error: any) {
+      rows.push({
+        ...summarizeDomain(record),
+        routingError: error?.message || 'refresh_failed',
+        refreshed: false,
+      });
+    }
+  }
+  return {
+    processed: targets.length,
+    refreshed: refreshedCount,
+    domains: rows,
+  };
 };
 
 export const handleSiteUpdateJob = async (event: SiteUpdateEvent) => {

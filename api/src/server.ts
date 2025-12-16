@@ -70,10 +70,9 @@ export const buildServer = (): FastifyInstance => {
     },
   });
   const domainEdgeService = new DomainEdgeService({
-    originHostname: config.domains.edge.originHostname,
     certificateRegion: config.domains.edge.certificateRegion,
-    priceClass: config.domains.edge.priceClass,
     canonicalDefault: config.domains.edge.canonicalDefault,
+    distributionId: config.domains.edge.distributionId,
   });
   const domainManager = new DomainManager({ db: database, edge: domainEdgeService });
   const domainOrderService = new DomainOrderService({
@@ -97,7 +96,7 @@ export const buildServer = (): FastifyInstance => {
     registerPublishingRoutes(instance, { db: database });
     registerUsageRoutes(instance, { db: database });
     registerWebhookRoutes(instance, { db: database, stripe, domainOrderService });
-    registerInternalRoutes(instance, { db: database });
+    registerInternalRoutes(instance, { db: database, domainManager });
     registerLaunchRoutes(instance, { db: database, runner });
     registerAuthRoutes(instance, { db: database });
     registerSiteBuilderRoutes(instance, { db: database, runner });

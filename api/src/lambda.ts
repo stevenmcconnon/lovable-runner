@@ -1,7 +1,7 @@
 import awsLambdaFastify from '@fastify/aws-lambda';
 import { APIGatewayProxyEventV2, Context } from 'aws-lambda';
 import { buildServer } from './server';
-import { handleEditRequestJob, handleSiteLaunchJob, handleSiteUpdateJob } from './worker';
+import { handleDomainRefreshJob, handleEditRequestJob, handleSiteLaunchJob, handleSiteUpdateJob } from './worker';
 
 let proxy: ReturnType<typeof awsLambdaFastify>;
 
@@ -63,6 +63,16 @@ const handleActionEvent = async (event: any) => {
       description: event.description,
       siteId: event.siteId,
       businessDetails: event.businessDetails,
+    });
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
+  }
+  if (event?.action === 'RUN_DOMAIN_HTTPS_REFRESH') {
+    const result = await handleDomainRefreshJob({
+      limit: event.limit,
+      domain: event.domain,
     });
     return {
       statusCode: 200,

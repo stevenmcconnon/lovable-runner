@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { DatabaseService } from '../services/database';
+import { domainHelpers } from '../services/domain';
+import { DomainManager } from '../services/domain-manager';
 
 const completeJobSchema = z.object({
   s3Key: z.string().min(1),
@@ -27,11 +29,15 @@ const siteLaunchStageSchema = z.object({
   status: z.enum(['running', 'building', 'deploying']),
 });
 
+const domainRefreshParams = z.object({
+  domain: z.string().min(3),
+});
+
 export const registerInternalRoutes = (
   app: FastifyInstance,
-  deps: { db: DatabaseService }
+  deps: { db: DatabaseService; domainManager?: DomainManager }
 ) => {
-  const { db } = deps;
+  const { db, domainManager } = deps;
 
   const machinePreHandler = async (request: any, reply: any) => {
     await app.authenticateMachine(request, reply);
@@ -145,6 +151,27 @@ export const registerInternalRoutes = (
       });
       const updated = await db.getSiteGenerationByRequestId(requestId);
       return reply.send(updated);
+    }
+  );
+
+  app.post(
+    '/internal/domains/:domain/https-refresh',
+    { preHandler: machinePreHandler },
+    async (request, reply) => {
+      if (!domainManager) {
+        return reply.code(503).send({ message: 'Domain manager is not configured' });
+      }
+      const params = domainRefreshParams.parse(request.params);
+      const sanitized = domainHelpers.sanitizeDomainInput(params.domain);
+      if (!sanitized) {
+        return reply.code(400).send({ message: 'Invalid domain value' });
+      }
+      const record = await db.getDomainByName(sanitized);
+      if (!record) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      const updated = await domainManager.refreshHttps(record);
+      return reply.send({ domain: updated ?? record });
     }
   );
 };

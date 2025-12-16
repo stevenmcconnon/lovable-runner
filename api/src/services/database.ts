@@ -1297,6 +1297,26 @@ export class DatabaseService {
     return rows.map(mapDomainRecord);
   }
 
+  async listDomainsNeedingHttpsRefresh(limit = 25): Promise<DomainRecord[]> {
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 25, 500));
+    const { rows } = await this.query(
+      `
+      SELECT *
+      FROM site_domains
+      WHERE
+        https_status IS NULL
+        OR https_status IN ('pending','validating','provisioning')
+        OR routing_error IS NOT NULL
+        OR https_checked_at IS NULL
+        OR https_checked_at < NOW() - INTERVAL '10 minutes'
+      ORDER BY https_checked_at NULLS FIRST, updated_at ASC
+      LIMIT $1
+    `,
+      [safeLimit]
+    );
+    return rows.map(mapDomainRecord);
+  }
+
   async getDomainOrderById(id: string): Promise<DomainOrderRecord | null> {
     const { rows } = await this.query(`SELECT * FROM domain_orders WHERE id = $1 LIMIT 1`, [id]);
     return rows[0] ? mapDomainOrder(rows[0]) : null;
@@ -1651,5 +1671,9 @@ export class DatabaseService {
       views: Number(rows[0]?.views ?? 0),
       ctaClicks: Number(rows[0]?.cta_clicks ?? 0),
     };
+  }
+
+  async close(): Promise<void> {
+    await this.pool.end();
   }
 }
