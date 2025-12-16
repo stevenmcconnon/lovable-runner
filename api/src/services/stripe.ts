@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { config } from '../env';
 import { StripeCheckoutRequest, SubscriptionPlan } from '../types';
 import { DatabaseService } from './database';
+import { DomainOrderService } from './domain-order';
 
 const stripeClient = new Stripe(config.stripe.secretKey, {
   apiVersion: '2024-06-20',
@@ -49,6 +50,53 @@ export class StripeService {
     return { checkoutUrl: session.url };
   }
 
+  async createDomainCheckoutSession(params: {
+    accountId: string;
+    successUrl: string;
+    cancelUrl: string;
+    orders: Array<{ orderId: string; domain: string; amountCents: number }>;
+    email?: string | null;
+    existingCustomerId?: string | null;
+  }): Promise<{ checkoutUrl: string; sessionId: string }> {
+    if (!params.orders.length) {
+      throw new Error('At least one domain order is required');
+    }
+    const session = await this.stripe.checkout.sessions.create({
+      mode: 'payment',
+      success_url: params.successUrl,
+      cancel_url: params.cancelUrl,
+      client_reference_id: params.accountId,
+      line_items: params.orders.map((order) => ({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${order.domain} domain`,
+          },
+          unit_amount: order.amountCents,
+        },
+        quantity: 1,
+      })),
+      customer_email: params.existingCustomerId ? undefined : params.email ?? undefined,
+      customer: params.existingCustomerId ?? undefined,
+      metadata: {
+        purpose: 'domain_purchase',
+        accountId: params.accountId,
+        domainOrderIds: params.orders.map((order) => order.orderId).join(','),
+      },
+      payment_intent_data: {
+        metadata: {
+          purpose: 'domain_purchase',
+          accountId: params.accountId,
+          domainOrderIds: params.orders.map((order) => order.orderId).join(','),
+        },
+      },
+    });
+    if (!session.url || !session.id) {
+      throw new Error('Stripe did not return a checkout session');
+    }
+    return { checkoutUrl: session.url, sessionId: session.id };
+  }
+
   async createBillingPortalSession(params: {
     customerId: string;
     returnUrl: string;
@@ -73,15 +121,37 @@ export class StripeService {
     return this.stripe.webhooks.constructEvent(payload, signature, config.stripe.webhookSecret);
   }
 
-  async handleWebhook(event: Stripe.Event, db: DatabaseService) {
+  async handleWebhook(
+    event: Stripe.Event,
+    db: DatabaseService,
+    deps: { domainOrderService?: DomainOrderService } = {}
+  ) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        if (session.subscription) {
+        if (session.mode === 'subscription' && session.subscription) {
           const subscription = await this.stripe.subscriptions.retrieve(
             typeof session.subscription === 'string' ? session.subscription : session.subscription.id
           );
           await this.syncSubscription(subscription, db);
+        }
+        if (
+          session.mode === 'payment' &&
+          session.metadata?.purpose === 'domain_purchase' &&
+          deps.domainOrderService
+        ) {
+          const orderIds = (session.metadata.domainOrderIds || '')
+            .split(',')
+            .map((id) => id.trim())
+            .filter(Boolean);
+          const paymentIntentId =
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : session.payment_intent?.id;
+          await deps.domainOrderService.fulfillOrders(orderIds, {
+            paymentIntentId: paymentIntentId ?? undefined,
+            stripeSessionId: session.id,
+          });
         }
         break;
       }

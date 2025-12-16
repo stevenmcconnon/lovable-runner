@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { StripeService } from '../services/stripe';
 import { DatabaseService } from '../services/database';
+import { DomainOrderService } from '../services/domain-order';
 
 export const registerWebhookRoutes = (
   app: FastifyInstance,
-  deps: { db: DatabaseService; stripe: StripeService }
+  deps: { db: DatabaseService; stripe: StripeService; domainOrderService: DomainOrderService }
 ) => {
-  const { stripe, db } = deps;
+  const { stripe, db, domainOrderService } = deps;
 
   app.post('/webhooks/stripe', async (request, reply) => {
     const signature = request.headers['stripe-signature'] as string | undefined;
@@ -21,7 +22,7 @@ export const registerWebhookRoutes = (
     } catch (error) {
       return reply.code(400).send({ message: 'Invalid Stripe signature' });
     }
-    await stripe.handleWebhook(event, db);
+    await stripe.handleWebhook(event, db, { domainOrderService });
     return { received: true };
   });
 };

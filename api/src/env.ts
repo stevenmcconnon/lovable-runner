@@ -36,6 +36,7 @@ const envSchema = z
     NAMECHEAP_USERNAME: z.string().optional(),
     NAMECHEAP_API_BASE: z.string().optional(),
     NAMECHEAP_CLIENT_IP: z.string().optional(),
+    DOMAIN_PRICE_CENTS: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -89,6 +90,7 @@ const rawEnv = envSchema.parse({
   NAMECHEAP_USERNAME: process.env.NAMECHEAP_USERNAME,
   NAMECHEAP_API_BASE: process.env.NAMECHEAP_API_BASE,
   NAMECHEAP_CLIENT_IP: process.env.NAMECHEAP_CLIENT_IP,
+  DOMAIN_PRICE_CENTS: process.env.DOMAIN_PRICE_CENTS,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -115,6 +117,10 @@ const domainRegistrar = namecheapConfigured
       },
     }
   : undefined;
+
+const domainPriceCents = rawEnv.DOMAIN_PRICE_CENTS
+  ? Number(rawEnv.DOMAIN_PRICE_CENTS)
+  : 1500;
 
 const buildDatabaseUrl = () => {
   if (rawEnv.DATABASE_URL) return rawEnv.DATABASE_URL;
@@ -173,4 +179,7 @@ export const config = {
     serviceBase: rawEnv.THUMBNAIL_SERVICE_BASE ?? '',
   },
   domainRegistrar,
+  domains: {
+    defaultPriceCents: Number.isFinite(domainPriceCents) && domainPriceCents > 0 ? domainPriceCents : 1500,
+  },
 } as const;

@@ -1632,6 +1632,40 @@
         }
       }
     },
+    "/domains/cart/checkout": {
+      "post": {
+        "summary": "Create a Stripe checkout session for managed domain purchases",
+        "operationId": "createDomainCartCheckout",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCartCheckoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainCartCheckoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cart or wiring request"
+          },
+          "409": {
+            "description": "At least one domain already connected"
+          }
+        }
+      }
+    },
     "/domains/{domain}/verify": {
       "post": {
         "summary": "Mark a connected domain as verified",
@@ -4467,6 +4501,66 @@
           },
           "wired": {
             "type": "boolean"
+          }
+        }
+      },
+      "DomainCartCheckoutRequest": {
+        "type": "object",
+        "required": [
+          "successUrl",
+          "cancelUrl",
+          "items"
+        ],
+        "properties": {
+          "successUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cancelUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/DomainPurchaseRequest"
+                }
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 10
+          }
+        }
+      },
+      "DomainCartCheckoutResponse": {
+        "type": "object",
+        "properties": {
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "domain": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },

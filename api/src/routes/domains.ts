@@ -2,7 +2,10 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { DatabaseService } from '../services/database';
 import { DomainService, domainHelpers, DnsConfig } from '../services/domain';
-import { DomainRecord, UserRole } from '../types';
+import { DomainOrderRecord, DomainRecord, UserRole } from '../types';
+import { DomainOrderService } from '../services/domain-order';
+import { StripeService } from '../services/stripe';
+import { config } from '../env';
 
 const contactSchema = z.object({
   firstName: z.string().min(2).max(120).optional(),
@@ -94,11 +97,35 @@ const withDns = (
     }),
 });
 
+const cartCheckoutSchema = z.object({
+  successUrl: z.string().url(),
+  cancelUrl: z.string().url(),
+  items: z
+    .array(
+      z.object({
+        domain: z.string().min(3).max(253),
+        slug: z.string().min(3).max(120),
+        termYears: z.number().int().min(1).max(10).optional(),
+        contact: contactSchema,
+        wire: z.boolean().optional(),
+      })
+    )
+    .min(1)
+    .max(10),
+});
+
+const DEFAULT_DOMAIN_PRICE_CENTS = config.domains?.defaultPriceCents ?? 1500;
+
 export const registerDomainRoutes = (
   app: FastifyInstance,
-  deps: { db: DatabaseService; domainService: DomainService }
+  deps: {
+    db: DatabaseService;
+    domainService: DomainService;
+    domainOrderService: DomainOrderService;
+    stripe: StripeService;
+  }
 ) => {
-  const { db, domainService } = deps;
+  const { db, domainService, domainOrderService, stripe } = deps;
 
   app.get('/domains', { preHandler: app.authenticateUser }, async (request, reply) => {
     if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
@@ -216,6 +243,77 @@ export const registerDomainRoutes = (
       wired,
     };
   });
+
+  app.post(
+    '/domains/cart/checkout',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
+        return reply.code(403).send({ message: 'Forbidden' });
+      }
+      const body = cartCheckoutSchema.parse(request.body);
+      const profile = request.auth.profile;
+      const seenDomains = new Set<string>();
+      const orderSummaries: Array<{ order: DomainOrderRecord; priceCents: number }> = [];
+
+      for (const item of body.items) {
+        const sanitizedDomain = sanitizeDomainOrThrow(item.domain);
+        if (seenDomains.has(sanitizedDomain)) {
+          return reply.code(400).send({ message: `Duplicate domain: ${sanitizedDomain}` });
+        }
+        seenDomains.add(sanitizedDomain);
+        const existing = await db.getDomainByName(sanitizedDomain);
+        if (existing && existing.slug !== item.slug) {
+          return reply.code(409).send({ message: `Domain ${sanitizedDomain} is already connected` });
+        }
+        const dnsConfig = domainService.buildDnsConfig({
+          slug: item.slug,
+          domain: sanitizedDomain,
+          verificationToken: existing?.verificationToken ?? undefined,
+        });
+        const priceCents = (item.termYears ?? 1) * DEFAULT_DOMAIN_PRICE_CENTS;
+        const order = await domainOrderService.createPendingOrder({
+          accountId: profile.accountId,
+          slug: item.slug,
+          domain: sanitizedDomain,
+          termYears: item.termYears,
+          contact: item.contact,
+          wire: item.wire,
+          dnsConfig,
+          priceCents,
+        });
+        orderSummaries.push({ order, priceCents });
+      }
+
+      const subscription = await db.getSubscription(profile.accountId);
+      const checkout = await stripe.createDomainCheckoutSession({
+        accountId: profile.accountId,
+        successUrl: body.successUrl,
+        cancelUrl: body.cancelUrl,
+        orders: orderSummaries.map(({ order, priceCents }) => ({
+          orderId: order.id,
+          domain: order.domain,
+          amountCents: priceCents,
+        })),
+        email: profile.email,
+        existingCustomerId: subscription?.stripeCustomerId ?? undefined,
+      });
+
+      await Promise.all(
+        orderSummaries.map(({ order }) => domainOrderService.attachStripeSession(order, checkout.sessionId))
+      );
+
+      return {
+        checkoutUrl: checkout.checkoutUrl,
+        sessionId: checkout.sessionId,
+        orders: orderSummaries.map(({ order }) => ({
+          id: order.id,
+          domain: order.domain,
+          slug: order.slug,
+        })),
+      };
+    }
+  );
 
   app.post(
     '/domains/:domain/verify',

@@ -1281,6 +1281,54 @@ export class DatabaseService {
     return rows.map(mapDomainRecord);
   }
 
+  async getDomainOrderById(id: string): Promise<DomainOrderRecord | null> {
+    const { rows } = await this.query(`SELECT * FROM domain_orders WHERE id = $1 LIMIT 1`, [id]);
+    return rows[0] ? mapDomainOrder(rows[0]) : null;
+  }
+
+  async getDomainOrdersByIds(ids: string[]): Promise<DomainOrderRecord[]> {
+    if (!ids.length) return [];
+    const params = ids.map((_id, index) => `$${index + 1}`).join(',');
+    const { rows } = await this.query(
+      `SELECT * FROM domain_orders WHERE id IN (${params})`,
+      ids
+    );
+    return rows.map(mapDomainOrder);
+  }
+
+  async updateDomainOrder(
+    id: string,
+    updates: {
+      status?: string;
+      providerOrderId?: string | null;
+      metadata?: Record<string, unknown> | null;
+    }
+  ): Promise<DomainOrderRecord | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    const setField = (column: string, value: any) => {
+      values.push(value);
+      fields.push(`${column} = $${values.length}`);
+    };
+    if (updates.status) setField('status', updates.status);
+    if (updates.providerOrderId !== undefined) setField('provider_order_id', updates.providerOrderId);
+    if (updates.metadata !== undefined) setField('metadata', updates.metadata);
+    if (!fields.length) {
+      return this.getDomainOrderById(id);
+    }
+    values.push(id);
+    const { rows } = await this.query(
+      `
+      UPDATE domain_orders
+      SET ${fields.join(', ')}, updated_at = NOW()
+      WHERE id = $${values.length}
+      RETURNING *
+    `,
+      values
+    );
+    return rows[0] ? mapDomainOrder(rows[0]) : null;
+  }
+
   async upsertSiteDomain(params: {
     accountId?: string | null;
     slug: string;

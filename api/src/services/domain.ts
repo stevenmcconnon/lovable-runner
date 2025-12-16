@@ -25,7 +25,7 @@ export type DnsConfig = {
   records: DnsRecord[];
 };
 
-type DomainContactInput = {
+export type DomainContactInput = {
   firstName?: string;
   lastName?: string;
   name?: string;

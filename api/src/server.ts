@@ -19,6 +19,7 @@ import { DomainService } from './services/domain';
 import { registerPublishingRoutes } from './routes/publishing';
 import { registerUsageRoutes } from './routes/usage';
 import { registerTrackingRoutes } from './routes/tracking';
+import { DomainOrderService } from './services/domain-order';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -63,16 +64,22 @@ export const buildServer = (): FastifyInstance => {
   const domainService = new DomainService({
     namecheap: config.domainRegistrar?.namecheap ?? null,
   });
+  const domainOrderService = new DomainOrderService({ db: database, domainService });
 
   app.register(buildAuthPlugin(database));
   app.register(async (instance) => {
     registerCustomerRoutes(instance, { db: database, runner });
     registerAdminRoutes(instance, { db: database, runner });
     registerBillingRoutes(instance, { db: database, stripe });
-    registerDomainRoutes(instance, { db: database, domainService });
+    registerDomainRoutes(instance, {
+      db: database,
+      domainService,
+      domainOrderService,
+      stripe,
+    });
     registerPublishingRoutes(instance, { db: database });
     registerUsageRoutes(instance, { db: database });
-    registerWebhookRoutes(instance, { db: database, stripe });
+    registerWebhookRoutes(instance, { db: database, stripe, domainOrderService });
     registerInternalRoutes(instance, { db: database });
     registerLaunchRoutes(instance, { db: database, runner });
     registerAuthRoutes(instance, { db: database });
