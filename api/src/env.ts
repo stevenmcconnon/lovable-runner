@@ -39,6 +39,12 @@ const envSchema = z
     DOMAIN_PRICE_CENTS: z.string().optional(),
     DOMAIN_PRICE_MARKUP_CENTS: z.string().optional(),
     DOMAIN_BASE_PRICE_CENTS: z.string().optional(),
+    PREVIEW_DOMAIN: z.string().optional(),
+    LIVE_DOMAIN: z.string().optional(),
+    CUSTOM_DOMAIN_ORIGIN: z.string().optional(),
+    CUSTOM_DOMAIN_CERT_REGION: z.string().optional(),
+    CUSTOM_DOMAIN_PRICE_CLASS: z.string().optional(),
+    CUSTOM_DOMAIN_CANONICAL_DEFAULT: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -95,6 +101,12 @@ const rawEnv = envSchema.parse({
   DOMAIN_PRICE_CENTS: process.env.DOMAIN_PRICE_CENTS,
   DOMAIN_PRICE_MARKUP_CENTS: process.env.DOMAIN_PRICE_MARKUP_CENTS,
   DOMAIN_BASE_PRICE_CENTS: process.env.DOMAIN_BASE_PRICE_CENTS,
+  PREVIEW_DOMAIN: process.env.PREVIEW_DOMAIN,
+  LIVE_DOMAIN: process.env.LIVE_DOMAIN,
+  CUSTOM_DOMAIN_ORIGIN: process.env.CUSTOM_DOMAIN_ORIGIN,
+  CUSTOM_DOMAIN_CERT_REGION: process.env.CUSTOM_DOMAIN_CERT_REGION,
+  CUSTOM_DOMAIN_PRICE_CLASS: process.env.CUSTOM_DOMAIN_PRICE_CLASS,
+  CUSTOM_DOMAIN_CANONICAL_DEFAULT: process.env.CUSTOM_DOMAIN_CANONICAL_DEFAULT,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -126,6 +138,25 @@ const domainPricing = {
   markupCents: Number(rawEnv.DOMAIN_PRICE_MARKUP_CENTS || rawEnv.DOMAIN_PRICE_CENTS || '300'),
   defaultBasePriceCents: Number(rawEnv.DOMAIN_BASE_PRICE_CENTS || rawEnv.DOMAIN_PRICE_CENTS || '1200'),
 };
+
+const sanitizeHostname = (value?: string | null) =>
+  value ? value.replace(/^https?:\/\//i, '').replace(/\/+$/, '') : '';
+
+const canonicalDefault =
+  rawEnv.CUSTOM_DOMAIN_CANONICAL_DEFAULT &&
+  rawEnv.CUSTOM_DOMAIN_CANONICAL_DEFAULT.toLowerCase() === 'www'
+    ? 'www'
+    : 'apex';
+
+const allowedPriceClasses = new Set(['PriceClass_100', 'PriceClass_200', 'PriceClass_All']);
+const edgePriceClass = allowedPriceClasses.has(rawEnv.CUSTOM_DOMAIN_PRICE_CLASS || '')
+  ? (rawEnv.CUSTOM_DOMAIN_PRICE_CLASS as 'PriceClass_100' | 'PriceClass_200' | 'PriceClass_All')
+  : 'PriceClass_100';
+
+const previewDomain = sanitizeHostname(rawEnv.PREVIEW_DOMAIN) || 'preview.ai-sitemaker.com';
+const liveDomain = sanitizeHostname(rawEnv.LIVE_DOMAIN) || '';
+const edgeOriginHostname =
+  sanitizeHostname(rawEnv.CUSTOM_DOMAIN_ORIGIN) || liveDomain || previewDomain || 'sites.ai-sitemaker.com';
 
 const buildDatabaseUrl = () => {
   if (rawEnv.DATABASE_URL) return rawEnv.DATABASE_URL;
@@ -193,5 +224,13 @@ export const config = {
       Number.isFinite(domainPricing.defaultBasePriceCents) && domainPricing.defaultBasePriceCents > 0
         ? domainPricing.defaultBasePriceCents
         : 1200,
+    previewDomain,
+    liveDomain,
+    edge: {
+      originHostname: edgeOriginHostname,
+      certificateRegion: rawEnv.CUSTOM_DOMAIN_CERT_REGION || rawEnv.AWS_REGION || 'us-east-1',
+      priceClass: edgePriceClass,
+      canonicalDefault,
+    },
   },
 } as const;

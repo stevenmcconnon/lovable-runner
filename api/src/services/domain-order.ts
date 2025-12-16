@@ -1,6 +1,7 @@
 import { DatabaseService } from './database';
 import { DomainService, DomainContactInput, DnsConfig } from './domain';
 import { DomainOrderRecord, DomainRecord } from '../types';
+import { DomainManager, PreparedEdgeMetadata } from './domain-manager';
 
 export type DomainOrderMetadata = {
   slug: string;
@@ -8,6 +9,7 @@ export type DomainOrderMetadata = {
   contact: DomainContactInput;
   wire?: boolean;
   dnsConfig: DnsConfig;
+  edge?: PreparedEdgeMetadata;
   stripeSessionId?: string;
   paymentIntentId?: string;
   wired?: boolean;
@@ -30,6 +32,7 @@ export class DomainOrderService {
     private readonly deps: {
       db: DatabaseService;
       domainService: DomainService;
+      domainManager?: DomainManager;
     }
   ) {}
 
@@ -41,6 +44,7 @@ export class DomainOrderService {
     contact: DomainContactInput;
     wire?: boolean;
     dnsConfig: DnsConfig;
+    edgeMetadata?: PreparedEdgeMetadata;
     priceCents: number;
     currency?: string;
   }): Promise<DomainOrderRecord> {
@@ -50,6 +54,7 @@ export class DomainOrderService {
       contact: params.contact,
       wire: params.wire ?? false,
       dnsConfig: params.dnsConfig,
+      edge: params.edgeMetadata,
     };
     return this.deps.db.createDomainOrder({
       accountId: params.accountId,
@@ -125,6 +130,14 @@ export class DomainOrderService {
       dnsSettings: metadata.dnsConfig,
     });
 
+    if (metadata.edge && this.deps.domainManager) {
+      await this.deps.domainManager.persistEdgeMetadata(order.domain, metadata.edge);
+      const latestRecord = await this.deps.db.getDomainByName(order.domain);
+      if (latestRecord) {
+        await this.deps.domainManager.refreshHttps(latestRecord);
+      }
+    }
+
     let wired = false;
     if (metadata.wire) {
       await this.deps.domainService.wireDomain({
@@ -158,6 +171,7 @@ export class DomainOrderService {
       contact: base.contact,
       wire: base.wire ?? false,
       dnsConfig: base.dnsConfig,
+      edge: base.edge,
       stripeSessionId: base.stripeSessionId,
       paymentIntentId: base.paymentIntentId,
       wired: base.wired,

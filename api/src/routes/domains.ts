@@ -6,6 +6,7 @@ import { DomainOrderRecord, DomainRecord, UserRole } from '../types';
 import { DomainOrderService } from '../services/domain-order';
 import { StripeService } from '../services/stripe';
 import { config } from '../env';
+import { DomainManager } from '../services/domain-manager';
 
 const contactSchema = z.object({
   firstName: z.string().min(2).max(120).optional(),
@@ -42,16 +43,20 @@ const searchSchema = z.object({
   limit: z.number().int().min(1).max(20).optional(),
 });
 
+const canonicalModeSchema = z.enum(['apex', 'www']);
+
 const purchaseSchema = z.object({
   domain: z.string().min(3).max(253),
   slug: z.string().min(3).max(120),
   termYears: z.number().int().min(1).max(10).optional(),
   contact: contactSchema,
   wire: z.boolean().optional(),
+  canonical: canonicalModeSchema.optional(),
 });
 
 const manualSchema = z.object({
   domain: z.string().min(3).max(253),
+  canonical: canonicalModeSchema.optional(),
 });
 
 const slugParams = z.object({
@@ -86,16 +91,54 @@ const sanitizeDomainOrThrow = (value: string) => {
 const withDns = (
   record: DomainRecord,
   domainService: DomainService
-): DomainRecord & { dns: any } => ({
-  ...record,
-  dns:
+): DomainRecord & { dns: any; https: any } => {
+  const dnsConfig =
     record.dnsSettings ??
     domainService.buildDnsConfig({
       slug: record.slug,
       domain: record.domain,
       verificationToken: record.verificationToken ?? undefined,
-    }),
-});
+    });
+  const validationRecords = Array.isArray(record.certificateValidation)
+    ? record.certificateValidation
+    : [];
+  return {
+    ...record,
+    dns: dnsConfig,
+    https: {
+      status: record.httpsStatus ?? 'pending',
+      readyAt: record.httpsReadyAt ?? null,
+      checkedAt: record.httpsCheckedAt ?? null,
+      certificate: {
+        arn: record.certificateArn ?? null,
+        status: record.certificateStatus ?? null,
+        statusAt: record.certificateStatusAt ?? null,
+        validationRecords,
+      },
+      edge: {
+        domain: record.edgeDomain ?? null,
+        distributionId: record.edgeDistributionId ?? null,
+        status: record.edgeStatus ?? null,
+        statusAt: record.edgeStatusAt ?? null,
+        functionName: record.edgeFunctionName ?? null,
+      },
+      canonical: {
+        host: record.canonicalHost ?? null,
+        mode: record.canonicalMode ?? null,
+      },
+      error: record.routingError ?? null,
+    },
+  };
+};
+
+const shouldRefreshHttps = (record: DomainRecord): boolean => {
+  if (!record.httpsStatus || record.httpsStatus === 'pending') return true;
+  if (record.httpsStatus === 'live') return false;
+  const lastChecked = record.httpsCheckedAt ? Date.parse(record.httpsCheckedAt) : 0;
+  if (!lastChecked) return true;
+  const ageMs = Date.now() - lastChecked;
+  return ageMs > 5 * 60 * 1000;
+};
 
 const cartCheckoutSchema = z.object({
   successUrl: z.string().url(),
@@ -108,6 +151,7 @@ const cartCheckoutSchema = z.object({
         termYears: z.number().int().min(1).max(10).optional(),
         contact: contactSchema,
         wire: z.boolean().optional(),
+        canonical: canonicalModeSchema.optional(),
       })
     )
     .min(1)
@@ -123,17 +167,30 @@ export const registerDomainRoutes = (
     db: DatabaseService;
     domainService: DomainService;
     domainOrderService: DomainOrderService;
+    domainManager: DomainManager;
     stripe: StripeService;
   }
 ) => {
-  const { db, domainService, domainOrderService, stripe } = deps;
+  const { db, domainService, domainOrderService, domainManager, stripe } = deps;
 
   app.get('/domains', { preHandler: app.authenticateUser }, async (request, reply) => {
     if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
       return reply.code(403).send({ message: 'Forbidden' });
     }
     const records = await db.listDomainsForAccount(request.auth.profile.accountId);
-    const items = records.map((record) => withDns(record, domainService));
+    const hydrated = await Promise.all(
+      records.map(async (record) => {
+        if (shouldRefreshHttps(record)) {
+          try {
+            return (await domainManager.refreshHttps(record)) ?? record;
+          } catch {
+            return record;
+          }
+        }
+        return record;
+      })
+    );
+    const items = hydrated.map((record) => withDns(record, domainService));
     return { items };
   });
 
@@ -192,10 +249,16 @@ export const registerDomainRoutes = (
       );
       return reply.code(502).send({ message: 'Unable to register domain' });
     }
-    const dnsConfig = domainService.buildDnsConfig({
+    const baseDnsConfig = domainService.buildDnsConfig({
       slug: body.slug,
       domain: sanitizedDomain,
       verificationToken: existing?.verificationToken ?? undefined,
+    });
+    const { dnsConfig: enrichedDnsConfig, metadata: edgeMetadata } = await domainManager.prepareDnsConfig({
+      domain: sanitizedDomain,
+      slug: body.slug,
+      dnsConfig: baseDnsConfig,
+      canonicalMode: body.canonical,
     });
 
     const order = await db.createDomainOrder({
@@ -216,14 +279,15 @@ export const registerDomainRoutes = (
       type: 'managed',
       provider: domainService.getProviderCode(),
       status: shouldWire ? 'configuring' : purchase.status ?? 'pending',
-      verificationToken: dnsConfig.verificationToken,
-      dnsSettings: dnsConfig,
+      verificationToken: baseDnsConfig.verificationToken,
+      dnsSettings: enrichedDnsConfig,
     });
+    await domainManager.persistEdgeMetadata(sanitizedDomain, edgeMetadata);
 
     let wired = false;
     if (shouldWire) {
       try {
-        await domainService.wireDomain({ domain: sanitizedDomain, dnsConfig });
+        await domainService.wireDomain({ domain: sanitizedDomain, dnsConfig: enrichedDnsConfig });
         wired = true;
       } catch (error) {
         request.log.error(
@@ -240,10 +304,14 @@ export const registerDomainRoutes = (
       }
     }
 
+    const currentRecord = (await db.getDomainByName(sanitizedDomain)) ?? record;
+    const refreshed = await domainManager.refreshHttps(currentRecord).catch(() => null);
+    const finalRecord = refreshed ?? currentRecord;
+
     return {
       order,
-      domain: record,
-      dns: dnsConfig,
+      domain: finalRecord ? withDns(finalRecord, domainService) : null,
+      dns: enrichedDnsConfig,
       wired,
     };
   });
@@ -270,10 +338,16 @@ export const registerDomainRoutes = (
         if (existing && existing.slug !== item.slug) {
           return reply.code(409).send({ message: `Domain ${sanitizedDomain} is already connected` });
         }
-        const dnsConfig = domainService.buildDnsConfig({
+        const baseDnsConfig = domainService.buildDnsConfig({
           slug: item.slug,
           domain: sanitizedDomain,
           verificationToken: existing?.verificationToken ?? undefined,
+        });
+        const { dnsConfig: enrichedDnsConfig, metadata: edgeMetadata } = await domainManager.prepareDnsConfig({
+          domain: sanitizedDomain,
+          slug: item.slug,
+          dnsConfig: baseDnsConfig,
+          canonicalMode: item.canonical,
         });
         const basePrice = await domainService
           .lookupBasePrice(sanitizedDomain)
@@ -286,7 +360,8 @@ export const registerDomainRoutes = (
           termYears: item.termYears,
           contact: item.contact,
           wire: item.wire,
-          dnsConfig,
+          dnsConfig: enrichedDnsConfig,
+          edgeMetadata,
           priceCents,
         });
         orderSummaries.push({ order, priceCents });
@@ -383,10 +458,16 @@ export const registerDomainRoutes = (
       if (existing && existing.slug !== params.slug) {
         return reply.code(409).send({ message: 'Domain is already attached to another site' });
       }
-      const dnsConfig = domainService.buildDnsConfig({
+      const baseDnsConfig = domainService.buildDnsConfig({
         slug: params.slug,
         domain: sanitizedDomain,
         verificationToken: existing?.verificationToken ?? undefined,
+      });
+      const { dnsConfig: enrichedDnsConfig, metadata: edgeMetadata } = await domainManager.prepareDnsConfig({
+        domain: sanitizedDomain,
+        slug: params.slug,
+        dnsConfig: baseDnsConfig,
+        canonicalMode: body.canonical,
       });
       const record = await db.upsertSiteDomain({
         accountId: profile.accountId,
@@ -395,12 +476,15 @@ export const registerDomainRoutes = (
         type: 'manual',
         provider: existing?.provider ?? null,
         status: existing?.status ?? 'pending',
-        verificationToken: dnsConfig.verificationToken,
-        dnsSettings: dnsConfig,
+        verificationToken: baseDnsConfig.verificationToken,
+        dnsSettings: enrichedDnsConfig,
       });
+      await domainManager.persistEdgeMetadata(sanitizedDomain, edgeMetadata);
+      const refreshed = await domainManager.refreshHttps(record).catch(() => null);
+      const finalRecord = refreshed ?? record;
       return {
-        domain: record,
-        dns: dnsConfig,
+        domain: finalRecord ? withDns(finalRecord, domainService) : null,
+        dns: enrichedDnsConfig,
       };
     }
   );
@@ -452,8 +536,10 @@ export const registerDomainRoutes = (
         return reply.code(502).send({ message: 'Unable to wire domain at this time' });
       }
       const updated = await db.updateSiteDomain(sanitizedDomain, { dnsSettings: dnsConfig });
+      const refreshed = await domainManager.refreshHttps(updated ?? record).catch(() => null);
+      const finalRecord = refreshed ?? updated ?? record;
       return {
-        domain: updated ? withDns(updated, domainService) : null,
+        domain: finalRecord ? withDns(finalRecord, domainService) : null,
         dns: dnsConfig,
         wired: true,
       };
@@ -475,16 +561,19 @@ export const registerDomainRoutes = (
         if (record.accountId === request.auth?.profile?.accountId) return true;
         return isSuperAdmin;
       });
-      const enriched = filtered.map((record) => ({
-        ...record,
-        dns:
-          record.dnsSettings ??
-          domainService.buildDnsConfig({
-            slug: params.slug,
-            domain: record.domain,
-            verificationToken: record.verificationToken ?? undefined,
-          }),
-      }));
+      const refreshed = await Promise.all(
+        filtered.map(async (record) => {
+          if (shouldRefreshHttps(record)) {
+            try {
+              return (await domainManager.refreshHttps(record)) ?? record;
+            } catch {
+              return record;
+            }
+          }
+          return record;
+        })
+      );
+      const enriched = refreshed.map((record) => withDns(record, domainService));
       return { items: enriched };
     }
   );

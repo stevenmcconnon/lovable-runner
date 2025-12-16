@@ -20,6 +20,8 @@ import { registerPublishingRoutes } from './routes/publishing';
 import { registerUsageRoutes } from './routes/usage';
 import { registerTrackingRoutes } from './routes/tracking';
 import { DomainOrderService } from './services/domain-order';
+import { DomainEdgeService } from './services/domain-edge';
+import { DomainManager } from './services/domain-manager';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -67,7 +69,18 @@ export const buildServer = (): FastifyInstance => {
       defaultBasePriceCents: config.domains?.defaultBasePriceCents,
     },
   });
-  const domainOrderService = new DomainOrderService({ db: database, domainService });
+  const domainEdgeService = new DomainEdgeService({
+    originHostname: config.domains.edge.originHostname,
+    certificateRegion: config.domains.edge.certificateRegion,
+    priceClass: config.domains.edge.priceClass,
+    canonicalDefault: config.domains.edge.canonicalDefault,
+  });
+  const domainManager = new DomainManager({ db: database, edge: domainEdgeService });
+  const domainOrderService = new DomainOrderService({
+    db: database,
+    domainService,
+    domainManager,
+  });
 
   app.register(buildAuthPlugin(database));
   app.register(async (instance) => {
@@ -78,6 +91,7 @@ export const buildServer = (): FastifyInstance => {
       db: database,
       domainService,
       domainOrderService,
+      domainManager,
       stripe,
     });
     registerPublishingRoutes(instance, { db: database });

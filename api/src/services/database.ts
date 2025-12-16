@@ -147,6 +147,22 @@ const mapDomainRecord = (row: any): DomainRecord => ({
   isPrimary: Boolean(row.is_primary),
   verificationToken: row.verification_token ?? null,
   dnsSettings: row.dns_settings ?? null,
+  httpsStatus: row.https_status ?? null,
+  httpsReadyAt: toIsoString(row.https_ready_at),
+  httpsCheckedAt: toIsoString(row.https_checked_at),
+  certificateArn: row.certificate_arn ?? null,
+  certificateStatus: row.certificate_status ?? null,
+  certificateStatusAt: toIsoString(row.certificate_status_at),
+  certificateValidation: row.certificate_validation ?? null,
+  edgeDomain: row.edge_domain ?? null,
+  edgeDistributionId: row.edge_distribution_id ?? null,
+  edgeStatus: row.edge_status ?? null,
+  edgeStatusAt: toIsoString(row.edge_status_at),
+  edgeFunctionName: row.edge_function_name ?? null,
+  edgeFunctionArn: row.edge_function_arn ?? null,
+  canonicalHost: row.canonical_host ?? null,
+  canonicalMode: row.canonical_mode ?? null,
+  routingError: row.routing_error ?? null,
   verifiedAt: toIsoString(row.verified_at),
   lastCheckedAt: toIsoString(row.last_checked_at),
   createdAt: toIsoString(row.created_at),
@@ -1394,6 +1410,24 @@ export class DatabaseService {
     if (updates.slug) setField('slug', updates.slug);
     if (updates.verifiedAt) setField('verified_at', updates.verifiedAt);
     if (updates.lastCheckedAt) setField('last_checked_at', updates.lastCheckedAt);
+    if (updates.httpsStatus) setField('https_status', updates.httpsStatus);
+    if (updates.httpsReadyAt) setField('https_ready_at', updates.httpsReadyAt);
+    if (updates.httpsCheckedAt) setField('https_checked_at', updates.httpsCheckedAt);
+    if (updates.certificateArn !== undefined) setField('certificate_arn', updates.certificateArn);
+    if (updates.certificateStatus) setField('certificate_status', updates.certificateStatus);
+    if (updates.certificateStatusAt) setField('certificate_status_at', updates.certificateStatusAt);
+    if (updates.certificateValidation !== undefined)
+      setField('certificate_validation', updates.certificateValidation);
+    if (updates.edgeDomain !== undefined) setField('edge_domain', updates.edgeDomain);
+    if (updates.edgeDistributionId !== undefined)
+      setField('edge_distribution_id', updates.edgeDistributionId);
+    if (updates.edgeStatus) setField('edge_status', updates.edgeStatus);
+    if (updates.edgeStatusAt) setField('edge_status_at', updates.edgeStatusAt);
+    if (updates.edgeFunctionName !== undefined) setField('edge_function_name', updates.edgeFunctionName);
+    if (updates.edgeFunctionArn !== undefined) setField('edge_function_arn', updates.edgeFunctionArn);
+    if (updates.canonicalHost !== undefined) setField('canonical_host', updates.canonicalHost);
+    if (updates.canonicalMode !== undefined) setField('canonical_mode', updates.canonicalMode);
+    if (updates.routingError !== undefined) setField('routing_error', updates.routingError);
     if (!fields.length) {
       return this.getDomainByName(domain);
     }
