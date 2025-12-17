@@ -26,6 +26,7 @@ import { registerSeoRoutes } from './routes/seo';
 import { SiteSeoService } from './services/site-seo';
 import { NotificationService } from './services/notifications';
 import { registerAnalyticsRoutes } from './routes/analytics';
+import { DomainJobService } from './services/domain-job';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -79,6 +80,7 @@ export const buildServer = (): FastifyInstance => {
     distributionId: config.domains.edge.distributionId,
   });
   const notificationService = new NotificationService({ db: database });
+  const domainJobService = new DomainJobService(database);
   const domainManager = new DomainManager({
     db: database,
     edge: domainEdgeService,
@@ -88,6 +90,7 @@ export const buildServer = (): FastifyInstance => {
     db: database,
     domainService,
     domainManager,
+    domainJobs: domainJobService,
   });
   const siteSeoService = new SiteSeoService({ db: database });
 
@@ -104,6 +107,7 @@ export const buildServer = (): FastifyInstance => {
       stripe,
       notifications: notificationService,
       runner,
+      domainJobs: domainJobService,
     });
     registerPublishingRoutes(instance, { db: database, notifications: notificationService });
     registerUsageRoutes(instance, { db: database });

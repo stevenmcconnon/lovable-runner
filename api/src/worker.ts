@@ -50,6 +50,8 @@ import { DomainManager } from './services/domain-manager';
 import { domainHelpers } from './services/domain';
 import { BusinessDetailsInput, DomainRecord } from './types';
 import { NotificationService } from './services/notifications';
+import { DomainJobService } from './services/domain-job';
+import { DomainJobRunner } from './services/domain-job-runner';
 
 const db = new DatabaseService();
 const domainEdge = new DomainEdgeService({
@@ -59,6 +61,8 @@ const domainEdge = new DomainEdgeService({
 });
 const notificationService = new NotificationService({ db });
 const domainManager = new DomainManager({ db, edge: domainEdge, notifications: notificationService });
+const domainJobs = new DomainJobService(db);
+const domainJobRunner = new DomainJobRunner({ db, manager: domainManager, jobs: domainJobs });
 const defaultRefreshLimit = Number(process.env.DOMAIN_REFRESH_LIMIT || 25);
 const { runNotificationBatch } = resolveRootModule('src/notification-worker.js');
 const {
@@ -126,6 +130,10 @@ type AnalyticsRollupEvent = {
   date?: string;
   start?: string;
   end?: string;
+};
+
+type DomainJobEvent = {
+  limit?: number;
 };
 
 const updateStatus = async (requestId: string, status: string, extras: Record<string, unknown> = {}) => {
@@ -356,6 +364,12 @@ export const handleSiteUpdateJob = async (event: SiteUpdateEvent) => {
     });
     throw error;
   }
+};
+
+export const handleDomainJobBatch = async (event: DomainJobEvent = {}) => {
+  const limit = Math.max(1, Number(event.limit) || Number(process.env.DOMAIN_JOB_BATCH_LIMIT || 10));
+  const result = await domainJobRunner.runBatch(limit);
+  return result;
 };
 
 export const handleEditRequestJob = async (event: EditJobEvent) => {

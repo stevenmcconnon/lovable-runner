@@ -10,6 +10,7 @@ import { config } from '../env';
 import { DomainManager } from '../services/domain-manager';
 import { NotificationService } from '../services/notifications';
 import { CanonicalMode } from '../services/domain-edge';
+import { DomainJobService } from '../services/domain-job';
 
 const rootRequire = (relativePath: string): any => {
   try {
@@ -248,9 +249,10 @@ export const registerDomainRoutes = (
     stripe: StripeService;
     notifications?: NotificationService;
     runner?: import('../services/runner').RunnerService;
+    domainJobs?: DomainJobService;
   }
 ) => {
-  const { db, domainService, domainOrderService, domainManager, stripe, notifications, runner } = deps;
+  const { db, domainService, domainOrderService, domainManager, stripe, notifications, runner, domainJobs } = deps;
 
   app.get('/domains', { preHandler: app.authenticateUser }, async (request, reply) => {
     if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
@@ -507,26 +509,42 @@ export const registerDomainRoutes = (
         dnsSettings: enrichedDnsConfig,
       });
       await domainManager.persistEdgeMetadata(sanitizedDomain, edgeMetadata);
-      setImmediate(() => {
-        domainManager
-          .ensureCertificateForDomain({
+      if (domainJobs) {
+        await domainJobs
+          .enqueueProvisionJob({
             domain: sanitizedDomain,
+            slug: params.slug,
             canonicalMode: edgeMetadata.canonicalMode,
             canonicalHost: edgeMetadata.canonicalHost,
-          })
-          .then(async () => {
-            const latest = await db.getDomainByName(sanitizedDomain);
-            if (latest) {
-              await domainManager.refreshHttps(latest).catch(() => null);
-            }
           })
           .catch((error) =>
             request.log.warn(
               { err: (error as Error)?.message, domain: sanitizedDomain },
-              '[domains] Failed to enqueue certificate provisioning'
+              '[domains] Failed to enqueue certificate provisioning job'
             )
           );
-      });
+      } else {
+        setImmediate(() => {
+          domainManager
+            .ensureCertificateForDomain({
+              domain: sanitizedDomain,
+              canonicalMode: edgeMetadata.canonicalMode,
+              canonicalHost: edgeMetadata.canonicalHost,
+            })
+            .then(async () => {
+              const latest = await db.getDomainByName(sanitizedDomain);
+              if (latest) {
+                await domainManager.refreshHttps(latest).catch(() => null);
+              }
+            })
+            .catch((error) =>
+              request.log.warn(
+                { err: (error as Error)?.message, domain: sanitizedDomain },
+                '[domains] Failed to enqueue certificate provisioning'
+              )
+            );
+        });
+      }
       const refreshed = await domainManager.refreshHttps(record).catch(() => null);
       const finalRecord = refreshed ?? record;
       logDomainEvent(request, profile, {
@@ -623,26 +641,42 @@ export const registerDomainRoutes = (
         dnsSettings: dnsConfig,
         status: 'dns_pending',
       });
-      setImmediate(() => {
-        domainManager
-          .ensureCertificateForDomain({
+      if (domainJobs) {
+        await domainJobs
+          .enqueueProvisionJob({
             domain: sanitizedDomain,
+            slug: params.slug,
             canonicalMode: record.canonicalMode as CanonicalMode | undefined,
             canonicalHost: record.canonicalHost ?? undefined,
-          })
-          .then(async () => {
-            const latest = await db.getDomainByName(sanitizedDomain);
-            if (latest) {
-              await domainManager.refreshHttps(latest).catch(() => null);
-            }
           })
           .catch((error) =>
             request.log.warn(
               { err: (error as Error)?.message, domain: sanitizedDomain },
-              '[domains] Failed to enqueue certificate provisioning'
+              '[domains] Failed to enqueue certificate provisioning job'
             )
           );
-      });
+      } else {
+        setImmediate(() => {
+          domainManager
+            .ensureCertificateForDomain({
+              domain: sanitizedDomain,
+              canonicalMode: record.canonicalMode as CanonicalMode | undefined,
+              canonicalHost: record.canonicalHost ?? undefined,
+            })
+            .then(async () => {
+              const latest = await db.getDomainByName(sanitizedDomain);
+              if (latest) {
+                await domainManager.refreshHttps(latest).catch(() => null);
+              }
+            })
+            .catch((error) =>
+              request.log.warn(
+                { err: (error as Error)?.message, domain: sanitizedDomain },
+                '[domains] Failed to enqueue certificate provisioning'
+              )
+            );
+        });
+      }
       const refreshed = await domainManager.refreshHttps(updated ?? record).catch(() => null);
       const finalRecord = refreshed ?? updated ?? record;
       logDomainEvent(request, profile, {

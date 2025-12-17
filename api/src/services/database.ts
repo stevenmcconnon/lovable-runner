@@ -11,6 +11,7 @@ import {
   DeploymentRecord,
   DomainOrderRecord,
   DomainRecord,
+  DomainEventRecord,
   EditJobRecord,
   EditRequestRecord,
   EditRequestStatus,
@@ -23,6 +24,9 @@ import {
   UsageDetails,
   UsageLimits,
   UserRole,
+  DomainJobRecord,
+  DomainJobStatus,
+  DomainJobType,
 } from '../types';
 
 const pool = new Pool({
@@ -167,6 +171,33 @@ const mapDomainRecord = (row: any): DomainRecord => ({
   lastCheckedAt: toIsoString(row.last_checked_at),
   createdAt: toIsoString(row.created_at),
   updatedAt: toIsoString(row.updated_at),
+});
+
+const mapDomainJob = (row: any): DomainJobRecord => ({
+  id: row.id,
+  domain: row.domain,
+  slug: row.slug,
+  type: row.job_type,
+  status: row.status,
+  attempts: Number(row.attempts ?? 0),
+  payload: row.payload ?? null,
+  scheduledAt: toIsoString(row.scheduled_at),
+  startedAt: toIsoString(row.started_at),
+  completedAt: toIsoString(row.completed_at),
+  lastError: row.last_error ?? null,
+  createdAt: toIsoString(row.created_at),
+  updatedAt: toIsoString(row.updated_at),
+});
+
+const mapDomainEvent = (row: any): DomainEventRecord => ({
+  id: row.id,
+  domain: row.domain,
+  slug: row.slug,
+  type: row.event_type,
+  status: row.status,
+  description: row.description,
+  metadata: row.metadata ?? null,
+  createdAt: toIsoString(row.created_at),
 });
 
 const mapDeploymentRecord = (row: any): DeploymentRecord => ({
@@ -1363,6 +1394,154 @@ export class DatabaseService {
       values
     );
     return rows[0] ? mapDomainOrder(rows[0]) : null;
+  }
+
+  async enqueueDomainJob(params: {
+    domain: string;
+    slug?: string | null;
+    type: DomainJobType;
+    payload?: Record<string, unknown> | null;
+    scheduleAt?: Date | string | null;
+  }): Promise<DomainJobRecord> {
+    const scheduled =
+      params.scheduleAt instanceof Date
+        ? params.scheduleAt.toISOString()
+        : params.scheduleAt ?? new Date().toISOString();
+    const { rows } = await this.query(
+      `
+      INSERT INTO domain_jobs (domain, slug, job_type, status, payload, scheduled_at)
+      VALUES ($1,$2,$3,'pending',$4,$5)
+      RETURNING *
+    `,
+      [params.domain, params.slug ?? null, params.type, params.payload ?? null, scheduled]
+    );
+    return mapDomainJob(rows[0]);
+  }
+
+  async claimDomainJobs(limit = 10): Promise<DomainJobRecord[]> {
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 10, 50));
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      const selectable = await client.query(
+        `
+        SELECT *
+        FROM domain_jobs
+        WHERE status IN ('pending','retry') AND scheduled_at <= NOW()
+        ORDER BY scheduled_at ASC
+        LIMIT $1
+        FOR UPDATE SKIP LOCKED
+      `,
+        [safeLimit]
+      );
+      if (!selectable.rows.length) {
+        await client.query('COMMIT');
+        return [];
+      }
+      const claimed: DomainJobRecord[] = [];
+      for (const row of selectable.rows) {
+        const updated = await client.query(
+          `
+          UPDATE domain_jobs
+          SET status = 'running',
+              started_at = NOW(),
+              attempts = COALESCE(attempts, 0) + 1,
+              last_error = NULL,
+              updated_at = NOW()
+          WHERE id = $1
+          RETURNING *
+        `,
+          [row.id]
+        );
+        if (updated.rows[0]) {
+          claimed.push(mapDomainJob(updated.rows[0]));
+        }
+      }
+      await client.query('COMMIT');
+      return claimed;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async completeDomainJob(id: string, status: DomainJobStatus = 'completed'): Promise<DomainJobRecord | null> {
+    const { rows } = await this.query(
+      `
+      UPDATE domain_jobs
+      SET status = $2,
+          completed_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `,
+      [id, status]
+    );
+    return rows[0] ? mapDomainJob(rows[0]) : null;
+  }
+
+  async retryDomainJob(
+    id: string,
+    options: { delayMs?: number; error?: string; status?: DomainJobStatus }
+  ): Promise<DomainJobRecord | null> {
+    const delay = Math.max(1000, options.delayMs ?? 60_000);
+    const { rows } = await this.query(
+      `
+      UPDATE domain_jobs
+      SET status = $2,
+          last_error = $3,
+          scheduled_at = NOW() + ($4::bigint || ' milliseconds')::interval,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `,
+      [id, options.status ?? 'retry', options.error ?? null, delay]
+    );
+    return rows[0] ? mapDomainJob(rows[0]) : null;
+  }
+
+  async failDomainJob(id: string, error?: string): Promise<DomainJobRecord | null> {
+    const { rows } = await this.query(
+      `
+      UPDATE domain_jobs
+      SET status = 'failed',
+          last_error = $2,
+          completed_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `,
+      [id, error ?? null]
+    );
+    return rows[0] ? mapDomainJob(rows[0]) : null;
+  }
+
+  async recordDomainEvent(params: {
+    domain: string;
+    slug?: string | null;
+    type: string;
+    status?: string | null;
+    description?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<DomainEventRecord> {
+    const { rows } = await this.query(
+      `
+      INSERT INTO domain_events (domain, slug, event_type, status, description, metadata)
+      VALUES ($1,$2,$3,$4,$5,$6)
+      RETURNING *
+    `,
+      [
+        params.domain,
+        params.slug ?? null,
+        params.type,
+        params.status ?? null,
+        params.description ?? null,
+        params.metadata ?? null,
+      ]
+    );
+    return mapDomainEvent(rows[0]);
   }
 
   async upsertSiteDomain(params: {

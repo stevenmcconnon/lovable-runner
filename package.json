@@ -16,6 +16,7 @@
     "test:api:full": "node scripts/test-openapi-full.js",
     "test:quota": "npm run build && node --test api/tests/launch-quota.test.js",
     "domains:refresh": "ts-node --transpile-only scripts/refresh-domain-https.ts",
+    "domains:jobs": "ts-node --transpile-only scripts/process-domain-jobs.ts",
     "backfill:drafts": "node scripts/backfill-draft-prefix.js",
     "notifications:work": "node scripts/process-notification-jobs.js",
     "db:seed:plans": "node scripts/seed-subscription-plans.js",

@@ -8,6 +8,7 @@ import {
   handleSiteLaunchJob,
   handleSiteUpdateJob,
   handleAnalyticsRollupJob,
+  handleDomainJobBatch,
 } from './worker';
 
 let proxy: ReturnType<typeof awsLambdaFastify>;
@@ -101,6 +102,15 @@ const handleActionEvent = async (event: any) => {
       date: event.date,
       start: event.start,
       end: event.end,
+    });
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
+  }
+  if (event?.action === 'RUN_DOMAIN_JOBS') {
+    const result = await handleDomainJobBatch({
+      limit: event.limit,
     });
     return {
       statusCode: 200,

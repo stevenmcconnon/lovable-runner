@@ -212,6 +212,37 @@ export type DomainStatus =
   | 'active'
   | 'failed';
 
+export type DomainJobType = 'provision_certificate' | 'sync_edge';
+
+export type DomainJobStatus = 'pending' | 'running' | 'retry' | 'completed' | 'failed';
+
+export interface DomainJobRecord {
+  id: string;
+  domain: string;
+  slug?: string | null;
+  type: DomainJobType;
+  status: DomainJobStatus;
+  attempts: number;
+  payload?: Record<string, unknown> | null;
+  scheduledAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  lastError?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface DomainEventRecord {
+  id: string;
+  domain: string;
+  slug?: string | null;
+  type: string;
+  status?: string | null;
+  description?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string | null;
+}
+
 export interface DomainRecord {
   id: string;
   accountId?: string | null;

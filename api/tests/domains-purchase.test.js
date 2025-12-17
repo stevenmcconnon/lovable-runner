@@ -82,7 +82,7 @@ const buildServer = () => {
     throw error;
   });
   app.decorate('requireRoles', async () => {});
-  registerDomainRoutes(app, { ...buildMockDeps(), notifications: undefined });
+  registerDomainRoutes(app, { ...buildMockDeps(), notifications: undefined, runner: undefined, domainJobs: undefined });
   return app;
 };
 
