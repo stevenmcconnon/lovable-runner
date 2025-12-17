@@ -59,7 +59,7 @@ Notes:
 - Stripe keys are required and should correspond to the same mode (test vs live) as your front-end Stripe integration.
 - `GeminiApiKey`/`OpenAIApiKey` can be passed directly or via Secrets Manager ARNs (`GeminiApiKeySecretArn`/`OpenAIApiKeySecretArn`).
 - `PreviewDomainName` is optional and adds CloudFront-style preview URLs.
-- `NamecheapApiUser` + `NamecheapApiKey` enable the `/domains` flows to call Namecheap directly. Leave them blank to keep the legacy stub registrar.
+- `NamecheapApiUser` + `NamecheapApiKey` enable the `/domains` flows to call Namecheap directly. Leave them blank to keep the simple stub registrar.
 - `StaticEgressIpAddress` is exported as a stack output—hand this Elastic IP to upstream providers (Namecheap) when they need a fixed source address.
 
 ## Apply the database schema

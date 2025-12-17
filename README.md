@@ -138,13 +138,6 @@ curl -X POST http://localhost:3000/launch \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","bucket":"<bucket>","prefix":"lovable"}'
 
-# Lambda handler (as an alternative deployment target)
-# - Uses lambda.js handler, which calls runLaunch under the hood.
-# - Configure environment: LOVABLE_ID_TOKEN, LOVABLE_API_BASE, LOVABLE_WORKSPACE_ID,
-#   LOVABLE_CREATE_PATH, LOVABLE_DEPLOY_BUCKET, LOVABLE_DEPLOY_PREFIX, and AWS role with S3 write.
-# - Payload example:
-#   { "url": "https://example.com", "bucket": "<bucket>", "prefix": "lovable", "wait": 20, "attempts": 60 }
-
 # Create a project only
 node src/cli.js create --url https://example.com
 

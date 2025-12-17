@@ -1979,7 +1979,7 @@ export class DatabaseService {
         ctaClicks: Number(ctaValue ?? 0),
       };
     }
-    const legacy = await this.query(
+    const fallback = await this.query(
       `
       SELECT
         COALESCE(SUM(views), 0) AS views,
@@ -1991,8 +1991,8 @@ export class DatabaseService {
       [slug, days]
     );
     return {
-      views: Number(legacy.rows[0]?.views ?? 0),
-      ctaClicks: Number(legacy.rows[0]?.cta_clicks ?? 0),
+      views: Number(fallback.rows[0]?.views ?? 0),
+      ctaClicks: Number(fallback.rows[0]?.cta_clicks ?? 0),
     };
   }
 

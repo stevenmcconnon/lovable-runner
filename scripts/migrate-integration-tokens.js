@@ -133,7 +133,7 @@ const migrateRecord = async (record, { dryRun }) => {
 const run = async () => {
   const options = parseArgs();
   console.log(
-    `[integrations] Scanning ${tableName} for legacy calendar tokens${
+    `[integrations] Scanning ${tableName} for stored calendar tokens${
       options.dryRun ? ' (dry run)' : ''
     }...`
   );

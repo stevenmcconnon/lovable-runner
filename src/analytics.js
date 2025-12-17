@@ -119,7 +119,7 @@ const fetchDailyMetrics = async ({ slug, days }) =>
     [slug, days, days]
   );
 
-const fetchLegacyMetrics = async ({ slug, days }) =>
+const fetchFallbackMetrics = async ({ slug, days }) =>
   query(
     `
     SELECT
@@ -143,8 +143,8 @@ const listAnalytics = async ({ slug, days = 30 }) => {
   const windowDays = clampDays(days);
   let { rows } = await fetchDailyMetrics({ slug, days: windowDays });
   if (!rows.length) {
-    const legacy = await fetchLegacyMetrics({ slug, days: windowDays });
-    rows = (legacy.rows || []).map((row) => ({
+    const fallback = await fetchFallbackMetrics({ slug, days: windowDays });
+    rows = (fallback.rows || []).map((row) => ({
       stat_date: row.event_date,
       ...row,
     }));

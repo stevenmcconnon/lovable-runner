@@ -174,7 +174,7 @@ Parameters:
       - PriceClass_200
       - PriceClass_All
     Default: PriceClass_100
-    Description: Price class used when provisioning per-domain distributions (legacy compatibility)
+    Description: Price class used when provisioning per-domain distributions
   DomainBasePriceCents:
     Type: Number
     Default: 1200

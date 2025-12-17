@@ -27,10 +27,10 @@ const xmlParser = new XMLParser({
   trimValues: true,
 });
 
-const useLegacyProvider = () => Boolean(PROVIDER_BASE && PROVIDER_KEY);
+const useExternalRegistrar = () => Boolean(PROVIDER_BASE && PROVIDER_KEY);
 
-const assertLegacyProvider = () => {
-  if (!useLegacyProvider()) {
+const assertExternalRegistrar = () => {
+  if (!useExternalRegistrar()) {
     const error = new Error(
       'Domain registrar is not configured (DOMAIN_REGISTRAR_API + DOMAIN_REGISTRAR_API_KEY required)'
     );
@@ -49,8 +49,8 @@ const ensureNamecheapConfigured = () => {
   }
 };
 
-const legacyRequest = async (path, options = {}) => {
-  assertLegacyProvider();
+const externalRegistrarRequest = async (path, options = {}) => {
+  assertExternalRegistrar();
   const url = `${PROVIDER_BASE.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
   if (typeof fetch !== 'function') {
     throw new Error('fetch is not available in this runtime (Node.js 18+ required)');
@@ -209,8 +209,8 @@ const namecheapRequest = async (command, params = {}) => {
   return payload?.CommandResponse || {};
 };
 
-const checkAvailabilityWithLegacyProvider = async ({ domain }) => {
-  const result = await legacyRequest('domains/check', { body: { domain } });
+const checkAvailabilityWithExternalRegistrar = async ({ domain }) => {
+  const result = await externalRegistrarRequest('domains/check', { body: { domain } });
   return {
     domain,
     available: Boolean(result?.available),
@@ -240,15 +240,15 @@ const checkAvailability = async ({ domain }) => {
     error.statusCode = 400;
     throw error;
   }
-  if (useLegacyProvider()) {
-    return checkAvailabilityWithLegacyProvider({ domain });
+  if (useExternalRegistrar()) {
+    return checkAvailabilityWithExternalRegistrar({ domain });
   }
   ensureNamecheapConfigured();
   return checkAvailabilityWithNamecheap({ domain });
 };
 
-const registerWithLegacyProvider = async ({ domain, contact, slug }) => {
-  const result = await legacyRequest('domains/register', {
+const registerWithExternalRegistrar = async ({ domain, contact, slug }) => {
+  const result = await externalRegistrarRequest('domains/register', {
     body: {
       domain,
       contact,

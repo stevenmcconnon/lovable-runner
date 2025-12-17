@@ -92,10 +92,10 @@ const resolvePlaceholderLimit = (flagValue) => {
   if (direct !== undefined) return direct;
   const envValue = normalizePlaceholderLimitInput(process.env.LOVABLE_PLACEHOLDER_LIMIT);
   if (envValue !== undefined) return envValue;
-  const legacyValue = normalizePlaceholderLimitInput(
+  const fallbackValue = normalizePlaceholderLimitInput(
     process.env.LOVABLE_PLACEHOLDER_ATTEMPTS
   );
-  if (legacyValue !== undefined) return legacyValue;
+  if (fallbackValue !== undefined) return fallbackValue;
   return undefined;
 };
 

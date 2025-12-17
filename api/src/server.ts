@@ -27,6 +27,7 @@ import { SiteSeoService } from './services/site-seo';
 import { NotificationService } from './services/notifications';
 import { registerAnalyticsRoutes } from './routes/analytics';
 import { DomainJobService } from './services/domain-job';
+import { registerCoreRoutes } from './routes/core';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -118,6 +119,7 @@ export const buildServer = (): FastifyInstance => {
     registerSiteBuilderRoutes(instance, { db: database, runner });
     registerTrackingRoutes(instance);
     registerSeoRoutes(instance, { db: database, seo: siteSeoService });
+    registerCoreRoutes(instance);
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
