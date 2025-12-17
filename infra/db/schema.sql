@@ -245,6 +245,19 @@ CREATE TABLE IF NOT EXISTS site_metric_referrers (
   PRIMARY KEY (slug, event_date, referrer)
 );
 
+CREATE TABLE IF NOT EXISTS site_metrics_daily (
+  slug TEXT NOT NULL,
+  stat_date DATE NOT NULL,
+  views INTEGER NOT NULL DEFAULT 0,
+  cta_clicks INTEGER NOT NULL DEFAULT 0,
+  lead_submissions INTEGER NOT NULL DEFAULT 0,
+  booking_requests INTEGER NOT NULL DEFAULT 0,
+  unique_visitors INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (slug, stat_date)
+);
+
 CREATE TABLE IF NOT EXISTS notification_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT NOT NULL,

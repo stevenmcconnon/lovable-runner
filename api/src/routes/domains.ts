@@ -802,6 +802,48 @@ export const registerDomainRoutes = (
     }
   );
 
+  app.post(
+    '/sites/:slug/domains/:domain/https-refresh',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      if (!domainManager) {
+        return reply.code(503).send({ message: 'Domain manager is not configured' });
+      }
+      if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
+        return reply.code(403).send({ message: 'Forbidden' });
+      }
+      const params = slugDomainParams.parse(request.params);
+      const sanitizedDomain = sanitizeDomainOrThrow(params.domain);
+      const record = await db.getDomainByName(sanitizedDomain);
+      if (!record || record.slug !== params.slug) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      const isSuperAdmin = request.auth.roles.includes('super-admin');
+      const isOwner = !record.accountId || record.accountId === request.auth.profile.accountId;
+      if (!isOwner && !isSuperAdmin) {
+        return reply.code(404).send({ message: 'Domain not found' });
+      }
+      const refreshed = await domainManager.refreshHttps(record).catch((error) => {
+        request.log.warn(
+          { err: error, domain: sanitizedDomain, slug: params.slug },
+          '[domains] manual https refresh failed'
+        );
+        return null;
+      });
+      logDomainEvent(request, request.auth.profile, {
+        slug: params.slug,
+        action: 'domain.https.refresh',
+        description: `Manual HTTPS refresh requested for ${sanitizedDomain}`,
+        metadata: {
+          domain: sanitizedDomain,
+          status: refreshed?.httpsStatus ?? record.httpsStatus ?? 'unknown',
+        },
+      });
+      const finalRecord = refreshed ?? record;
+      return { domain: withDns(finalRecord, domainService) };
+    }
+  );
+
   app.get(
     '/sites/:slug/domains/status',
     { preHandler: app.authenticateUser },

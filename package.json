@@ -19,7 +19,8 @@
     "backfill:drafts": "node scripts/backfill-draft-prefix.js",
     "notifications:work": "node scripts/process-notification-jobs.js",
     "db:seed:plans": "node scripts/seed-subscription-plans.js",
-    "integrations:migrate": "node scripts/migrate-integration-tokens.js"
+    "integrations:migrate": "node scripts/migrate-integration-tokens.js",
+    "analytics:rollup": "node scripts/rollup-site-metrics.js"
   },
   "keywords": [
     "lovable",

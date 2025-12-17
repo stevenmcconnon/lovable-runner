@@ -1656,7 +1656,26 @@ export class DatabaseService {
   }
 
   async getSiteMetrics(slug: string, days = 30): Promise<{ views: number; ctaClicks: number }> {
-    const { rows } = await this.query(
+    const daily = await this.query(
+      `
+      SELECT
+        COALESCE(SUM(views), 0) AS views,
+        COALESCE(SUM(cta_clicks), 0) AS cta_clicks
+      FROM site_metrics_daily
+      WHERE slug = $1
+        AND stat_date >= (CURRENT_DATE - ($2 || ' days')::interval)
+    `,
+      [slug, days]
+    );
+    const viewValue = daily.rows[0]?.views;
+    const ctaValue = daily.rows[0]?.cta_clicks;
+    if (viewValue !== null && ctaValue !== null) {
+      return {
+        views: Number(viewValue ?? 0),
+        ctaClicks: Number(ctaValue ?? 0),
+      };
+    }
+    const legacy = await this.query(
       `
       SELECT
         COALESCE(SUM(views), 0) AS views,
@@ -1668,8 +1687,8 @@ export class DatabaseService {
       [slug, days]
     );
     return {
-      views: Number(rows[0]?.views ?? 0),
-      ctaClicks: Number(rows[0]?.cta_clicks ?? 0),
+      views: Number(legacy.rows[0]?.views ?? 0),
+      ctaClicks: Number(legacy.rows[0]?.cta_clicks ?? 0),
     };
   }
 

@@ -694,6 +694,27 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt NotificationWorkerRule.Arn
 
+  AnalyticsRollupRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-analytics-rollup
+      Description: Nightly analytics rollup
+      ScheduleExpression: rate(1 day)
+      State: ENABLED
+      Targets:
+        - Id: AnalyticsRollupTarget
+          Arn: !GetAtt RunnerFunction.Arn
+          Input: |
+            {"action":"RUN_ANALYTICS_ROLLUP"}
+
+  AnalyticsRollupInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RunnerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt AnalyticsRollupRule.Arn
+
   ContactEmailIdentity:
     Type: AWS::SES::EmailIdentity
     Properties:

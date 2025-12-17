@@ -61,6 +61,11 @@ const notificationService = new NotificationService({ db });
 const domainManager = new DomainManager({ db, edge: domainEdge, notifications: notificationService });
 const defaultRefreshLimit = Number(process.env.DOMAIN_REFRESH_LIMIT || 25);
 const { runNotificationBatch } = resolveRootModule('src/notification-worker.js');
+const {
+  rollupForDate,
+  rollupDateRange,
+  rollupPreviousDay,
+} = resolveRootModule('src/analytics-rollup.js');
 
 type SiteLaunchEvent = {
   requestId: string;
@@ -115,6 +120,12 @@ type DomainRefreshEvent = {
 type NotificationJobEvent = {
   limit?: number;
   dryRun?: boolean;
+};
+
+type AnalyticsRollupEvent = {
+  date?: string;
+  start?: string;
+  end?: string;
 };
 
 const updateStatus = async (requestId: string, status: string, extras: Record<string, unknown> = {}) => {
@@ -295,6 +306,23 @@ export const handleNotificationJobBatch = async (event: NotificationJobEvent = {
     logger: console,
   });
   return result;
+};
+
+export const handleAnalyticsRollupJob = async (event: AnalyticsRollupEvent = {}) => {
+  if (event.start || event.end) {
+    if (!event.start || !event.end) {
+      throw new Error('Both start and end must be provided to roll up a date range.');
+    }
+    const results = await rollupDateRange({
+      startDate: event.start,
+      endDate: event.end,
+    });
+    return { days: results.length, results };
+  }
+  if (event.date) {
+    return rollupForDate(event.date);
+  }
+  return rollupPreviousDay();
 };
 
 export const handleSiteUpdateJob = async (event: SiteUpdateEvent) => {

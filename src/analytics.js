@@ -100,10 +100,27 @@ const recordAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
   }
 };
 
-const listAnalytics = async ({ slug, days = 30 }) => {
-  if (!slug) throw new Error('slug is required');
-  const windowDays = clampDays(days);
-  const { rows } = await query(
+const fetchDailyMetrics = async ({ slug, days }) =>
+  query(
+    `
+    SELECT
+      stat_date,
+      views,
+      cta_clicks,
+      lead_submissions,
+      booking_requests,
+      unique_visitors
+    FROM site_metrics_daily
+    WHERE slug = $1
+      AND stat_date >= (CURRENT_DATE - ($2 || ' days')::interval)
+    ORDER BY stat_date DESC
+    LIMIT $3
+  `,
+    [slug, days, days]
+  );
+
+const fetchLegacyMetrics = async ({ slug, days }) =>
+  query(
     `
     SELECT
       event_date,
@@ -118,8 +135,20 @@ const listAnalytics = async ({ slug, days = 30 }) => {
     ORDER BY event_date DESC
     LIMIT $3
   `,
-    [slug, windowDays, windowDays]
+    [slug, days, days]
   );
+
+const listAnalytics = async ({ slug, days = 30 }) => {
+  if (!slug) throw new Error('slug is required');
+  const windowDays = clampDays(days);
+  let { rows } = await fetchDailyMetrics({ slug, days: windowDays });
+  if (!rows.length) {
+    const legacy = await fetchLegacyMetrics({ slug, days: windowDays });
+    rows = (legacy.rows || []).map((row) => ({
+      stat_date: row.event_date,
+      ...row,
+    }));
+  }
   const referrersResult = await query(
     `
     SELECT event_date, referrer, count
@@ -142,7 +171,11 @@ const listAnalytics = async ({ slug, days = 30 }) => {
   });
 
   return rows.map((row) => {
-    const statDate = row.event_date.toISOString().slice(0, 10);
+    const statDateSource = row.stat_date || row.event_date;
+    const statDate =
+      statDateSource instanceof Date
+        ? statDateSource.toISOString().slice(0, 10)
+        : new Date(statDateSource).toISOString().slice(0, 10);
     return {
       slug,
       statDate,
