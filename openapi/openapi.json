@@ -448,6 +448,9 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid payload"
+          },
           "402": {
             "description": "Usage limit exceeded",
             "content": {
@@ -457,9 +460,6 @@
                 }
               }
             }
-          },
-          "400": {
-            "description": "Invalid payload"
           }
         }
       }
@@ -531,6 +531,9 @@
               }
             }
           },
+          "400": {
+            "description": "Validation failure"
+          },
           "402": {
             "description": "Usage limit exceeded",
             "content": {
@@ -540,9 +543,6 @@
                 }
               }
             }
-          },
-          "400": {
-            "description": "Validation failure"
           },
           "404": {
             "description": "Site not found"
@@ -630,7 +630,7 @@
     "/sites/{slug}/instructions": {
       "post": {
         "summary": "Apply natural-language instructions",
-        "description": "LLM-assisted editing flow. Sends the stored site + human instructions to GPT\u20115.1 to produce a SitePatch, applies it, and redeploys the preview slug.",
+        "description": "LLM-assisted editing flow. Sends the stored site + human instructions to GPT-5.1 to produce a SitePatch, applies it, and redeploys the preview slug.",
         "operationId": "applyInstructions",
         "parameters": [
           {
@@ -675,6 +675,9 @@
               }
             }
           },
+          "400": {
+            "description": "Missing instructions"
+          },
           "402": {
             "description": "Usage limit exceeded",
             "content": {
@@ -685,9 +688,6 @@
               }
             }
           },
-          "400": {
-            "description": "Missing instructions"
-          },
           "404": {
             "description": "Site not found"
           }
@@ -697,7 +697,7 @@
     "/sites/{slug}/assets": {
       "get": {
         "summary": "List uploaded assets",
-        "description": "Returns objects stored under the site\u2019s asset prefix.",
+        "description": "Returns objects stored under the site's asset prefix.",
         "operationId": "listAssets",
         "parameters": [
           {
@@ -3054,9 +3054,6 @@
       },
       "InstructionRequest": {
         "type": "object",
-        "required": [
-          "instructions"
-        ],
         "properties": {
           "instructions": {
             "type": "string",
@@ -3084,469 +3081,6 @@
               ]
             }
           },
-          "SiteHistoryList": {
-            "type": "object",
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "entries": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "timestamp": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            },
-            "required": [
-              "slug",
-              "entries"
-            ]
-          },
-          "SiteRestoreRequest": {
-            "type": "object",
-            "required": [
-              "slug",
-              "historyId"
-            ],
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "historyId": {
-                "type": "string"
-              }
-            }
-          },
-          "SiteRestoreResponse": {
-            "type": "object",
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "historyId": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "slug",
-              "historyId"
-            ]
-          },
-          "ContactSubmissionRequest": {
-            "type": "object",
-            "required": [
-              "slug",
-              "fields"
-            ],
-            "properties": {
-              "slug": {
-                "type": "string",
-                "description": "Site slug taken from /content.json"
-              },
-              "sectionId": {
-                "type": "string",
-                "description": "Optional section id for the contact-form that triggered the submission"
-              },
-              "sourceUrl": {
-                "type": "string",
-                "format": "uri"
-              },
-              "intent": {
-                "type": "string",
-                "description": "Categorizes the submission (contact, booking, quote, etc.)"
-              },
-              "fields": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "required": [
-                    "label",
-                    "value"
-                  ],
-                  "properties": {
-                    "label": {
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "type": {
-                      "type": "string"
-                    },
-                    "value": {
-                      "oneOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "ContactSubmissionResponse": {
-            "type": "object",
-            "properties": {
-              "ok": {
-                "type": "boolean",
-                "default": true
-              }
-            }
-          },
-          "LeadMessage": {
-            "type": "object",
-            "properties": {
-              "messageId": {
-                "type": "string"
-              },
-              "direction": {
-                "type": "string",
-                "enum": [
-                  "inbound",
-                  "outbound"
-                ]
-              },
-              "channel": {
-                "type": "string"
-              },
-              "body": {
-                "type": "string"
-              },
-              "createdAt": {
-                "type": "string",
-                "format": "date-time"
-              }
-            }
-          },
-          "Lead": {
-            "type": "object",
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "leadId": {
-                "type": "string"
-              },
-              "intent": {
-                "type": "string"
-              },
-              "status": {
-                "type": "string"
-              },
-              "createdAt": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "updatedAt": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "fields": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/ContactField"
-                }
-              },
-              "messages": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/LeadMessage"
-                }
-              }
-            },
-            "required": [
-              "slug",
-              "leadId",
-              "status",
-              "createdAt"
-            ]
-          },
-          "ContactField": {
-            "type": "object",
-            "properties": {
-              "label": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string"
-              },
-              "value": {
-                "oneOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                ]
-              }
-            }
-          },
-          "LeadListResponse": {
-            "type": "object",
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "items": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/Lead"
-                }
-              },
-              "nextCursor": {
-                "type": "string",
-                "nullable": true
-              }
-            }
-          },
-          "LeadReplyRequest": {
-            "type": "object",
-            "required": [
-              "slug",
-              "leadId",
-              "message"
-            ],
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "leadId": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              },
-              "subject": {
-                "type": "string"
-              }
-            }
-          },
-          "LeadStatusRequest": {
-            "type": "object",
-            "required": [
-              "slug",
-              "leadId",
-              "status"
-            ],
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "leadId": {
-                "type": "string"
-              },
-              "status": {
-                "type": "string",
-                "enum": [
-                  "open",
-                  "responded",
-                  "closed"
-                ]
-              },
-              "followUpAt": {
-                "type": "string",
-                "format": "date-time",
-                "nullable": true
-              }
-            }
-          },
-          "Review": {
-            "type": "object",
-            "properties": {
-              "reviewId": {
-                "type": "string"
-              },
-              "authorName": {
-                "type": "string"
-              },
-              "body": {
-                "type": "string"
-              },
-              "rating": {
-                "type": "number",
-                "minimum": 1,
-                "maximum": 5
-              },
-              "status": {
-                "type": "string"
-              },
-              "createdAt": {
-                "type": "string",
-                "format": "date-time"
-              }
-            }
-          },
-          "ReviewListResponse": {
-            "type": "object",
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "items": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/Review"
-                }
-              }
-            }
-          },
-          "ReviewSubmissionRequest": {
-            "type": "object",
-            "required": [
-              "slug",
-              "body"
-            ],
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "authorName": {
-                "type": "string"
-              },
-              "rating": {
-                "type": "number",
-                "minimum": 1,
-                "maximum": 5
-              },
-              "body": {
-                "type": "string"
-              },
-              "contactEmail": {
-                "type": "string",
-                "format": "email"
-              },
-              "source": {
-                "type": "string"
-              }
-            }
-          },
-          "ReviewSubmissionResponse": {
-            "type": "object",
-            "properties": {
-              "review": {
-                "$ref": "#/components/schemas/Review"
-              }
-            }
-          },
-          "ReviewStatusRequest": {
-            "type": "object",
-            "required": [
-              "slug",
-              "reviewId",
-              "status"
-            ],
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "reviewId": {
-                "type": "string"
-              },
-              "status": {
-                "type": "string",
-                "enum": [
-                  "pending",
-                  "approved",
-                  "rejected"
-                ]
-              }
-            }
-          },
-          "AnalyticsRecord": {
-            "type": "object",
-            "properties": {
-              "statDate": {
-                "type": "string"
-              },
-              "pageViewCount": {
-                "type": "integer"
-              },
-              "leadCount": {
-                "type": "integer"
-              },
-              "bookingCount": {
-                "type": "integer"
-              },
-              "updatedAt": {
-                "type": "string",
-                "format": "date-time"
-              }
-            }
-          },
-          "AnalyticsResponse": {
-            "type": "object",
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "records": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/AnalyticsRecord"
-                }
-              },
-              "alerts": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "AnalyticsEventRequest": {
-            "type": "object",
-            "required": [
-              "slug",
-              "type"
-            ],
-            "properties": {
-              "slug": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "page_view",
-                  "lead",
-                  "booking"
-                ]
-              },
-              "path": {
-                "type": "string"
-              },
-              "referrer": {
-                "type": "string"
-              },
-              "metadata": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "string"
-                }
-              }
-            }
-          },
           "regenerateImages": {
             "type": "boolean",
             "default": false,
@@ -3563,8 +3097,23 @@
             "type": "string",
             "format": "uri",
             "description": "Optional new reference site for context."
+          },
+          "patch": {
+            "$ref": "#/components/schemas/SitePatch"
           }
-        }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "instructions"
+            ]
+          },
+          {
+            "required": [
+              "patch"
+            ]
+          }
+        ]
       },
       "AssetUploadRequest": {
         "type": "object",
@@ -5152,6 +4701,469 @@
           "instructions": {
             "type": "string",
             "nullable": true
+          }
+        }
+      },
+      "SiteHistoryList": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "entries"
+        ]
+      },
+      "SiteRestoreRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "historyId"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "historyId": {
+            "type": "string"
+          }
+        }
+      },
+      "SiteRestoreResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "historyId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "historyId"
+        ]
+      },
+      "ContactSubmissionRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "fields"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Site slug taken from /content.json"
+          },
+          "sectionId": {
+            "type": "string",
+            "description": "Optional section id for the contact-form that triggered the submission"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "intent": {
+            "type": "string",
+            "description": "Categorizes the submission (contact, booking, quote, etc.)"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "value"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "ContactSubmissionResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "LeadMessage": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "inbound",
+              "outbound"
+            ]
+          },
+          "channel": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Lead": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "leadId": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactField"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeadMessage"
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "leadId",
+          "status",
+          "createdAt"
+        ]
+      },
+      "ContactField": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "LeadListResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Lead"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "LeadReplyRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "leadId",
+          "message"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "leadId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        }
+      },
+      "LeadStatusRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "leadId",
+          "status"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "leadId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "responded",
+              "closed"
+            ]
+          },
+          "followUpAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "reviewId": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReviewListResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            }
+          }
+        }
+      },
+      "ReviewSubmissionRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "body"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "body": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      },
+      "ReviewSubmissionResponse": {
+        "type": "object",
+        "properties": {
+          "review": {
+            "$ref": "#/components/schemas/Review"
+          }
+        }
+      },
+      "ReviewStatusRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "reviewId",
+          "status"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "reviewId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          }
+        }
+      },
+      "AnalyticsRecord": {
+        "type": "object",
+        "properties": {
+          "statDate": {
+            "type": "string"
+          },
+          "pageViewCount": {
+            "type": "integer"
+          },
+          "leadCount": {
+            "type": "integer"
+          },
+          "bookingCount": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AnalyticsResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsRecord"
+            }
+          },
+          "alerts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AnalyticsEventRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "type"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "page_view",
+              "lead",
+              "booking"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "referrer": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       }
