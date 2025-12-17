@@ -193,6 +193,74 @@ CREATE TABLE IF NOT EXISTS site_domains (
 
 CREATE INDEX IF NOT EXISTS site_domains_slug_idx ON site_domains(slug);
 
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS https_status TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS https_ready_at TIMESTAMPTZ;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS https_checked_at TIMESTAMPTZ;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS certificate_arn TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS certificate_status TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS certificate_status_at TIMESTAMPTZ;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS certificate_validation JSONB;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS edge_domain TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS edge_distribution_id TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS edge_status TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS edge_status_at TIMESTAMPTZ;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS edge_function_name TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS edge_function_arn TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS canonical_host TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS canonical_mode TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS routing_error TEXT;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE site_domains ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS domain_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  domain TEXT NOT NULL,
+  slug TEXT,
+  job_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  payload JSONB,
+  scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS domain_jobs_status_schedule_idx ON domain_jobs(status, scheduled_at);
+CREATE INDEX IF NOT EXISTS domain_jobs_domain_idx ON domain_jobs(domain);
+
+CREATE TABLE IF NOT EXISTS domain_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  domain TEXT NOT NULL,
+  slug TEXT,
+  event_type TEXT NOT NULL,
+  status TEXT,
+  description TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS domain_events_domain_idx ON domain_events(domain, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS launch_reservations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL,
+  request_id UUID NOT NULL UNIQUE,
+  cost INTEGER NOT NULL DEFAULT 1,
+  limit_snapshot INTEGER,
+  status TEXT NOT NULL DEFAULT 'pending',
+  reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reserved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  consumed_at TIMESTAMPTZ,
+  released_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS launch_reservations_account_idx ON launch_reservations(account_id);
+
 CREATE TABLE IF NOT EXISTS site_deployments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT NOT NULL,
@@ -399,6 +467,12 @@ CREATE TRIGGER set_domain_orders_updated_at
 DROP TRIGGER IF EXISTS set_site_domains_updated_at ON site_domains;
 CREATE TRIGGER set_site_domains_updated_at
   BEFORE UPDATE ON site_domains
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS set_domain_jobs_updated_at ON domain_jobs;
+CREATE TRIGGER set_domain_jobs_updated_at
+  BEFORE UPDATE ON domain_jobs
   FOR EACH ROW
   EXECUTE FUNCTION set_updated_at();
 

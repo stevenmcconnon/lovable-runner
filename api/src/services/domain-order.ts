@@ -1,7 +1,7 @@
 import { DatabaseService } from './database';
 import { DomainService, DomainContactInput, DnsConfig } from './domain';
 import { DomainOrderRecord, DomainRecord } from '../types';
-import { DomainManager, PreparedEdgeMetadata } from './domain-manager';
+import { PreparedEdgeMetadata } from './domain-manager';
 import { DomainJobService } from './domain-job';
 
 export type DomainOrderMetadata = {
@@ -33,8 +33,7 @@ export class DomainOrderService {
     private readonly deps: {
       db: DatabaseService;
       domainService: DomainService;
-      domainManager?: DomainManager;
-      domainJobs?: DomainJobService;
+      domainJobs: DomainJobService;
     }
   ) {}
 
@@ -133,27 +132,12 @@ export class DomainOrderService {
     });
 
     if (metadata.edge) {
-      if (this.deps.domainJobs) {
-        await this.deps.domainJobs.enqueueProvisionJob({
-          domain: order.domain,
-          slug: metadata.slug,
-          canonicalMode: metadata.edge.canonicalMode,
-          canonicalHost: metadata.edge.canonicalHost,
-        });
-      } else if (this.deps.domainManager) {
-        const provisioned = await this.deps.domainManager.ensureCertificateForDomain({
-          domain: order.domain,
-          canonicalMode: metadata.edge.canonicalMode,
-          canonicalHost: metadata.edge.canonicalHost,
-        });
-        const latestRecord = await this.deps.db.getDomainByName(order.domain);
-        if (latestRecord) {
-          await this.deps.domainManager.refreshHttps({
-            ...latestRecord,
-            certificateArn: provisioned.certificate?.arn ?? latestRecord.certificateArn,
-          } as DomainRecord);
-        }
-      }
+      await this.deps.domainJobs.enqueueProvisionJob({
+        domain: order.domain,
+        slug: metadata.slug,
+        canonicalMode: metadata.edge.canonicalMode,
+        canonicalHost: metadata.edge.canonicalHost,
+      });
     }
 
     let wired = false;

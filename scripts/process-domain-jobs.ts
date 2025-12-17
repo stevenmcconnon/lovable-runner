@@ -13,7 +13,7 @@ const parseLimit = () => {
     const value = Number(process.argv[argIndex + 1]);
     if (Number.isFinite(value) && value > 0) return value;
   }
-  return Number(process.env.DOMAIN_JOB_BATCH_LIMIT || 10);
+  return config.domains.jobs.batchLimit;
 };
 
 const main = async () => {
@@ -28,7 +28,9 @@ const main = async () => {
   const manager = new DomainManager({ db, edge });
   const runner = new DomainJobRunner({ db, jobs, manager });
   try {
-    const result = await runner.runBatch(limit);
+    const result = await runner.runBatch(limit, {
+      maxRuntimeMs: config.domains.jobs.maxRuntimeMs,
+    });
     console.log(
       `Processed ${result.processed} domain job(s): completed=${result.completed}, retried=${result.retried}`
     );

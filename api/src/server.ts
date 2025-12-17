@@ -89,7 +89,6 @@ export const buildServer = (): FastifyInstance => {
   const domainOrderService = new DomainOrderService({
     db: database,
     domainService,
-    domainManager,
     domainJobs: domainJobService,
   });
   const siteSeoService = new SiteSeoService({ db: database });

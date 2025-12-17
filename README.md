@@ -51,6 +51,12 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 
 Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, PostgreSQL database, and the Lambda function wired to all routes.
 
+### AuthZ model
+- **End-user access** – Dashboard callers must present a Cognito ID token; the backend derives `accountId`/`profileId` from that token and never trusts a client-supplied `accountId`. Customer routes allow the `user`, `admin`, or `super-admin` groups, and admin routes hard-require the privileged groups.
+- **Machine access** – Internal automation (launch jobs, domain refreshes, etc.) runs with machine tokens minted by Cognito. Those tokens must include a `permissions` claim (e.g., `{"machine": true, "jobs":{"run":true}}`), and every `/internal` route verifies the relevant permission before enqueuing work.
+- **Launch reservations** – `/launch` uses the `launch_reservations` table to atomically reserve capacity per account/request id. A reservation is consumed only after the launch completes and is released on failure callbacks, which prevents double-spend when an idempotency key is retried.
+- **Rate limits & quotas** – Persistent counters in `rate_limit_counters` enforce anonymous launch caps, per-account domain quotas, purchase/day ceilings, and HTTPS refresh throttles so one noisy tenant cannot starve the rest.
+
 #### Custom domain & DNS
 - Request an ACM certificate in `us-east-1` that covers your API host (e.g., `api.ai-sitemaker.com`). Validate it in Route 53.
 - Deploy the SAM stack with `ApiCustomDomainName` and `ApiCertificateArn` parameters filled in. API Gateway will attach the custom domain to the HTTP API.
@@ -69,6 +75,17 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
   - `_aisite` TXT verification and ACM validation CNAMEs so DNS can be copy/pasted directly into Namecheap.
 - **Shared CloudFront distribution** – set `CUSTOM_DOMAIN_DISTRIBUTION_ID` (SAM parameter) to the single distribution that fronts all customer domains. Once ACM reports a certificate as `ISSUED`, the backend will call `UpdateDistribution` to add the apex + `www` aliases. Because CloudFront can only use one ACM certificate at a time, keep a dedicated SAN certificate (e.g., `arn:aws:acm:us-east-1:...:certificate/customer-domains`) up to date: append every new domain to that cert, re-run DNS validation, and then update the distribution’s `ViewerCertificate`. Until certificate automation lands, follow that runbook after every purchase.
 - **Polling HTTPS state** – the API calls `refreshHttps` opportunistically (e.g., when listing domains), but you should also run the new helper on a cron: `npm run domains:refresh -- --limit 50`. The deployed stack now includes an EventBridge rule (`lovable-runner-api-domain-refresh`) that invokes the Lambda every 5 minutes with the `RUN_DOMAIN_HTTPS_REFRESH` action, so HTTPS status advances even without dashboard traffic. You can still call the script manually for ad-hoc retries.
+
+##### Domain lifecycle
+- Customer domains move through `pending_payment → paid → dns_pending → cert_requested → cert_validating → edge_updating → active` (or `failed`). The `site_domains` table now stores certificate ARN/status, validation records, CloudFront distribution metadata, routing errors, and timestamps so the API can return constant-time responses without hitting ACM/CloudFront inline.
+- Every lifecycle change is recorded in the new `domain_jobs` / `domain_events` tables. Provisioning jobs are enqueued as soon as a cart item is created or a manual domain is attached, and edge sync jobs follow automatically after ACM reports `ISSUED`.
+- Per-account quotas enforce sanity: `DOMAIN_MAX_PER_ACCOUNT` caps total domains attached to an account, `DOMAIN_ORDER_DAILY_LIMIT` caps pending purchases per day, and `DOMAIN_REFRESH_DAILY_LIMIT` caps manual HTTPS refresh enqueues per account/day. These use the persistent `rate_limit_counters` table so limits survive restarts.
+- Domain failures are persisted (`status = 'failed'`, `routing_error` set) and logged as `domain.job.failed` events so operations has traceability when customers exceed validation windows or CloudFront updates stall.
+
+##### Domain job processing
+- EventBridge now invokes the Lambda every 2 minutes via the `DomainJobWorkerRule` with `{ "action": "RUN_DOMAIN_JOBS" }`. `DOMAIN_JOB_BATCH_LIMIT` and `DOMAIN_JOB_MAX_RUNTIME_MS` gate how many jobs run per invocation and how long a batch can run before remaining jobs are rescheduled. A Postgres advisory lock ensures only one invocation processes jobs at a time even if AWS retries overlap.
+- Provisioning and edge-sync retries use exponential backoff capped at 30 minutes (`DOMAIN_CERT_RETRY_MS` / `DOMAIN_EDGE_RETRY_MS`) with max-attempt cutoffs; once exceeded the job is marked failed, the domain is moved to `FAILED`, and a `domain.job.failed` event is written.
+- Operational guardrails ship with the stack: CloudWatch metric filters monitor `domain.job.failed`, `domain.lifecycle.failed`, and `ThrottlingException` log entries, with alarms that page when any occur. You can also override `RunnerReservedConcurrency` (default 0) if the AWS account has enough unreserved capacity to enforce a hard Lambda concurrency ceiling.
 
 ### Database (Amazon RDS)
 - The SAM stack provisions a managed PostgreSQL instance (`RunnerDatabase`) plus a Secrets Manager entry storing the username/password. Lambda receives `DATABASE_URL` automatically; local tooling can either rely on the stack metadata or pass `TEST_DATABASE_URL`.

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { DatabaseService } from '../services/database';
 import { domainHelpers } from '../services/domain';
 import { DomainManager } from '../services/domain-manager';
+import { config } from '../env';
 
 const completeJobSchema = z.object({
   s3Key: z.string().min(1),
@@ -32,6 +33,14 @@ const siteLaunchStageSchema = z.object({
 const domainRefreshParams = z.object({
   domain: z.string().min(3),
 });
+
+const defaultUsageLimit = () => config.limits.trialEditLimit + config.limits.signedInBonusEdits;
+
+const resolveUsageLimit = async (db: DatabaseService, accountId?: string | null) => {
+  if (!accountId) return defaultUsageLimit();
+  const subscription = await db.getSubscription(accountId);
+  return subscription?.monthlyEditLimit ?? defaultUsageLimit();
+};
 
 export const registerInternalRoutes = (
   app: FastifyInstance,
@@ -107,6 +116,17 @@ export const registerInternalRoutes = (
         publicUrl,
       });
       const updated = await db.getSiteGenerationByRequestId(requestId);
+      const reservation = await db.consumeLaunchReservation(requestId);
+      if (reservation) {
+        const limit =
+          reservation.limitSnapshot ?? (await resolveUsageLimit(db, reservation.accountId));
+        await db.incrementUsage(reservation.accountId, limit, reservation.cost).catch((error) =>
+          request.log.warn(
+            { err: error, requestId },
+            '[internal] Failed to consume launch usage reservation'
+          )
+        );
+      }
       return reply.send(updated);
     }
   );
@@ -128,6 +148,12 @@ export const registerInternalRoutes = (
         status: 'failed',
         errorMessage: parsed.data.errorMessage,
       });
+      await db.releaseLaunchReservation(requestId, parsed.data.errorMessage).catch((error) =>
+        request.log.warn(
+          { err: error, requestId },
+          '[internal] Failed to release launch usage reservation'
+        )
+      );
       const updated = await db.getSiteGenerationByRequestId(requestId);
       return reply.send(updated);
     }

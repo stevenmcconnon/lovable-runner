@@ -183,6 +183,42 @@ Parameters:
     Type: Number
     Default: 300
     Description: Markup (in cents) added on top of Namecheap’s price when customers buy domains
+  DomainJobBatchLimit:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 50
+    Description: Maximum number of domain jobs processed per invocation
+  DomainJobMaxRuntimeMs:
+    Type: Number
+    Default: 60000
+    MinValue: 1000
+    MaxValue: 300000
+    Description: Maximum runtime (milliseconds) allowed for a single domain job batch
+  RunnerReservedConcurrency:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 500
+    Description: Reserved concurrency limit for the runner Lambda to contain async worker storms (set to 0 to disable)
+  DomainMaxPerAccount:
+    Type: Number
+    Default: 5
+    MinValue: 0
+    MaxValue: 50
+    Description: Maximum number of custom domains allowed per account
+  DomainOrderDailyLimit:
+    Type: Number
+    Default: 5
+    MinValue: 0
+    MaxValue: 50
+    Description: Maximum number of pending domain orders per account per day
+  DomainRefreshDailyLimit:
+    Type: Number
+    Default: 25
+    MinValue: 0
+    MaxValue: 200
+    Description: Maximum number of manual HTTPS refresh requests per account per day
   SiteBuilderApiEnabled:
     Type: String
     AllowedValues:
@@ -260,6 +296,7 @@ Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAIApiKeySecretArn, '']]
   HasPreviewDomain: !Not [!Equals [!Ref PreviewDomainName, '']]
   HasIntegrationKmsKey: !Not [!Equals [!Ref IntegrationKmsKeyArn, '']]
+  HasReservedConcurrency: !Not [!Equals [!Ref RunnerReservedConcurrency, 0]]
 
 Resources:
   RunnerApi:
@@ -514,6 +551,10 @@ Resources:
       CodeUri: ../
       Handler: dist/lambda.handler
       Description: Backend API for AI SiteMaker
+      ReservedConcurrentExecutions: !If
+        - HasReservedConcurrency
+        - !Ref RunnerReservedConcurrency
+        - !Ref AWS::NoValue
       VpcConfig:
         SecurityGroupIds:
           - !Ref RunnerFunctionSecurityGroup
@@ -586,6 +627,11 @@ Resources:
           OUTLOOK_CALENDAR_CLIENT_ID: !Ref OutlookCalendarClientId
           OUTLOOK_CALENDAR_CLIENT_SECRET: !Ref OutlookCalendarClientSecret
           OUTLOOK_CALENDAR_REDIRECT_URI: !Ref OutlookCalendarRedirectUri
+          DOMAIN_JOB_BATCH_LIMIT: !Ref DomainJobBatchLimit
+          DOMAIN_JOB_MAX_RUNTIME_MS: !Ref DomainJobMaxRuntimeMs
+          DOMAIN_MAX_PER_ACCOUNT: !Ref DomainMaxPerAccount
+          DOMAIN_ORDER_DAILY_LIMIT: !Ref DomainOrderDailyLimit
+          DOMAIN_REFRESH_DAILY_LIMIT: !Ref DomainRefreshDailyLimit
       Events:
         RootProxy:
           Type: HttpApi
@@ -673,6 +719,27 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt DomainHttpsRefreshRule.Arn
 
+  DomainJobWorkerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-domain-jobs
+      Description: Kicks off the async domain job processor
+      ScheduleExpression: rate(2 minutes)
+      State: ENABLED
+      Targets:
+        - Id: DomainJobWorkerTarget
+          Arn: !GetAtt RunnerFunction.Arn
+          Input: !Sub |
+            {"action":"RUN_DOMAIN_JOBS","limit":${DomainJobBatchLimit}}
+
+  DomainJobWorkerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RunnerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DomainJobWorkerRule.Arn
+
   NotificationWorkerRule:
     Type: AWS::Events::Rule
     Properties:
@@ -714,6 +781,78 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt AnalyticsRollupRule.Arn
+
+  DomainJobFailureMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RunnerFunction}
+      FilterPattern: '"domain.job.failed"'
+      MetricTransformations:
+        - MetricValue: '1'
+          MetricNamespace: !Sub ${AWS::StackName}/DomainJobs
+          MetricName: DomainJobFailures
+
+  DomainJobFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-domain-job-failures
+      AlarmDescription: Domain job runner is failing repeatedly
+      Namespace: !Sub ${AWS::StackName}/DomainJobs
+      MetricName: DomainJobFailures
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  DomainLifecycleFailureMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RunnerFunction}
+      FilterPattern: '"domain.lifecycle.failed"'
+      MetricTransformations:
+        - MetricValue: '1'
+          MetricNamespace: !Sub ${AWS::StackName}/DomainJobs
+          MetricName: DomainLifecycleFailures
+
+  DomainLifecycleFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-domain-lifecycle-failures
+      AlarmDescription: Domains are entering FAILED state too frequently
+      Namespace: !Sub ${AWS::StackName}/DomainJobs
+      MetricName: DomainLifecycleFailures
+      Statistic: Sum
+      Period: 900
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  DomainThrottleMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RunnerFunction}
+      FilterPattern: '"ThrottlingException"'
+      MetricTransformations:
+        - MetricValue: '1'
+          MetricNamespace: !Sub ${AWS::StackName}/DomainJobs
+          MetricName: DomainAwsThrottles
+
+  DomainThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-domain-aws-throttles
+      AlarmDescription: ACM or CloudFront is throttling domain automation calls
+      Namespace: !Sub ${AWS::StackName}/DomainJobs
+      MetricName: DomainAwsThrottles
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
 
   ContactEmailIdentity:
     Type: AWS::SES::EmailIdentity

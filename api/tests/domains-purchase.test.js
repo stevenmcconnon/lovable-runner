@@ -52,7 +52,12 @@ const buildMockDeps = () => {
   const stripe = {
     createDomainCheckoutSession: async () => ({ checkoutUrl: 'https://example.com', sessionId: 'sess' }),
   };
-  return { db, domainService, domainOrderService, domainManager, stripe };
+  const domainJobs = {
+    enqueueProvisionJob: async () => ({
+      id: 'job',
+    }),
+  };
+  return { db, domainService, domainOrderService, domainManager, stripe, domainJobs };
 };
 
 const buildServer = () => {
@@ -82,7 +87,7 @@ const buildServer = () => {
     throw error;
   });
   app.decorate('requireRoles', async () => {});
-  registerDomainRoutes(app, { ...buildMockDeps(), notifications: undefined, runner: undefined, domainJobs: undefined });
+  registerDomainRoutes(app, { ...buildMockDeps(), notifications: undefined, runner: undefined });
   return app;
 };
 

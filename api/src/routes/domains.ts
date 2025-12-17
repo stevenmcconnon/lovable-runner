@@ -249,7 +249,7 @@ export const registerDomainRoutes = (
     stripe: StripeService;
     notifications?: NotificationService;
     runner?: import('../services/runner').RunnerService;
-    domainJobs?: DomainJobService;
+    domainJobs: DomainJobService;
   }
 ) => {
   const { db, domainService, domainOrderService, domainManager, stripe, notifications, runner, domainJobs } = deps;
@@ -338,6 +338,27 @@ export const registerDomainRoutes = (
         throw error;
       }
       const body = cartCheckoutSchema.parse(request.body);
+      const domainLimit = config.domains.limits?.maxPerAccount ?? 0;
+      if (domainLimit > 0 && profile.accountId) {
+        const ownedCount = await db.countDomainsForAccount(profile.accountId);
+        if (ownedCount + body.items.length > domainLimit) {
+          return reply
+            .code(429)
+            .send({ message: 'Domain quota reached for this account. Remove an existing domain before purchasing additional ones.' });
+        }
+      }
+      const dailyOrderLimit = config.domains.limits?.maxOrdersPerDay ?? 0;
+      if (dailyOrderLimit > 0) {
+        for (let i = 0; i < body.items.length; i += 1) {
+          await enforceRateLimit({
+            slug: null,
+            action: 'domain:orders:daily',
+            identifier: buildRateLimitIdentifier(profile),
+            limit: dailyOrderLimit,
+            windowMs: 24 * 60 * 60 * 1000,
+          });
+        }
+      }
       const seenDomains = new Set<string>();
       const orderSummaries: Array<{ order: DomainOrderRecord; priceCents: number }> = [];
 
@@ -492,6 +513,19 @@ export const registerDomainRoutes = (
         domain: sanitizedDomain,
         verificationToken: existing?.verificationToken ?? undefined,
       });
+      const domainLimit = config.domains.limits?.maxPerAccount ?? 0;
+      if (
+        domainLimit > 0 &&
+        (!existing || existing.slug !== params.slug) &&
+        profile.accountId
+      ) {
+        const ownedCount = await db.countDomainsForAccount(profile.accountId);
+        if (ownedCount >= domainLimit) {
+          return reply
+            .code(429)
+            .send({ message: 'Domain quota reached for this account. Please remove an existing domain before adding another.' });
+        }
+      }
       const { dnsConfig: enrichedDnsConfig, metadata: edgeMetadata } = await domainManager.prepareDnsConfig({
         domain: sanitizedDomain,
         slug: params.slug,
@@ -509,44 +543,20 @@ export const registerDomainRoutes = (
         dnsSettings: enrichedDnsConfig,
       });
       await domainManager.persistEdgeMetadata(sanitizedDomain, edgeMetadata);
-      if (domainJobs) {
-        await domainJobs
-          .enqueueProvisionJob({
-            domain: sanitizedDomain,
-            slug: params.slug,
-            canonicalMode: edgeMetadata.canonicalMode,
-            canonicalHost: edgeMetadata.canonicalHost,
-          })
-          .catch((error) =>
-            request.log.warn(
-              { err: (error as Error)?.message, domain: sanitizedDomain },
-              '[domains] Failed to enqueue certificate provisioning job'
-            )
-          );
-      } else {
-        setImmediate(() => {
-          domainManager
-            .ensureCertificateForDomain({
-              domain: sanitizedDomain,
-              canonicalMode: edgeMetadata.canonicalMode,
-              canonicalHost: edgeMetadata.canonicalHost,
-            })
-            .then(async () => {
-              const latest = await db.getDomainByName(sanitizedDomain);
-              if (latest) {
-                await domainManager.refreshHttps(latest).catch(() => null);
-              }
-            })
-            .catch((error) =>
-              request.log.warn(
-                { err: (error as Error)?.message, domain: sanitizedDomain },
-                '[domains] Failed to enqueue certificate provisioning'
-              )
-            );
-        });
-      }
-      const refreshed = await domainManager.refreshHttps(record).catch(() => null);
-      const finalRecord = refreshed ?? record;
+      await domainJobs
+        .enqueueProvisionJob({
+          domain: sanitizedDomain,
+          slug: params.slug,
+          canonicalMode: edgeMetadata.canonicalMode,
+          canonicalHost: edgeMetadata.canonicalHost,
+        })
+        .catch((error) =>
+          request.log.warn(
+            { err: (error as Error)?.message, domain: sanitizedDomain },
+            '[domains] Failed to enqueue certificate provisioning job'
+          )
+        );
+      const finalRecord = record;
       logDomainEvent(request, profile, {
         slug: params.slug,
         action: 'domain.attach.manual',
@@ -558,7 +568,7 @@ export const registerDomainRoutes = (
         },
       });
       return {
-        domain: finalRecord ? withDns(finalRecord, domainService) : null,
+        domain: withDns(finalRecord, domainService),
         dns: enrichedDnsConfig,
       };
     }
@@ -641,44 +651,20 @@ export const registerDomainRoutes = (
         dnsSettings: dnsConfig,
         status: 'dns_pending',
       });
-      if (domainJobs) {
-        await domainJobs
-          .enqueueProvisionJob({
-            domain: sanitizedDomain,
-            slug: params.slug,
-            canonicalMode: record.canonicalMode as CanonicalMode | undefined,
-            canonicalHost: record.canonicalHost ?? undefined,
-          })
-          .catch((error) =>
-            request.log.warn(
-              { err: (error as Error)?.message, domain: sanitizedDomain },
-              '[domains] Failed to enqueue certificate provisioning job'
-            )
-          );
-      } else {
-        setImmediate(() => {
-          domainManager
-            .ensureCertificateForDomain({
-              domain: sanitizedDomain,
-              canonicalMode: record.canonicalMode as CanonicalMode | undefined,
-              canonicalHost: record.canonicalHost ?? undefined,
-            })
-            .then(async () => {
-              const latest = await db.getDomainByName(sanitizedDomain);
-              if (latest) {
-                await domainManager.refreshHttps(latest).catch(() => null);
-              }
-            })
-            .catch((error) =>
-              request.log.warn(
-                { err: (error as Error)?.message, domain: sanitizedDomain },
-                '[domains] Failed to enqueue certificate provisioning'
-              )
-            );
-        });
-      }
-      const refreshed = await domainManager.refreshHttps(updated ?? record).catch(() => null);
-      const finalRecord = refreshed ?? updated ?? record;
+      await domainJobs
+        .enqueueProvisionJob({
+          domain: sanitizedDomain,
+          slug: params.slug,
+          canonicalMode: record.canonicalMode as CanonicalMode | undefined,
+          canonicalHost: record.canonicalHost ?? undefined,
+        })
+        .catch((error) =>
+          request.log.warn(
+            { err: (error as Error)?.message, domain: sanitizedDomain },
+            '[domains] Failed to enqueue certificate provisioning job'
+          )
+        );
+      const finalRecord = updated ?? record;
       logDomainEvent(request, profile, {
         slug: params.slug,
         action: 'domain.wire.manual',
@@ -689,7 +675,7 @@ export const registerDomainRoutes = (
         },
       });
       return {
-        domain: finalRecord ? withDns(finalRecord, domainService) : null,
+        domain: withDns(finalRecord, domainService),
         dns: dnsConfig,
         wired: true,
       };
@@ -733,51 +719,52 @@ export const registerDomainRoutes = (
           throw error;
         }
       }
-      if (runner) {
-        await runner
-          .requestDomainRefresh({ domain: sanitizedDomain })
-          .catch((error) => {
-            request.log.warn(
-              { err: error, domain: sanitizedDomain, slug: params.slug },
-              '[domains] Failed to enqueue domain refresh'
-            );
-            throw error;
+      const dailyRefreshLimit = config.domains.limits?.refreshDailyLimit ?? 0;
+      if (dailyRefreshLimit > 0) {
+        try {
+          await enforceRateLimit({
+            slug: params.slug,
+            action: 'domain:https-refresh:daily',
+            identifier: buildRateLimitIdentifier(request.auth.profile),
+            limit: dailyRefreshLimit,
+            windowMs: 24 * 60 * 60 * 1000,
           });
-        logDomainEvent(request, request.auth.profile, {
-          slug: params.slug,
-          action: 'domain.https.refresh.enqueue',
-          description: `Queued HTTPS refresh for ${sanitizedDomain}`,
-          metadata: {
-            domain: sanitizedDomain,
-            status: record.httpsStatus ?? 'unknown',
-          },
-        });
-        return reply.code(202).send({
-          status: 'queued',
-          domain: withDns(record, domainService),
-        });
+        } catch (error) {
+          if (isRateLimitError(error)) {
+            return reply
+              .code(429)
+              .send({ message: 'Daily HTTPS refresh quota reached. Please try again tomorrow.' });
+          }
+          throw error;
+        }
       }
-      if (!domainManager) {
-        return reply.code(503).send({ message: 'Domain manager is not configured' });
+      if (!runner) {
+        return reply
+          .code(503)
+          .send({ message: 'Domain refresh worker is not configured for this environment' });
       }
-      const refreshed = await domainManager.refreshHttps(record).catch((error) => {
-        request.log.warn(
-          { err: error, domain: sanitizedDomain, slug: params.slug },
-          '[domains] manual https refresh failed'
-        );
-        return null;
-      });
+      await runner
+        .requestDomainRefresh({ domain: sanitizedDomain })
+        .catch((error) => {
+          request.log.warn(
+            { err: error, domain: sanitizedDomain, slug: params.slug },
+            '[domains] Failed to enqueue domain refresh'
+          );
+          throw error;
+        });
       logDomainEvent(request, request.auth.profile, {
         slug: params.slug,
-        action: 'domain.https.refresh',
-        description: `Manual HTTPS refresh requested for ${sanitizedDomain}`,
+        action: 'domain.https.refresh.enqueue',
+        description: `Queued HTTPS refresh for ${sanitizedDomain}`,
         metadata: {
           domain: sanitizedDomain,
-          status: refreshed?.httpsStatus ?? record.httpsStatus ?? 'unknown',
+          status: record.httpsStatus ?? 'unknown',
         },
       });
-      const finalRecord = refreshed ?? record;
-      return { domain: withDns(finalRecord, domainService) };
+      return reply.code(202).send({
+        status: 'queued',
+        domain: withDns(record, domainService),
+      });
     }
   );
 

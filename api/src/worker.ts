@@ -367,8 +367,11 @@ export const handleSiteUpdateJob = async (event: SiteUpdateEvent) => {
 };
 
 export const handleDomainJobBatch = async (event: DomainJobEvent = {}) => {
-  const limit = Math.max(1, Number(event.limit) || Number(process.env.DOMAIN_JOB_BATCH_LIMIT || 10));
-  const result = await domainJobRunner.runBatch(limit);
+  const defaultLimit = config.domains.jobs.batchLimit;
+  const limit = Math.max(1, Number(event.limit) || defaultLimit);
+  const result = await domainJobRunner.runBatch(limit, {
+    maxRuntimeMs: config.domains.jobs.maxRuntimeMs,
+  });
   return result;
 };
 

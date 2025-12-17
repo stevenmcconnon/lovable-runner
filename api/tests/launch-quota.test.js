@@ -77,6 +77,7 @@ test('accepts signed-in launch with quota remaining and returns slug', async () 
     usage: { monthlyEditLimit: 1, editsUsedThisPeriod: 0, remainingEdits: 1 },
     incremented: false,
     recorded: null,
+    reservation: null,
   };
   const db = {
     getSubscription: async () => null,
@@ -92,6 +93,11 @@ test('accepts signed-in launch with quota remaining and returns slug', async () 
     incrementUsage: async () => {
       state.incremented = true;
     },
+    getPendingLaunchReservationTotal: async () => 0,
+    createLaunchReservation: async ({ accountId, requestId, cost, limitSnapshot }) => {
+      state.reservation = { accountId, requestId, cost, limitSnapshot };
+    },
+    releaseLaunchReservation: async () => {},
   };
   const app = buildMockServer(db);
   const response = await app.inject({
@@ -104,7 +110,7 @@ test('accepts signed-in launch with quota remaining and returns slug', async () 
   const body = response.json();
   assert.ok(body.slug, 'slug should be present');
   assert.ok(body.publicUrl?.startsWith('https://preview.ai-sitemaker.com/'));
-  assert.ok(state.incremented, 'usage should be incremented for anon launch');
+  assert.ok(state.reservation, 'usage reservation should be created for launch');
   await app.close();
 });
 
@@ -120,6 +126,9 @@ test('rejects cross-tenant launch attempts', async () => {
     touchSiteGenerationStage: async () => {},
     updateSiteGeneration: async () => {},
     incrementUsage: async () => {},
+    getPendingLaunchReservationTotal: async () => 0,
+    createLaunchReservation: async () => {},
+    releaseLaunchReservation: async () => {},
   };
   const app = buildMockServer(db);
   const response = await app.inject({
@@ -147,6 +156,9 @@ test('requires authentication for launch', async () => {
     touchSiteGenerationStage: async () => {},
     updateSiteGeneration: async () => {},
     incrementUsage: async () => {},
+    getPendingLaunchReservationTotal: async () => 0,
+    createLaunchReservation: async () => {},
+    releaseLaunchReservation: async () => {},
   };
   const app = buildMockServer(db);
   const response = await app.inject({
@@ -170,12 +182,44 @@ test('returns 402 when signed-in user exceeds quota', async () => {
     touchSiteGenerationStage: async () => {},
     updateSiteGeneration: async () => {},
     incrementUsage: async () => {},
+    getPendingLaunchReservationTotal: async () => 0,
+    createLaunchReservation: async () => {},
+    releaseLaunchReservation: async () => {},
   };
   const app = buildMockServer(db);
   const response = await app.inject({
     method: 'POST',
     url: '/launch',
     payload: { url: 'https://example.com/over' },
+    headers: { authorization: 'Bearer token' },
+  });
+  assert.strictEqual(response.statusCode, 402);
+  const body = response.json();
+  assert.strictEqual(body.code, 'LIMIT_EXCEEDED');
+  await app.close();
+});
+
+test('respects pending launch reservations when enforcing quota', async () => {
+  const db = {
+    getSubscription: async () => ({ status: 'active', monthlyEditLimit: 1 }),
+    getUsage: async () => ({ monthlyEditLimit: 1, editsUsedThisPeriod: 0, remainingEdits: 1 }),
+    buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 10 }),
+    listSiteGenerations: async () => [],
+    createSiteGenerationRequest: async () => {
+      throw new Error('should not create when reservations exceed quota');
+    },
+    touchSiteGenerationStage: async () => {},
+    updateSiteGeneration: async () => {},
+    incrementUsage: async () => {},
+    getPendingLaunchReservationTotal: async () => 1,
+    createLaunchReservation: async () => {},
+    releaseLaunchReservation: async () => {},
+  };
+  const app = buildMockServer(db);
+  const response = await app.inject({
+    method: 'POST',
+    url: '/launch',
+    payload: { url: 'https://example.com/pending' },
     headers: { authorization: 'Bearer token' },
   });
   assert.strictEqual(response.statusCode, 402);

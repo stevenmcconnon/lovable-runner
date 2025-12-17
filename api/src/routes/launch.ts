@@ -277,6 +277,7 @@ export const registerLaunchRoutes = (
         throw error;
       }
     }
+    const usageCost = 1;
     let subscription = null;
     let usage: any = null;
     let usageLimit = config.limits.trialEditLimit + config.limits.signedInBonusEdits;
@@ -297,7 +298,9 @@ export const registerLaunchRoutes = (
       const remaining = subscription?.status === 'active'
         ? usage.remainingEdits
         : Math.max(usageLimit - usage.editsUsedThisPeriod, 0);
-      if (remaining <= 0) {
+      const pendingReservations = await db.getPendingLaunchReservationTotal(accountId);
+      const effectiveRemaining = remaining - pendingReservations;
+      if (effectiveRemaining < usageCost) {
         return reply.code(402).send({
           message: 'Edit limit exceeded',
           code: 'LIMIT_EXCEEDED',
@@ -327,10 +330,22 @@ export const registerLaunchRoutes = (
       prefix: prefixPath,
       bucket: resolvedBucket,
     });
+    let reservedUsage = false;
     if (!isMachine && accountId) {
-      await db.incrementUsage(accountId, usageLimit, 1).catch((error) => {
-        request.log.warn({ err: error }, '[launch] Failed to increment usage');
-      });
+      await db
+        .createLaunchReservation({
+          accountId,
+          requestId,
+          cost: usageCost,
+          limitSnapshot: usageLimit,
+        })
+        .then(() => {
+          reservedUsage = true;
+        })
+        .catch((error) => {
+          request.log.warn({ err: error }, '[launch] Failed to create usage reservation');
+          throw error;
+        });
     }
     try {
       await runner.runLaunchDirect({
@@ -350,6 +365,14 @@ export const registerLaunchRoutes = (
         status: 'failed',
         errorMessage: error?.message ?? 'Failed to start launch',
       });
+      if (reservedUsage && accountId) {
+        await db.releaseLaunchReservation(requestId, error?.message).catch((releaseError) =>
+          request.log.warn(
+            { err: releaseError, requestId },
+            '[launch] Failed to release usage reservation'
+          )
+        );
+      }
       throw error;
     }
   });

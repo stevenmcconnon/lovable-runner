@@ -46,6 +46,11 @@ const envSchema = z
     CUSTOM_DOMAIN_PRICE_CLASS: z.string().optional(),
     CUSTOM_DOMAIN_CANONICAL_DEFAULT: z.string().optional(),
     CUSTOM_DOMAIN_DISTRIBUTION_ID: z.string().optional(),
+    DOMAIN_JOB_BATCH_LIMIT: z.string().optional(),
+    DOMAIN_JOB_MAX_RUNTIME_MS: z.string().optional(),
+    DOMAIN_MAX_PER_ACCOUNT: z.string().optional(),
+    DOMAIN_ORDER_DAILY_LIMIT: z.string().optional(),
+    DOMAIN_REFRESH_DAILY_LIMIT: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -109,6 +114,11 @@ const rawEnv = envSchema.parse({
   CUSTOM_DOMAIN_PRICE_CLASS: process.env.CUSTOM_DOMAIN_PRICE_CLASS,
   CUSTOM_DOMAIN_CANONICAL_DEFAULT: process.env.CUSTOM_DOMAIN_CANONICAL_DEFAULT,
   CUSTOM_DOMAIN_DISTRIBUTION_ID: process.env.CUSTOM_DOMAIN_DISTRIBUTION_ID,
+  DOMAIN_JOB_BATCH_LIMIT: process.env.DOMAIN_JOB_BATCH_LIMIT,
+  DOMAIN_JOB_MAX_RUNTIME_MS: process.env.DOMAIN_JOB_MAX_RUNTIME_MS,
+  DOMAIN_MAX_PER_ACCOUNT: process.env.DOMAIN_MAX_PER_ACCOUNT,
+  DOMAIN_ORDER_DAILY_LIMIT: process.env.DOMAIN_ORDER_DAILY_LIMIT,
+  DOMAIN_REFRESH_DAILY_LIMIT: process.env.DOMAIN_REFRESH_DAILY_LIMIT,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -160,6 +170,32 @@ const liveDomain = sanitizeHostname(rawEnv.LIVE_DOMAIN) || '';
 const edgeOriginHostname =
   sanitizeHostname(rawEnv.CUSTOM_DOMAIN_ORIGIN) || liveDomain || previewDomain || 'sites.ai-sitemaker.com';
 const edgeDistributionId = rawEnv.CUSTOM_DOMAIN_DISTRIBUTION_ID || '';
+
+const domainJobBatchLimit = (() => {
+  const parsed = Number(rawEnv.DOMAIN_JOB_BATCH_LIMIT ?? '');
+  const fallback = 10;
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.max(1, Math.min(parsed, 50));
+})();
+
+const domainJobMaxRuntimeMs = (() => {
+  const parsed = Number(rawEnv.DOMAIN_JOB_MAX_RUNTIME_MS ?? '');
+  const fallback = 60_000;
+  const value = Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return Math.max(1000, Math.min(value, 300_000));
+})();
+
+const parseLimitValue = (value: string | undefined, fallback: number) => {
+  const parsed = Number(value ?? '');
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.floor(parsed);
+};
+
+const domainLimits = {
+  maxPerAccount: Math.max(0, parseLimitValue(rawEnv.DOMAIN_MAX_PER_ACCOUNT, 0)),
+  maxOrdersPerDay: Math.max(0, parseLimitValue(rawEnv.DOMAIN_ORDER_DAILY_LIMIT, 0)),
+  refreshDailyLimit: Math.max(0, parseLimitValue(rawEnv.DOMAIN_REFRESH_DAILY_LIMIT, 0)),
+};
 
 const buildDatabaseUrl = () => {
   if (rawEnv.DATABASE_URL) return rawEnv.DATABASE_URL;
@@ -236,5 +272,10 @@ export const config = {
       canonicalDefault,
       distributionId: edgeDistributionId,
     },
+    jobs: {
+      batchLimit: domainJobBatchLimit,
+      maxRuntimeMs: domainJobMaxRuntimeMs,
+    },
+    limits: domainLimits,
   },
 } as const;

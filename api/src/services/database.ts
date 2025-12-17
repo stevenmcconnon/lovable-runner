@@ -34,6 +34,8 @@ const pool = new Pool({
   ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
 });
 
+const DOMAIN_JOB_LOCK_KEY = 837492;
+
 const toIsoString = (value: any) => value?.toISOString?.() ?? value ?? null;
 
 const mapProfile = (row: any): ProfileRecord => ({
@@ -1328,6 +1330,41 @@ export class DatabaseService {
     return rows.map(mapDomainRecord);
   }
 
+  async countDomainsForAccount(accountId: string): Promise<number> {
+    const { rows } = await this.query(
+      `
+      SELECT COUNT(*) AS count
+      FROM site_domains
+      WHERE account_id = $1
+    `,
+      [accountId]
+    );
+    return Number(rows?.[0]?.count ?? 0);
+  }
+
+  async acquireDomainJobLock(): Promise<(() => Promise<void>) | null> {
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query('SELECT pg_try_advisory_lock($1) AS locked', [
+        DOMAIN_JOB_LOCK_KEY,
+      ]);
+      if (!rows?.[0]?.locked) {
+        client.release();
+        return null;
+      }
+      return async () => {
+        try {
+          await client.query('SELECT pg_advisory_unlock($1)', [DOMAIN_JOB_LOCK_KEY]);
+        } finally {
+          client.release();
+        }
+      };
+    } catch (error) {
+      client.release();
+      throw error;
+    }
+  }
+
   async listDomainsNeedingHttpsRefresh(limit = 25): Promise<DomainRecord[]> {
     const safeLimit = Math.max(1, Math.min(Number(limit) || 25, 500));
     const { rows } = await this.query(
@@ -1394,6 +1431,94 @@ export class DatabaseService {
       values
     );
     return rows[0] ? mapDomainOrder(rows[0]) : null;
+  }
+
+  async getPendingLaunchReservationTotal(accountId: string): Promise<number> {
+    const { rows } = await this.query(
+      `
+      SELECT COALESCE(SUM(cost), 0) AS total
+      FROM launch_reservations
+      WHERE account_id = $1 AND status = 'pending'
+    `,
+      [accountId]
+    );
+    return Number(rows[0]?.total ?? 0);
+  }
+
+  async createLaunchReservation(params: {
+    accountId: string;
+    requestId: string;
+    cost: number;
+    limitSnapshot?: number | null;
+  }): Promise<void> {
+    await this.query(
+      `
+      INSERT INTO launch_reservations (account_id, request_id, cost, limit_snapshot, status)
+      VALUES ($1,$2,$3,$4,'pending')
+      ON CONFLICT (request_id) DO NOTHING
+    `,
+      [params.accountId, params.requestId, params.cost, params.limitSnapshot ?? null]
+    );
+  }
+
+  async releaseLaunchReservation(requestId: string, reason?: string): Promise<boolean> {
+    const result = await this.query(
+      `
+      UPDATE launch_reservations
+      SET status = 'released',
+          reason = COALESCE($2, reason),
+          released_at = NOW(),
+          updated_at = NOW()
+      WHERE request_id = $1 AND status = 'pending'
+    `,
+      [requestId, reason ?? null]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async consumeLaunchReservation(
+    requestId: string
+  ): Promise<{ accountId: string; cost: number; limitSnapshot: number | null } | null> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      const existing = await client.query(
+        `
+        SELECT *
+        FROM launch_reservations
+        WHERE request_id = $1
+        LIMIT 1
+        FOR UPDATE
+      `,
+        [requestId]
+      );
+      const row = existing.rows[0];
+      if (!row || row.status !== 'pending') {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      await client.query(
+        `
+        UPDATE launch_reservations
+        SET status = 'consumed',
+            consumed_at = NOW(),
+            updated_at = NOW()
+        WHERE request_id = $1
+      `,
+        [requestId]
+      );
+      await client.query('COMMIT');
+      return {
+        accountId: row.account_id,
+        cost: Number(row.cost ?? 1),
+        limitSnapshot: row.limit_snapshot ?? null,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async enqueueDomainJob(params: {
