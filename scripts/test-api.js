@@ -347,6 +347,52 @@ const tests = [
     },
   },
   {
+    name: 'GET /usage',
+    required: ['customer'],
+    run: async () => {
+      const result = await fetchJson('/usage', withAuth(tokens.customer));
+      if (!result?.usage || !result?.limits) {
+        throw new Error('Usage payload missing usage or limits');
+      }
+      if (!result.metrics || typeof result.metrics.views !== 'number') {
+        throw new Error('Usage metrics missing aggregate counters');
+      }
+    },
+  },
+  {
+    name: 'GET /usage/limits',
+    required: ['customer'],
+    run: async () => {
+      const limits = await fetchJson('/usage/limits', withAuth(tokens.customer));
+      if (!limits || typeof limits.monthlyEditLimit !== 'number') {
+        throw new Error('Usage limits missing monthlyEditLimit');
+      }
+    },
+  },
+  {
+    name: 'GET /billing/plans',
+    required: [],
+    run: async () => {
+      const plans = await fetchJson('/billing/plans');
+      if (!plans || !Array.isArray(plans.items)) {
+        throw new Error('Billing plans response missing items array');
+      }
+    },
+  },
+  {
+    name: 'GET /billing/subscription-status',
+    required: ['customer'],
+    run: async () => {
+      const status = await fetchJson('/billing/subscription-status', withAuth(tokens.customer));
+      if (!status?.subscription || !status?.limits) {
+        throw new Error('Subscription status payload missing subscription or limits');
+      }
+      if (!status.usage || typeof status.usage.remainingEdits !== 'number') {
+        throw new Error('Subscription status missing usage counters');
+      }
+    },
+  },
+  {
     name: 'POST /customer/edit-requests',
     required: ['customer'],
     run: async () => {
