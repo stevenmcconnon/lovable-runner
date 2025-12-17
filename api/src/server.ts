@@ -22,6 +22,10 @@ import { registerTrackingRoutes } from './routes/tracking';
 import { DomainOrderService } from './services/domain-order';
 import { DomainEdgeService } from './services/domain-edge';
 import { DomainManager } from './services/domain-manager';
+import { registerSeoRoutes } from './routes/seo';
+import { SiteSeoService } from './services/site-seo';
+import { NotificationService } from './services/notifications';
+import { registerAnalyticsRoutes } from './routes/analytics';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -74,12 +78,18 @@ export const buildServer = (): FastifyInstance => {
     canonicalDefault: config.domains.edge.canonicalDefault,
     distributionId: config.domains.edge.distributionId,
   });
-  const domainManager = new DomainManager({ db: database, edge: domainEdgeService });
+  const notificationService = new NotificationService({ db: database });
+  const domainManager = new DomainManager({
+    db: database,
+    edge: domainEdgeService,
+    notifications: notificationService,
+  });
   const domainOrderService = new DomainOrderService({
     db: database,
     domainService,
     domainManager,
   });
+  const siteSeoService = new SiteSeoService({ db: database });
 
   app.register(buildAuthPlugin(database));
   app.register(async (instance) => {
@@ -92,15 +102,18 @@ export const buildServer = (): FastifyInstance => {
       domainOrderService,
       domainManager,
       stripe,
+      notifications: notificationService,
     });
-    registerPublishingRoutes(instance, { db: database });
+    registerPublishingRoutes(instance, { db: database, notifications: notificationService });
     registerUsageRoutes(instance, { db: database });
+    registerAnalyticsRoutes(instance, { db: database });
     registerWebhookRoutes(instance, { db: database, stripe, domainOrderService });
     registerInternalRoutes(instance, { db: database, domainManager });
     registerLaunchRoutes(instance, { db: database, runner });
     registerAuthRoutes(instance, { db: database });
     registerSiteBuilderRoutes(instance, { db: database, runner });
-    registerTrackingRoutes(instance, { db: database });
+    registerTrackingRoutes(instance);
+    registerSeoRoutes(instance, { db: database, seo: siteSeoService });
   });
 
   app.get('/health', async () => ({ status: 'ok' }));

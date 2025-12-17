@@ -24,6 +24,16 @@ const { ensurePreviewPlaceholder } = rootRequire('src/preview-placeholder.js') a
     requestId?: string;
   }) => Promise<boolean>;
 };
+const { enforceRateLimit, RateLimitError } = rootRequire('src/rate-limit.js') as {
+  enforceRateLimit: (params: {
+    slug?: string | null;
+    action: string;
+    identifier: string;
+    limit: number;
+    windowMs?: number;
+  }) => Promise<void>;
+  RateLimitError: new (message?: string) => Error & { statusCode?: number };
+};
 
 const businessDetailsSchema = z
   .object({
@@ -198,6 +208,22 @@ export const registerCustomerRoutes = (
       });
     }
     const body = parsed.data;
+    try {
+      await enforceRateLimit({
+        slug: null,
+        action: 'site:create',
+        identifier: profile.accountId,
+        limit: Number(process.env.SITE_CREATE_HOURLY_LIMIT || 3),
+        windowMs: 60 * 60 * 1000,
+      });
+    } catch (error: any) {
+      if (error instanceof RateLimitError || error?.statusCode === 429) {
+        return reply.code(429).send({
+          message: 'Site creation limit reached. Please wait before launching another site.',
+        });
+      }
+      throw error;
+    }
     const requestId = randomUUID();
     const subscription = await db.getSubscription(profile.accountId);
     const limit = subscription?.monthlyEditLimit ?? trialAllowance();

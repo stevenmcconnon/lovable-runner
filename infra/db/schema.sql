@@ -220,9 +220,100 @@ CREATE TABLE IF NOT EXISTS site_metrics (
   event_date DATE NOT NULL DEFAULT CURRENT_DATE,
   views INTEGER NOT NULL DEFAULT 0,
   cta_clicks INTEGER NOT NULL DEFAULT 0,
+  lead_submissions INTEGER NOT NULL DEFAULT 0,
+  booking_requests INTEGER NOT NULL DEFAULT 0,
+  unique_visitors INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (slug, event_date)
+);
+
+CREATE TABLE IF NOT EXISTS site_metric_visitors (
+  slug TEXT NOT NULL,
+  event_date DATE NOT NULL,
+  visitor_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (slug, event_date, visitor_hash)
+);
+
+CREATE TABLE IF NOT EXISTS site_metric_referrers (
+  slug TEXT NOT NULL,
+  event_date DATE NOT NULL,
+  referrer TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (slug, event_date, referrer)
+);
+
+CREATE TABLE IF NOT EXISTS notification_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL,
+  recipient TEXT NOT NULL,
+  template TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body_text TEXT,
+  body_html TEXT,
+  reply_to TEXT,
+  cc JSONB,
+  metadata JSONB,
+  dedupe_key TEXT UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  next_attempt_at TIMESTAMPTZ DEFAULT NOW(),
+  sent_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS notification_jobs_status_idx ON notification_jobs(status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS notification_jobs_slug_idx ON notification_jobs(slug);
+
+CREATE TABLE IF NOT EXISTS integration_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID,
+  slug TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  scopes TEXT[],
+  provider_user_id TEXT,
+  encrypted_access_token TEXT NOT NULL,
+  encrypted_refresh_token TEXT,
+  expires_at TIMESTAMPTZ,
+  metadata JSONB,
+  last_error TEXT,
+  last_refresh_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (slug, provider)
+);
+
+CREATE INDEX IF NOT EXISTS integration_tokens_status_idx ON integration_tokens(status);
+
+CREATE TABLE IF NOT EXISTS site_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT,
+  account_id UUID,
+  actor_user_id UUID,
+  actor_email TEXT,
+  action TEXT NOT NULL,
+  description TEXT,
+  metadata JSONB,
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS site_audit_logs_slug_idx ON site_audit_logs(slug, created_at);
+
+CREATE TABLE IF NOT EXISTS rate_limit_counters (
+  slug TEXT,
+  action TEXT NOT NULL,
+  identifier TEXT NOT NULL,
+  window_start TIMESTAMPTZ NOT NULL,
+  window_end TIMESTAMPTZ NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (slug, action, identifier, window_start)
 );
 
 -- Seed subscription plans (idempotent)

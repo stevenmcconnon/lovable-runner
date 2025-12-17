@@ -49,6 +49,7 @@ import { DomainEdgeService } from './services/domain-edge';
 import { DomainManager } from './services/domain-manager';
 import { domainHelpers } from './services/domain';
 import { BusinessDetailsInput, DomainRecord } from './types';
+import { NotificationService } from './services/notifications';
 
 const db = new DatabaseService();
 const domainEdge = new DomainEdgeService({
@@ -56,8 +57,10 @@ const domainEdge = new DomainEdgeService({
   canonicalDefault: config.domains.edge.canonicalDefault,
   distributionId: config.domains.edge.distributionId,
 });
-const domainManager = new DomainManager({ db, edge: domainEdge });
+const notificationService = new NotificationService({ db });
+const domainManager = new DomainManager({ db, edge: domainEdge, notifications: notificationService });
 const defaultRefreshLimit = Number(process.env.DOMAIN_REFRESH_LIMIT || 25);
+const { runNotificationBatch } = resolveRootModule('src/notification-worker.js');
 
 type SiteLaunchEvent = {
   requestId: string;
@@ -107,6 +110,11 @@ type EditJobEvent = {
 type DomainRefreshEvent = {
   limit?: number;
   domain?: string;
+};
+
+type NotificationJobEvent = {
+  limit?: number;
+  dryRun?: boolean;
 };
 
 const updateStatus = async (requestId: string, status: string, extras: Record<string, unknown> = {}) => {
@@ -277,6 +285,16 @@ export const handleDomainRefreshJob = async (event: DomainRefreshEvent = {}) => 
     refreshed: refreshedCount,
     domains: rows,
   };
+};
+
+export const handleNotificationJobBatch = async (event: NotificationJobEvent = {}) => {
+  const limit = Math.max(1, Number(event.limit) || Number(process.env.NOTIFICATION_BATCH_LIMIT || 25));
+  const result = await runNotificationBatch({
+    limit,
+    dryRun: Boolean(event.dryRun),
+    logger: console,
+  });
+  return result;
 };
 
 export const handleSiteUpdateJob = async (event: SiteUpdateEvent) => {

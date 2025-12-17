@@ -1,0 +1,4 @@
+{
+  "Comment": "Preview router rewrites JSON to draft storage and shares the base bundle.",
+  "Runtime": "cloudfront-js-1.0"
+}

@@ -1,7 +1,13 @@
 import awsLambdaFastify from '@fastify/aws-lambda';
 import { APIGatewayProxyEventV2, Context } from 'aws-lambda';
 import { buildServer } from './server';
-import { handleDomainRefreshJob, handleEditRequestJob, handleSiteLaunchJob, handleSiteUpdateJob } from './worker';
+import {
+  handleDomainRefreshJob,
+  handleEditRequestJob,
+  handleNotificationJobBatch,
+  handleSiteLaunchJob,
+  handleSiteUpdateJob,
+} from './worker';
 
 let proxy: ReturnType<typeof awsLambdaFastify>;
 
@@ -73,6 +79,16 @@ const handleActionEvent = async (event: any) => {
     const result = await handleDomainRefreshJob({
       limit: event.limit,
       domain: event.domain,
+    });
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+    };
+  }
+  if (event?.action === 'RUN_NOTIFICATION_JOBS') {
+    const result = await handleNotificationJobBatch({
+      limit: event.limit,
+      dryRun: event.dryRun,
     });
     return {
       statusCode: 200,

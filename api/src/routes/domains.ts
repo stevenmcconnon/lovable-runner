@@ -1,4 +1,5 @@
-import { FastifyInstance } from 'fastify';
+import path from 'node:path';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { DatabaseService } from '../services/database';
 import { DomainService, domainHelpers, DnsConfig } from '../services/domain';
@@ -7,6 +8,42 @@ import { DomainOrderService } from '../services/domain-order';
 import { StripeService } from '../services/stripe';
 import { config } from '../env';
 import { DomainManager } from '../services/domain-manager';
+import { NotificationService } from '../services/notifications';
+
+const rootRequire = (relativePath: string): any => {
+  try {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    return require(path.join(process.cwd(), relativePath));
+  } catch {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    return require(path.join(__dirname, '..', '..', relativePath));
+  }
+};
+
+const { enforceRateLimit, RateLimitError } = rootRequire('src/rate-limit.js') as {
+  enforceRateLimit: (params: {
+    slug?: string | null;
+    action: string;
+    identifier: string;
+    limit: number;
+    windowMs?: number;
+  }) => Promise<void>;
+  RateLimitError: new (message?: string) => Error & { statusCode?: number };
+};
+
+const { recordAuditEvent } = rootRequire('src/audit-log.js') as {
+  recordAuditEvent: (params: {
+    slug?: string | null;
+    accountId?: string | null;
+    actorUserId?: string | null;
+    actorEmail?: string | null;
+    action: string;
+    description?: string | null;
+    metadata?: Record<string, unknown> | null;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }) => Promise<void>;
+};
 
 const contactSchema = z.object({
   firstName: z.string().min(2).max(120).optional(),
@@ -75,6 +112,54 @@ const slugDomainParams = z.object({
 const ensureCustomerAccess = (roles: UserRole[]) => {
   const allowed: UserRole[] = ['customer', 'admin', 'super-admin'];
   return allowed.some((role) => roles.includes(role));
+};
+
+type ProfileSummary = {
+  accountId?: string | null;
+  id?: string | null;
+  email?: string | null;
+};
+
+const extractRequestMeta = (request: FastifyRequest) => {
+  const forwardedFor = request.headers['x-forwarded-for'];
+  const ipAddress =
+    request.ip ||
+    (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor) ||
+    ((request as any).raw?.socket?.remoteAddress ?? null);
+  const userAgentHeader = request.headers['user-agent'] || request.headers['User-Agent'];
+  const userAgent = Array.isArray(userAgentHeader) ? userAgentHeader[0] : userAgentHeader || null;
+  return { ipAddress, userAgent };
+};
+
+const logDomainEvent = (
+  request: FastifyRequest,
+  profile: ProfileSummary | null | undefined,
+  params: { slug?: string | null; action: string; description: string; metadata?: Record<string, unknown> | null }
+) => {
+  recordAuditEvent({
+    slug: params.slug ?? null,
+    accountId: profile?.accountId ?? null,
+    actorUserId: profile?.id ?? null,
+    actorEmail: profile?.email ?? null,
+    action: params.action,
+    description: params.description,
+    metadata: params.metadata ?? null,
+    ...extractRequestMeta(request),
+  }).catch((error) =>
+    request.log.warn({ err: error, action: params.action }, '[domains] audit log failed')
+  );
+};
+
+const buildRateLimitIdentifier = (profile: ProfileSummary | null | undefined) =>
+  profile?.accountId || profile?.id || profile?.email || 'anonymous';
+
+const isRateLimitError = (error: unknown): boolean => {
+  if (!error) return false;
+  if (error instanceof RateLimitError) return true;
+  if (typeof error === 'object' && 'statusCode' in error) {
+    return (error as { statusCode?: number }).statusCode === 429;
+  }
+  return false;
 };
 
 const sanitizeDomainOrThrow = (value: string) => {
@@ -169,9 +254,10 @@ export const registerDomainRoutes = (
     domainOrderService: DomainOrderService;
     domainManager: DomainManager;
     stripe: StripeService;
+    notifications?: NotificationService;
   }
 ) => {
-  const { db, domainService, domainOrderService, domainManager, stripe } = deps;
+  const { db, domainService, domainOrderService, domainManager, stripe, notifications } = deps;
 
   app.get('/domains', { preHandler: app.authenticateUser }, async (request, reply) => {
     if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
@@ -198,6 +284,23 @@ export const registerDomainRoutes = (
     if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
       return reply.code(403).send({ message: 'Forbidden' });
     }
+    const profile = request.auth.profile;
+    try {
+      await enforceRateLimit({
+        slug: null,
+        action: 'domain:search',
+        identifier: buildRateLimitIdentifier(profile),
+        limit: Number(process.env.DOMAIN_SEARCH_PER_MINUTE || 30),
+        windowMs: 60 * 1000,
+      });
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        return reply
+          .code(429)
+          .send({ message: 'Too many domain searches. Please wait a moment and try again.' });
+      }
+      throw error;
+    }
     const body = searchSchema.parse(request.body);
     const candidates = await domainService.search(body.query, body.tlds, body.limit);
     const enriched = await Promise.all(
@@ -221,6 +324,22 @@ export const registerDomainRoutes = (
     }
     const profile = request.auth.profile;
     const body = purchaseSchema.parse(request.body);
+    try {
+      await enforceRateLimit({
+        slug: body.slug,
+        action: 'domain:purchase',
+        identifier: buildRateLimitIdentifier(profile),
+        limit: Number(process.env.DOMAIN_PURCHASE_HOURLY_LIMIT || 3),
+        windowMs: 60 * 60 * 1000,
+      });
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        return reply
+          .code(429)
+          .send({ message: 'Domain purchase limit reached. Please try again later.' });
+      }
+      throw error;
+    }
     const sanitizedDomain = sanitizeDomainOrThrow(body.domain);
     const existing = await db.getDomainByName(sanitizedDomain);
     if (existing && existing.slug !== body.slug) {
@@ -302,6 +421,31 @@ export const registerDomainRoutes = (
           },
           '[domains] automatic wiring failed'
         );
+        logDomainEvent(request, profile, {
+          slug: body.slug,
+          action: 'domain.wire.failed',
+          description: `Automatic wiring failed for ${sanitizedDomain}`,
+          metadata: {
+            domain: sanitizedDomain,
+            error: (error as Error)?.message,
+            autoWireRequested: true,
+          },
+        });
+        if (notifications) {
+          notifications
+            .notifyDomainWireFailure({
+              slug: body.slug,
+              accountId: profile.accountId,
+              domain: sanitizedDomain,
+              error: (error as Error)?.message,
+            })
+            .catch((notifyErr) =>
+              request.log.warn(
+                { err: notifyErr, domain: sanitizedDomain },
+                '[domains] Failed to enqueue wire failure notification'
+              )
+            );
+        }
         return reply
           .code(502)
           .send({ message: 'Domain purchase succeeded but wiring failed. Please try again.' });
@@ -311,6 +455,36 @@ export const registerDomainRoutes = (
     const currentRecord = (await db.getDomainByName(sanitizedDomain)) ?? record;
     const refreshed = await domainManager.refreshHttps(currentRecord).catch(() => null);
     const finalRecord = refreshed ?? currentRecord;
+
+    if (notifications) {
+      notifications
+        .notifyDomainPurchase({
+          slug: body.slug,
+          accountId: profile.accountId,
+          domain: sanitizedDomain,
+          wired,
+          autoWireRequested: shouldWire,
+        })
+        .catch((error) =>
+          request.log.warn(
+            { err: error, domain: sanitizedDomain },
+            '[domains] Failed to enqueue purchase notification'
+          )
+        );
+    }
+
+    logDomainEvent(request, profile, {
+      slug: body.slug,
+      action: 'domain.purchase',
+      description: `Purchased domain ${sanitizedDomain}${wired ? ' (wired)' : ''}`,
+      metadata: {
+        domain: sanitizedDomain,
+        wired,
+        autoWireRequested: shouldWire,
+        orderId: order.id,
+        providerOrderId: purchase?.providerOrderId ?? null,
+      },
+    });
 
     return {
       order,
@@ -327,8 +501,24 @@ export const registerDomainRoutes = (
       if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
         return reply.code(403).send({ message: 'Forbidden' });
       }
-      const body = cartCheckoutSchema.parse(request.body);
       const profile = request.auth.profile;
+      try {
+        await enforceRateLimit({
+          slug: null,
+          action: 'domain:purchase',
+          identifier: buildRateLimitIdentifier(profile),
+          limit: Number(process.env.DOMAIN_PURCHASE_HOURLY_LIMIT || 3),
+          windowMs: 60 * 60 * 1000,
+        });
+      } catch (error) {
+        if (isRateLimitError(error)) {
+          return reply
+            .code(429)
+            .send({ message: 'Domain purchase limit reached. Please try again later.' });
+        }
+        throw error;
+      }
+      const body = cartCheckoutSchema.parse(request.body);
       const seenDomains = new Set<string>();
       const orderSummaries: Array<{ order: DomainOrderRecord; priceCents: number }> = [];
 
@@ -457,6 +647,22 @@ export const registerDomainRoutes = (
       const profile = request.auth.profile;
       const params = slugParams.parse(request.params);
       const body = manualSchema.parse(request.body);
+      try {
+        await enforceRateLimit({
+          slug: params.slug,
+          action: 'domain:attach',
+          identifier: buildRateLimitIdentifier(profile),
+          limit: Number(process.env.DOMAIN_ATTACH_HOURLY_LIMIT || 10),
+          windowMs: 60 * 60 * 1000,
+        });
+      } catch (error) {
+        if (isRateLimitError(error)) {
+          return reply
+            .code(429)
+            .send({ message: 'Domain attachment limit reached. Please wait and try again.' });
+        }
+        throw error;
+      }
       const sanitizedDomain = sanitizeDomainOrThrow(body.domain);
       const existing = await db.getDomainByName(sanitizedDomain);
       if (existing && existing.slug !== params.slug) {
@@ -486,6 +692,16 @@ export const registerDomainRoutes = (
       await domainManager.persistEdgeMetadata(sanitizedDomain, edgeMetadata);
       const refreshed = await domainManager.refreshHttps(record).catch(() => null);
       const finalRecord = refreshed ?? record;
+      logDomainEvent(request, profile, {
+        slug: params.slug,
+        action: 'domain.attach.manual',
+        description: `Attached domain ${sanitizedDomain}`,
+        metadata: {
+          domain: sanitizedDomain,
+          type: 'manual',
+          status: finalRecord?.status ?? 'pending',
+        },
+      });
       return {
         domain: finalRecord ? withDns(finalRecord, domainService) : null,
         dns: enrichedDnsConfig,
@@ -504,6 +720,23 @@ export const registerDomainRoutes = (
         return reply.code(400).send({ message: 'Automatic wiring is not enabled' });
       }
       const params = slugDomainParams.parse(request.params);
+      const profile = request.auth.profile;
+      try {
+        await enforceRateLimit({
+          slug: params.slug,
+          action: 'domain:wire',
+          identifier: buildRateLimitIdentifier(profile),
+          limit: Number(process.env.DOMAIN_WIRE_HOURLY_LIMIT || 5),
+          windowMs: 60 * 60 * 1000,
+        });
+      } catch (error) {
+        if (isRateLimitError(error)) {
+          return reply
+            .code(429)
+            .send({ message: 'Domain wiring limit reached. Please try again later.' });
+        }
+        throw error;
+      }
       const sanitizedDomain = sanitizeDomainOrThrow(params.domain);
       const record = await db.getDomainByName(sanitizedDomain);
       if (!record || record.slug !== params.slug) {
@@ -537,11 +770,30 @@ export const registerDomainRoutes = (
           },
           '[domains] manual wire failed'
         );
+        logDomainEvent(request, profile, {
+          slug: params.slug,
+          action: 'domain.wire.failed',
+          description: `Automatic wiring failed for ${sanitizedDomain}`,
+          metadata: {
+            domain: sanitizedDomain,
+            error: (error as Error)?.message,
+            manualRequest: true,
+          },
+        });
         return reply.code(502).send({ message: 'Unable to wire domain at this time' });
       }
       const updated = await db.updateSiteDomain(sanitizedDomain, { dnsSettings: dnsConfig });
       const refreshed = await domainManager.refreshHttps(updated ?? record).catch(() => null);
       const finalRecord = refreshed ?? updated ?? record;
+      logDomainEvent(request, profile, {
+        slug: params.slug,
+        action: 'domain.wire.manual',
+        description: `Wired domain ${sanitizedDomain}`,
+        metadata: {
+          domain: sanitizedDomain,
+          type: 'managed',
+        },
+      });
       return {
         domain: finalRecord ? withDns(finalRecord, domainService) : null,
         dns: dnsConfig,
@@ -602,6 +854,14 @@ export const registerDomainRoutes = (
       }
       await db.setPrimaryDomainForSlug(params.slug, sanitizedDomain);
       const updated = await db.getDomainByName(sanitizedDomain);
+      logDomainEvent(request, request.auth.profile, {
+        slug: params.slug,
+        action: 'domain.primary.set',
+        description: `Set ${sanitizedDomain} as the primary domain`,
+        metadata: {
+          domain: sanitizedDomain,
+        },
+      });
       return { domain: updated ? withDns(updated, domainService) : null };
     }
   );
@@ -625,6 +885,14 @@ export const registerDomainRoutes = (
         return reply.code(404).send({ message: 'Domain not found' });
       }
       await db.deleteSiteDomain(sanitizedDomain, params.slug);
+      logDomainEvent(request, request.auth.profile, {
+        slug: params.slug,
+        action: 'domain.detach',
+        description: `Removed domain ${sanitizedDomain}`,
+        metadata: {
+          domain: sanitizedDomain,
+        },
+      });
       reply.code(204).send();
     }
   );

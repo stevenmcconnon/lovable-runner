@@ -1,89 +1,187 @@
-const AWS = require('aws-sdk');
+const crypto = require('node:crypto');
+const { query } = require('./pg-client');
 
-const TABLE_NAME =
-  process.env.SITE_ANALYTICS_TABLE ||
-  process.env.ANALYTICS_TABLE_NAME ||
-  process.env.LOVABLE_ANALYTICS_TABLE;
-
-const getClient = () => {
-  if (!TABLE_NAME) {
-    throw new Error('SITE_ANALYTICS_TABLE environment variable is not set.');
-  }
-  if (!AWS.config.region && process.env.AWS_REGION) {
-    AWS.config.update({ region: process.env.AWS_REGION });
-  }
-  return new AWS.DynamoDB.DocumentClient();
+const EVENT_COLUMNS = {
+  view: 'views',
+  cta: 'cta_clicks',
+  lead: 'lead_submissions',
+  booking: 'booking_requests',
 };
 
-const recordAnalyticsEvent = async ({ slug, type, metadata }) => {
-  if (!slug || !type) return;
+const clampDays = (value) => {
+  const num = Number(value) || 30;
+  if (Number.isNaN(num)) return 30;
+  return Math.min(Math.max(Math.floor(num), 1), 365);
+};
+
+const normalizeReferrer = (value) => {
+  if (!value || typeof value !== 'string') return null;
   try {
-    const client = getClient();
-    const dateKey = new Date().toISOString().slice(0, 10);
-    const fieldName =
-      type === 'booking'
-        ? 'bookingCount'
-        : type === 'lead'
-        ? 'leadCount'
-        : 'pageViewCount';
-    await client
-      .update({
-        TableName: TABLE_NAME,
-        Key: { slug, statDate: dateKey },
-        UpdateExpression:
-          'ADD #metric :inc SET #updatedAt = :now, #lastType = :type, #metadata = list_append(if_not_exists(#metadata, :empty), :meta)',
-        ExpressionAttributeNames: {
-          '#metric': fieldName,
-          '#updatedAt': 'updatedAt',
-          '#lastType': 'lastEventType',
-          '#metadata': 'metadata',
-        },
-        ExpressionAttributeValues: {
-          ':inc': 1,
-          ':now': new Date().toISOString(),
-          ':type': type,
-          ':empty': [],
-          ':meta': metadata ? [metadata] : [],
-        },
-      })
-      .promise();
-  } catch (error) {
-    console.warn('[analytics] Failed to record event', error.message);
+    const url = new URL(value);
+    const host = url.hostname?.toLowerCase()?.replace(/^www\./, '');
+    if (!host) return null;
+    const path = url.pathname && url.pathname !== '/' ? url.pathname : '';
+    return `${host}${path}`;
+  } catch {
+    return value.trim().slice(0, 200);
+  }
+};
+
+const normalizePath = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  return value.trim().slice(0, 200);
+};
+
+const hashVisitorId = (value) => {
+  if (!value) return null;
+  return crypto.createHash('sha1').update(String(value)).digest('hex');
+};
+
+const incrementMetric = async ({ slug, eventDate, column }) => {
+  const sql = `
+    INSERT INTO site_metrics (slug, event_date, ${column})
+    VALUES ($1, $2::date, 1)
+    ON CONFLICT (slug, event_date)
+    DO UPDATE SET ${column} = site_metrics.${column} + 1, updated_at = NOW()
+  `;
+  await query(sql, [slug, eventDate]);
+};
+
+const tryIncrementUniqueVisitor = async ({ slug, eventDate, visitorHash }) => {
+  if (!visitorHash) return;
+  const inserted = await query(
+    `
+    INSERT INTO site_metric_visitors (slug, event_date, visitor_hash)
+    VALUES ($1,$2::date,$3)
+    ON CONFLICT DO NOTHING
+  `,
+    [slug, eventDate, visitorHash]
+  );
+  if (inserted.rowCount) {
+    await query(
+      `
+      UPDATE site_metrics
+      SET unique_visitors = unique_visitors + 1, updated_at = NOW()
+      WHERE slug = $1 AND event_date = $2::date
+    `,
+      [slug, eventDate]
+    );
+  }
+};
+
+const recordReferrer = async ({ slug, eventDate, referrer }) => {
+  if (!referrer) return;
+  await query(
+    `
+    INSERT INTO site_metric_referrers (slug, event_date, referrer, count, last_seen)
+    VALUES ($1,$2::date,$3,1,NOW())
+    ON CONFLICT (slug, event_date, referrer)
+    DO UPDATE SET count = site_metric_referrers.count + 1, last_seen = NOW()
+  `,
+    [slug, eventDate, referrer]
+  );
+};
+
+const recordAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
+  if (!slug || !type) return;
+  const normalizedType = type.toLowerCase();
+  const column = EVENT_COLUMNS[normalizedType] || EVENT_COLUMNS.view;
+  const eventDate = new Date().toISOString().slice(0, 10);
+  const visitorHash = hashVisitorId(metadata.visitorId);
+  const referrer = normalizeReferrer(metadata.referrer);
+
+  await incrementMetric({ slug, eventDate, column });
+
+  if (normalizedType === 'view') {
+    await tryIncrementUniqueVisitor({ slug, eventDate, visitorHash });
+  }
+  if (referrer) {
+    await recordReferrer({ slug, eventDate, referrer });
   }
 };
 
 const listAnalytics = async ({ slug, days = 30 }) => {
   if (!slug) throw new Error('slug is required');
-  const client = getClient();
-  const result = await client
-    .query({
-      TableName: TABLE_NAME,
-      KeyConditionExpression: '#slug = :slug',
-      ExpressionAttributeNames: { '#slug': 'slug' },
-      ExpressionAttributeValues: { ':slug': slug },
-      ScanIndexForward: false,
-      Limit: days,
-    })
-    .promise();
-  return result.Items || [];
+  const windowDays = clampDays(days);
+  const { rows } = await query(
+    `
+    SELECT
+      event_date,
+      views,
+      cta_clicks,
+      lead_submissions,
+      booking_requests,
+      unique_visitors
+    FROM site_metrics
+    WHERE slug = $1
+      AND event_date >= (CURRENT_DATE - ($2 || ' days')::interval)
+    ORDER BY event_date DESC
+    LIMIT $3
+  `,
+    [slug, windowDays, windowDays]
+  );
+  const referrersResult = await query(
+    `
+    SELECT event_date, referrer, count
+    FROM site_metric_referrers
+    WHERE slug = $1
+      AND event_date >= (CURRENT_DATE - ($2 || ' days')::interval)
+    ORDER BY event_date DESC, count DESC
+  `,
+    [slug, windowDays]
+  );
+
+  const referrerMap = new Map();
+  referrersResult.rows.forEach((row) => {
+    const key = row.event_date.toISOString().slice(0, 10);
+    const existing = referrerMap.get(key) || [];
+    if (existing.length < 5) {
+      existing.push({ referrer: row.referrer, count: Number(row.count || 0) });
+      referrerMap.set(key, existing);
+    }
+  });
+
+  return rows.map((row) => {
+    const statDate = row.event_date.toISOString().slice(0, 10);
+    return {
+      slug,
+      statDate,
+      pageViewCount: Number(row.views || 0),
+      ctaCount: Number(row.cta_clicks || 0),
+      leadCount: Number(row.lead_submissions || 0),
+      bookingCount: Number(row.booking_requests || 0),
+      uniqueVisitors: Number(row.unique_visitors || 0),
+      topReferrers: referrerMap.get(statDate) || [],
+    };
+  });
 };
 
-const buildAlerts = (records) => {
-  if (!records?.length) return ['No analytics data yet.'];
+const buildAlerts = (records = []) => {
+  if (!records.length) return ['No analytics data yet.'];
+  const totals = records.reduce(
+    (acc, record) => {
+      acc.views += record.pageViewCount || 0;
+      acc.leads += record.leadCount || 0;
+      acc.bookings += record.bookingCount || 0;
+      return acc;
+    },
+    { views: 0, leads: 0, bookings: 0 }
+  );
   const alerts = [];
-  const totalLeads = records.reduce((sum, r) => sum + (r.leadCount || 0), 0);
-  const totalViews = records.reduce((sum, r) => sum + (r.pageViewCount || 0), 0);
-  if (totalViews === 0) {
+  if (totals.views === 0) {
     alerts.push('Your site has not received any visits yet.');
   }
-  if (totalLeads === 0 && records.length >= 7) {
+  if (totals.leads === 0 && records.length >= 7) {
     alerts.push('No leads captured in the last week.');
   }
-  if (totalLeads > 0 && totalViews > 0) {
-    const conversion = (totalLeads / totalViews) * 100;
+  if (totals.leads > 0 && totals.views > 0) {
+    const conversion = (totals.leads / totals.views) * 100;
     if (conversion < 1) {
       alerts.push('Lead conversion is under 1%. Consider improving CTAs.');
     }
+  }
+  if (totals.bookings === 0 && records.length >= 7) {
+    alerts.push('No booking requests captured recently.');
   }
   return alerts.length ? alerts : ['Traffic and leads look healthy.'];
 };
@@ -92,4 +190,5 @@ module.exports = {
   recordAnalyticsEvent,
   listAnalytics,
   buildAlerts,
+  normalizePath,
 };

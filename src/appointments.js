@@ -201,15 +201,6 @@ const saveAppointmentSettings = (params = {}) => {
   if (rest.calendarProvider !== undefined) {
     updates.calendarProvider = rest.calendarProvider || null;
   }
-  if (rest.calendarToken !== undefined) {
-    updates.calendarToken = rest.calendarToken || null;
-  }
-  if (rest.calendarRefreshToken !== undefined) {
-    updates.calendarRefreshToken = rest.calendarRefreshToken || null;
-  }
-  if (rest.calendarExpiresAt !== undefined) {
-    updates.calendarExpiresAt = rest.calendarExpiresAt || null;
-  }
   if (rest.calendarAccountEmail !== undefined) {
     updates.calendarAccountEmail = rest.calendarAccountEmail || null;
   }

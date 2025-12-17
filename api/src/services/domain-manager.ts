@@ -2,6 +2,7 @@ import { DatabaseService } from './database';
 import { DnsConfig, DnsRecord } from './domain';
 import { CanonicalMode, CertificateInfo, DomainEdgeService, ValidationRecord as EdgeValidationRecord } from './domain-edge';
 import { DomainRecord } from '../types';
+import { NotificationService } from './notifications';
 
 export type PreparedEdgeMetadata = {
   canonicalMode: CanonicalMode;
@@ -14,6 +15,7 @@ export class DomainManager {
     private readonly deps: {
       db: DatabaseService;
       edge: DomainEdgeService;
+      notifications?: NotificationService;
     }
   ) {}
 
@@ -127,7 +129,27 @@ export class DomainManager {
     }
 
     if (!dirty) return null;
-    return this.deps.db.updateSiteDomain(record.domain, patch);
+    const updated = await this.deps.db.updateSiteDomain(record.domain, patch);
+    if (
+      updated &&
+      updated.httpsStatus === 'live' &&
+      record.httpsStatus !== 'live' &&
+      this.deps.notifications
+    ) {
+      this.deps.notifications
+        .notifyHttpsLive({
+          slug: updated.slug,
+          accountId: updated.accountId ?? null,
+          domain: updated.domain,
+        })
+        .catch((error) =>
+          console.warn('[domain-manager] Failed to enqueue HTTPS live notification', {
+            domain: updated.domain,
+            err: (error as Error)?.message,
+          })
+        );
+    }
+    return updated;
   }
 
   private toDnsRecord(record: EdgeValidationRecord, domain: string): DnsRecord {

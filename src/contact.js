@@ -1,11 +1,8 @@
-const AWS = require('aws-sdk');
 const { loadSiteConfig } = require('./site-store');
 const { captureLeadSubmission } = require('./leads');
 const { createAppointment } = require('./appointments');
 const { getPreferences } = require('./notification-preferences');
-const { CONTACT_FROM_EMAIL } = require('./email-config');
-
-const ses = new AWS.SES();
+const { enqueueNotificationJob } = require('./notification-jobs');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -184,21 +181,25 @@ const submitContactMessage = async ({
   });
 
   if (shouldDeliver) {
-    await ses
-      .sendEmail({
-        Source: CONTACT_FROM_EMAIL,
-        Destination: { ToAddresses: [targetEmail] },
-        CcAddresses: replyTo ? [replyTo] : undefined,
-        ReplyToAddresses: replyTo ? [replyTo] : undefined,
-        Message: {
-          Subject: { Data: subject, Charset: 'UTF-8' },
-          Body: {
-            Text: { Data: textBody, Charset: 'UTF-8' },
-            Html: { Data: htmlBody, Charset: 'UTF-8' },
-          },
-        },
-      })
-      .promise();
+    const job = await enqueueNotificationJob({
+      slug,
+      recipient: targetEmail,
+      template: intent === 'booking' ? 'booking-request' : 'contact-lead',
+      subject,
+      bodyText: textBody,
+      bodyHtml: htmlBody,
+      replyTo: replyTo || null,
+      cc: replyTo ? [replyTo] : undefined,
+      metadata: {
+        slug,
+        sectionId,
+        sourceUrl: sourceUrl || null,
+        remoteAddress: remoteAddress || null,
+        userAgent: userAgent || null,
+        intent: intent || 'contact',
+      },
+    });
+    console.log('[contact] Notification queued', { slug, targetEmail, jobId: job?.id });
   } else {
     console.log('[contact] Notification suppressed by user preferences', {
       slug,

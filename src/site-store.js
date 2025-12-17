@@ -10,9 +10,18 @@ const resolveBucket = () =>
 
 const buildContentKey = (slug) => `site-builds/sites/${slug}/content.json`;
 const buildTemplateKey = (slug) => `site-builds/sites/${slug}/template.json`;
+const buildDraftStoragePrefix = (slug) => `sites/${slug}/draft`;
+const buildLiveStoragePrefix = (slug) => `sites/${slug}/live`;
 const buildLegacyKey = (slug) => `site-builds/sites/${slug}/site.json`;
 const buildHistoryBase = (slug, timestamp) =>
   `site-builds/sites/${slug}/history/${timestamp.replace(/[:.]/g, '-')}`;
+const normalizePrefix = (prefix = '') => prefix.replace(/\/+$/, '');
+const withTrailingSlash = (prefix = '') => {
+  const trimmed = normalizePrefix(prefix);
+  return trimmed ? `${trimmed}/` : '';
+};
+const encodeCopySource = (bucket, key) =>
+  `/${bucket}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
 
 const s3 = new AWS.S3();
 
@@ -319,29 +328,113 @@ const saveSiteConfig = async ({ slug, site, metadata, storagePrefix }) => {
     metadata: mergedMetadata,
   };
 
-  const uploads = [
-    { key: buildContentKey(slug), payload: contentRecord },
-    { key: buildTemplateKey(slug), payload: templateRecord },
-  ];
+  const uploads = new Map();
+  const addUpload = (key, payload) => {
+    if (!key) return;
+    uploads.set(key, payload);
+  };
+
+  addUpload(buildContentKey(slug), contentRecord);
+  addUpload(buildTemplateKey(slug), templateRecord);
+
+  const registerPrefixUploads = (prefix) => {
+    const base = normalizePrefix(prefix);
+    const contentKey = base ? `${base}/content.json` : 'content.json';
+    const templateKey = base ? `${base}/template.json` : 'template.json';
+    addUpload(contentKey, contentRecord);
+    addUpload(templateKey, templateRecord);
+  };
+
+  registerPrefixUploads(buildDraftStoragePrefix(slug));
 
   if (storagePrefix) {
-    const base = storagePrefix.replace(/\/+$/, '');
-    uploads.push(
-      { key: base ? `${base}/content.json` : 'content.json', payload: contentRecord },
-      { key: base ? `${base}/template.json` : 'template.json', payload: templateRecord }
-    );
+    registerPrefixUploads(storagePrefix);
   }
 
-  for (const entry of uploads) {
+  for (const [key, payload] of uploads.entries()) {
     try {
-      await writeJson({ bucket, key: entry.key, payload: entry.payload });
+      await writeJson({ bucket, key, payload });
     } catch (error) {
       console.warn('[site-store] Failed to persist site config', {
-        key: entry.key,
+        key,
         err: error?.message,
       });
     }
   }
+};
+
+const copyPrefixObjects = async ({ bucket, sourcePrefix, destinationPrefix }) => {
+  if (!bucket || !sourcePrefix || !destinationPrefix) return { copied: 0 };
+  const sourceBase = withTrailingSlash(sourcePrefix);
+  const targetBase = withTrailingSlash(destinationPrefix);
+  let continuationToken;
+  let copied = 0;
+  do {
+    const page = await s3
+      .listObjectsV2({
+        Bucket: bucket,
+        Prefix: sourceBase,
+        ContinuationToken: continuationToken,
+      })
+      .promise();
+    const objects = page.Contents || [];
+    for (const object of objects) {
+      const key = object.Key;
+      if (!key || !key.startsWith(sourceBase)) continue;
+      const relative = key.slice(sourceBase.length);
+      if (!relative) continue;
+      const destinationKey = `${targetBase}${relative}`;
+      await s3
+        .copyObject({
+          Bucket: bucket,
+          Key: destinationKey,
+          CopySource: encodeCopySource(bucket, key),
+          MetadataDirective: 'COPY',
+        })
+        .promise();
+      copied += 1;
+    }
+    continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return {
+    copied,
+    sourcePrefix: normalizePrefix(sourceBase),
+    destinationPrefix: normalizePrefix(targetBase),
+  };
+};
+
+const promoteDraftToLive = async (slug) => {
+  if (!slug) throw new Error('slug is required');
+  const bucket = resolveBucket();
+  if (!bucket) throw new Error('SITE_STORE_BUCKET or equivalent bucket env is required');
+  const draftPrefix = buildDraftStoragePrefix(slug);
+  const livePrefix = buildLiveStoragePrefix(slug);
+  const draftBase = normalizePrefix(draftPrefix);
+  const draftContentKey = draftBase ? `${draftBase}/content.json` : 'content.json';
+  try {
+    await s3
+      .headObject({
+        Bucket: bucket,
+        Key: draftContentKey,
+      })
+      .promise();
+  } catch (error) {
+    if (error.code === 'NotFound' || error.code === 'NoSuchKey') {
+      const notFound = new Error('Draft content not found');
+      notFound.statusCode = 404;
+      throw notFound;
+    }
+    throw error;
+  }
+  const copyResult = await copyPrefixObjects({
+    bucket,
+    sourcePrefix: draftPrefix,
+    destinationPrefix: livePrefix,
+  });
+  return {
+    bucket,
+    ...copyResult,
+  };
 };
 
 const extractSlugFromKey = (key) => {
@@ -533,4 +626,7 @@ module.exports = {
   listHistoryEntries,
   restoreSiteFromHistory,
   getAllowedSlugsForUser,
+  buildDraftStoragePrefix,
+  buildLiveStoragePrefix,
+  promoteDraftToLive,
 };

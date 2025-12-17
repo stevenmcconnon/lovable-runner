@@ -20,6 +20,7 @@ const {
   updateAppointmentStatus,
   saveAppointmentSettings,
   getAppointmentSettings,
+  patchAppointmentSettings,
   setOAuthState,
   clearOAuthState,
   setAppointmentCalendarEvent,
@@ -28,6 +29,13 @@ const {
 const calendar = require('./calendar');
 const { checkAvailability, registerDomain } = require('./domain-provisioning');
 const { getPreferences, savePreferences } = require('./notification-preferences');
+const {
+  saveIntegrationToken,
+  getIntegrationToken,
+  deleteIntegrationToken,
+} = require('./integration-store');
+const { enforceRateLimit, RateLimitError } = require('./rate-limit');
+const { recordAuditEvent } = require('./audit-log');
 
 const buildHtmlResponse = (statusCode, message) => ({
   statusCode,
@@ -48,35 +56,87 @@ const decodeOAuthState = (stateParam) => {
   }
 };
 
+const migrateLegacyCalendarTokens = async ({ slug, settings }) => {
+  if (!settings?.calendarProvider) return null;
+  if (!settings.calendarToken) return null;
+  try {
+    await saveIntegrationToken({
+      slug,
+      provider: settings.calendarProvider,
+      accessToken: settings.calendarToken,
+      refreshToken: settings.calendarRefreshToken || null,
+      expiresAt: settings.calendarExpiresAt || null,
+      metadata: {
+        accountEmail: settings.calendarAccountEmail || null,
+        migratedAt: new Date().toISOString(),
+      },
+    });
+    await patchAppointmentSettings({
+      slug,
+      updates: {
+        calendarToken: null,
+        calendarRefreshToken: null,
+        calendarExpiresAt: null,
+      },
+    });
+  } catch (error) {
+    console.warn('[calendar] Failed to migrate legacy tokens', {
+      slug,
+      err: error.message,
+    });
+  }
+};
+
+const loadCalendarCredentials = async ({ slug, settings }) => {
+  if (!settings?.calendarProvider) return null;
+  let record = await getIntegrationToken({
+    slug,
+    provider: settings.calendarProvider,
+  });
+  if (!record && (settings.calendarToken || settings.calendarRefreshToken)) {
+    await migrateLegacyCalendarTokens({ slug, settings });
+    record = await getIntegrationToken({
+      slug,
+      provider: settings.calendarProvider,
+    });
+  }
+  return record;
+};
+
 const syncAppointmentWithProvider = async ({ slug, appointmentId }) => {
   const appointment = await getAppointment({ slug, appointmentId });
   if (!appointment) return;
   const settings = await getAppointmentSettings({ slug });
   if (!settings?.calendarProvider) return;
   if (!['google', 'outlook'].includes(settings.calendarProvider)) return;
-  const expiresAt = settings.calendarExpiresAt
-    ? new Date(settings.calendarExpiresAt).getTime()
-    : null;
+  const credentials = await loadCalendarCredentials({ slug, settings });
+  if (!credentials?.accessToken) {
+    console.warn('[calendar] Missing credentials for provider', {
+      slug,
+      provider: settings.calendarProvider,
+    });
+    return;
+  }
+  const expiresAt = credentials.expiresAt ? Date.parse(credentials.expiresAt) : null;
   const access = await calendar.ensureAccessToken({
     provider: settings.calendarProvider,
-    token: settings.calendarToken,
-    refreshToken: settings.calendarRefreshToken,
+    token: credentials.accessToken,
+    refreshToken: credentials.refreshToken,
     expiresAt,
   });
   if (!access?.accessToken) {
     throw new Error('Unable to obtain calendar access token');
   }
-  const updates = {};
-  if (access.expiresAt) {
-    updates.calendarExpiresAt = new Date(access.expiresAt).toISOString();
-  }
-  if (access.refreshToken && access.refreshToken !== settings.calendarRefreshToken) {
-    updates.calendarRefreshToken = access.refreshToken;
-  }
-  updates.calendarToken = access.accessToken;
-  if (Object.keys(updates).length) {
-    await saveAppointmentSettings({ slug, ...updates });
-  }
+  await saveIntegrationToken({
+    slug,
+    provider: settings.calendarProvider,
+    accessToken: access.accessToken,
+    refreshToken: access.refreshToken || credentials.refreshToken || null,
+    expiresAt: access.expiresAt ? new Date(access.expiresAt).toISOString() : credentials.expiresAt,
+    metadata: credentials.metadata || { accountEmail: settings.calendarAccountEmail || null },
+    providerUserId: credentials.providerUserId || null,
+    scopes: credentials.scopes || null,
+  });
   const result = await calendar.syncAppointment({
     provider: settings.calendarProvider,
     appointment: {
@@ -132,13 +192,20 @@ const handleCalendarCallback = async (provider, event) => {
     const expiresAtIso = tokens.expires_in
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
       : settings.calendarExpiresAt || null;
+    await saveIntegrationToken({
+      slug,
+      provider,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token || settings.calendarRefreshToken || null,
+      expiresAt: expiresAtIso,
+      metadata: {
+        accountEmail: tokens.accountEmail || settings.calendarAccountEmail || null,
+      },
+      providerUserId: tokens.accountEmail || null,
+    });
     await saveAppointmentSettings({
       slug,
       calendarProvider: provider,
-      calendarToken: tokens.access_token || settings.calendarToken || null,
-      calendarRefreshToken:
-        tokens.refresh_token || settings.calendarRefreshToken || null,
-      calendarExpiresAt: expiresAtIso,
       calendarAccountEmail: tokens.accountEmail || settings.calendarAccountEmail || null,
     });
     await clearOAuthState({ slug });
@@ -229,11 +296,46 @@ const ROUTES = {
     if (body.slug && !allowedSlugs?.includes(body.slug)) {
       return json(403, { error: 'You do not have access to this site.' });
     }
+    const profile = user?.profile || null;
+    try {
+      await enforceRateLimit({
+        slug: body.slug || null,
+        action: 'domain:register',
+        identifier:
+          profile?.accountId ||
+          profile?.id ||
+          profile?.email ||
+          'unknown-account',
+        limit: Number(process.env.DOMAIN_REGISTER_HOURLY_LIMIT || 3),
+        windowMs: 60 * 60 * 1000,
+      });
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        return json(429, {
+          error: 'Domain registration limit reached. Please try again later.',
+        });
+      }
+      throw error;
+    }
     const result = await registerDomain({
       domain: body.domain,
       contact: body.contact,
       slug: body.slug,
       years: body.years || body.termYears,
+    });
+    await recordAuditEvent({
+      slug: body.slug || null,
+      accountId: profile?.accountId || null,
+      actorUserId: profile?.id || null,
+      actorEmail: profile?.email || null,
+      action: 'domain.register',
+      description: `Registered domain ${result?.domain || body.domain}`,
+      metadata: result || { domain: body.domain },
+      ipAddress:
+        event?.requestContext?.http?.sourceIp ||
+        event?.requestContext?.identity?.sourceIp ||
+        null,
+      userAgent: event?.headers?.['user-agent'] || event?.headers?.['User-Agent'] || null,
     });
     return json(200, result);
   },
@@ -265,6 +367,28 @@ const ROUTES = {
       event?.requestContext?.http?.sourceIp ||
       event?.requestContext?.identity?.sourceIp ||
       null;
+    const userAgent = event?.headers?.['user-agent'] || event?.headers?.['User-Agent'] || null;
+    try {
+      await enforceRateLimit({
+        slug: body.slug || null,
+        action: 'contact:ip',
+        identifier: remoteAddress || 'unknown',
+        limit: Number(process.env.CONTACT_RATE_LIMIT_PER_IP || 5),
+        windowMs: 5 * 60 * 1000,
+      });
+      await enforceRateLimit({
+        slug: body.slug || null,
+        action: 'contact:slug',
+        identifier: body.slug || 'global',
+        limit: Number(process.env.CONTACT_RATE_LIMIT_PER_SITE || 60),
+        windowMs: 60 * 1000,
+      });
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        return json(429, { error: 'Too many submissions. Please wait a moment.' });
+      }
+      throw error;
+    }
     await submitContactMessage({
       slug: body.slug,
       sectionId: body.sectionId,
@@ -272,8 +396,19 @@ const ROUTES = {
       fields: body.fields,
       sourceUrl: body.sourceUrl,
       remoteAddress,
-      userAgent: event?.headers?.['user-agent'] || event?.headers?.['User-Agent'],
+      userAgent,
       intent: body.intent,
+    });
+    await recordAuditEvent({
+      slug: body.slug || null,
+      action: 'contact.submission',
+      description: `Contact submission (${body.intent || 'contact'})`,
+      metadata: {
+        sectionId: body.sectionId || null,
+        sourceUrl: body.sourceUrl || null,
+      },
+      ipAddress: remoteAddress,
+      userAgent,
     });
     return json(200, { ok: true });
   },
@@ -357,13 +492,31 @@ const ROUTES = {
     if (!allowedSlugs?.includes(body.slug)) {
       return json(403, { error: 'You do not have access to this site.' });
     }
+    const previousSettings = await getAppointmentSettings({ slug: body.slug });
     const settings = await saveAppointmentSettings({
       slug: body.slug,
       availability: body.availability,
       timezone: body.timezone,
       calendarProvider: body.calendarProvider,
-      calendarToken: body.calendarToken,
     });
+    if (
+      body.calendarProvider !== undefined &&
+      previousSettings?.calendarProvider &&
+      (!body.calendarProvider ||
+        body.calendarProvider !== previousSettings.calendarProvider)
+    ) {
+      try {
+        await deleteIntegrationToken({
+          slug: body.slug,
+          provider: previousSettings.calendarProvider,
+        });
+      } catch (error) {
+        console.warn('[calendar] failed to delete integration token', {
+          slug: body.slug,
+          err: error.message,
+        });
+      }
+    }
     return json(200, settings);
   },
   'GET /appointments/ics': async (event) => {
@@ -571,10 +724,16 @@ const ROUTES = {
     if (!body.slug || !body.type) {
       return json(400, { error: 'slug and type are required' });
     }
+    const metadataPayload =
+      body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
     await recordAnalyticsEvent({
       slug: body.slug,
       type: body.type,
-      metadata: body.metadata || { path: body.path, referrer: body.referrer },
+      metadata: {
+        path: metadataPayload.path || body.path || null,
+        referrer: metadataPayload.referrer || body.referrer || null,
+        visitorId: metadataPayload.visitorId || body.visitorId || body.sessionId || null,
+      },
     });
     return json(200, { ok: true });
   },

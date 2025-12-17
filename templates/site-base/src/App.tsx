@@ -45,6 +45,40 @@ const Background = ({ mode }: { mode: 'gradient' | 'mesh' | 'texture' }) => {
   );
 };
 
+const DEFAULT_ROBOTS = 'index, follow';
+
+const ensureCanonicalLink = (href: string) => {
+  if (!href) return;
+  const head = document.head || document.getElementsByTagName('head')[0];
+  if (!head) return;
+  let link = head.querySelector<HTMLLinkElement>("link[rel='canonical']");
+  if (!link) {
+    link = document.createElement('link');
+    link.setAttribute('rel', 'canonical');
+    head.appendChild(link);
+  }
+  link.setAttribute('href', href);
+};
+
+const upsertMeta = (name: string, content: string | null, attr: 'name' | 'http-equiv' = 'name') => {
+  const head = document.head || document.getElementsByTagName('head')[0];
+  if (!head) return;
+  const selector = attr === 'name' ? `meta[${attr}='${name}']` : `meta[${attr}='${name}']`;
+  let tag = head.querySelector<HTMLMetaElement>(selector);
+  if (content == null) {
+    if (tag?.parentNode) {
+      tag.parentNode.removeChild(tag);
+    }
+    return;
+  }
+  if (!tag) {
+    tag = document.createElement('meta');
+    tag.setAttribute(attr, name);
+    head.appendChild(tag);
+  }
+  tag.setAttribute('content', content);
+};
+
 const App = () => {
   const [siteContent, setSiteContent] = useState<SiteContent | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -117,6 +151,49 @@ const App = () => {
     } catch (error) {
       console.warn('[App] failed to record analytics event', error);
     }
+  }, [siteContent]);
+
+  useEffect(() => {
+    if (!siteContent || typeof window === 'undefined') return;
+    const slug = siteContent.slug || window.__AI_SITEMAKER_SLUG;
+    if (siteContent.canonical) {
+      ensureCanonicalLink(siteContent.canonical);
+    }
+    const apiBase =
+      window.__AI_SITEMAKER_API_BASE ||
+      (import.meta.env?.VITE_RUNNER_API_BASE as string | undefined) ||
+      (import.meta.env?.VITE_API_BASE as string | undefined) ||
+      '';
+    if (!slug || !apiBase) return;
+    const controller = new AbortController();
+    const applySeoDirectives = async () => {
+      try {
+        const baseUrl = apiBase.replace(/\\/+$/, '');
+        const url = new URL(`/seo/sites/${encodeURIComponent(slug)}`, baseUrl).toString();
+        const requestUrl = new URL(url);
+        if (window.location.host) {
+          requestUrl.searchParams.set('host', window.location.host);
+        }
+        const response = await fetch(requestUrl.toString(), {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const snapshot = await response.json();
+        if (snapshot?.canonicalUrl) {
+          ensureCanonicalLink(snapshot.canonicalUrl);
+        }
+        const robotsTag: string = snapshot?.host?.robotsTag || DEFAULT_ROBOTS;
+        upsertMeta('robots', robotsTag);
+        const xRobots: string | null = snapshot?.host?.xRobotsTag ?? null;
+        upsertMeta('X-Robots-Tag', xRobots, 'http-equiv');
+      } catch (error) {
+        if ((error as Error)?.name === 'AbortError') return;
+        console.warn('[App] Failed to load SEO directives', error);
+      }
+    };
+    applySeoDirectives();
+    return () => controller.abort();
   }, [siteContent]);
 
   if (status === 'loading') {

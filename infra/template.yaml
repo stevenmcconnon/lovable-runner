@@ -115,6 +115,10 @@ Parameters:
     Type: String
     Default: 'imagen-3.0-generate-1'
     Description: Image model used for asset generation (e.g., imagen-3.0-generate-1)
+  IntegrationKmsKeyArn:
+    Type: String
+    Default: ''
+    Description: Optional KMS key ARN used to encrypt integration tokens (set for production)
   RunnerApiBase:
     Type: String
     Default: https://api.ai-sitemaker.com
@@ -255,6 +259,7 @@ Conditions:
   HasGeminiSecret: !Not [!Equals [!Ref GeminiApiKeySecretArn, '']]
   HasOpenAISecret: !Not [!Equals [!Ref OpenAIApiKeySecretArn, '']]
   HasPreviewDomain: !Not [!Equals [!Ref PreviewDomainName, '']]
+  HasIntegrationKmsKey: !Not [!Equals [!Ref IntegrationKmsKeyArn, '']]
 
 Resources:
   RunnerApi:
@@ -556,6 +561,7 @@ Resources:
             - !Ref OpenAIApiKey
           OPENAI_MODEL: !Ref OpenAIModel
           GOOGLE_IMAGE_MODEL: !Ref GoogleImageModel
+          INTEGRATION_KMS_KEY_ARN: !Ref IntegrationKmsKeyArn
           RUNNER_API_BASE: !Ref RunnerApiBase
           COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
           SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
@@ -616,6 +622,16 @@ Resources:
               Action:
                 - lambda:InvokeFunction
               Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+        - !If
+          - HasIntegrationKmsKey
+          - Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !Ref IntegrationKmsKeyArn
+          - !Ref AWS::NoValue
         - Statement:
             - Effect: Allow
               Action:
@@ -656,6 +672,27 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt DomainHttpsRefreshRule.Arn
+
+  NotificationWorkerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-notification-worker
+      Description: Sends queued notification emails
+      ScheduleExpression: rate(2 minutes)
+      State: ENABLED
+      Targets:
+        - Id: NotificationWorkerTarget
+          Arn: !GetAtt RunnerFunction.Arn
+          Input: |
+            {"action":"RUN_NOTIFICATION_JOBS","limit":25}
+
+  NotificationWorkerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RunnerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt NotificationWorkerRule.Arn
 
   ContactEmailIdentity:
     Type: AWS::SES::EmailIdentity
