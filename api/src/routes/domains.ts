@@ -9,6 +9,7 @@ import { StripeService } from '../services/stripe';
 import { config } from '../env';
 import { DomainManager } from '../services/domain-manager';
 import { NotificationService } from '../services/notifications';
+import { CanonicalMode } from '../services/domain-edge';
 
 const rootRequire = (relativePath: string): any => {
   try {
@@ -501,7 +502,7 @@ export const registerDomainRoutes = (
         domain: sanitizedDomain,
         type: 'manual',
         provider: existing?.provider ?? null,
-        status: existing?.status ?? 'pending',
+        status: existing?.status ?? 'dns_pending',
         verificationToken: baseDnsConfig.verificationToken,
         dnsSettings: enrichedDnsConfig,
       });
@@ -618,7 +619,30 @@ export const registerDomainRoutes = (
         });
         return reply.code(502).send({ message: 'Unable to wire domain at this time' });
       }
-      const updated = await db.updateSiteDomain(sanitizedDomain, { dnsSettings: dnsConfig });
+      const updated = await db.updateSiteDomain(sanitizedDomain, {
+        dnsSettings: dnsConfig,
+        status: 'dns_pending',
+      });
+      setImmediate(() => {
+        domainManager
+          .ensureCertificateForDomain({
+            domain: sanitizedDomain,
+            canonicalMode: record.canonicalMode as CanonicalMode | undefined,
+            canonicalHost: record.canonicalHost ?? undefined,
+          })
+          .then(async () => {
+            const latest = await db.getDomainByName(sanitizedDomain);
+            if (latest) {
+              await domainManager.refreshHttps(latest).catch(() => null);
+            }
+          })
+          .catch((error) =>
+            request.log.warn(
+              { err: (error as Error)?.message, domain: sanitizedDomain },
+              '[domains] Failed to enqueue certificate provisioning'
+            )
+          );
+      });
       const refreshed = await domainManager.refreshHttps(updated ?? record).catch(() => null);
       const finalRecord = refreshed ?? updated ?? record;
       logDomainEvent(request, profile, {

@@ -202,6 +202,16 @@ export interface DomainOrderRecord {
   updatedAt?: string | null;
 }
 
+export type DomainStatus =
+  | 'pending_payment'
+  | 'paid'
+  | 'dns_pending'
+  | 'cert_requested'
+  | 'cert_validating'
+  | 'edge_updating'
+  | 'active'
+  | 'failed';
+
 export interface DomainRecord {
   id: string;
   accountId?: string | null;

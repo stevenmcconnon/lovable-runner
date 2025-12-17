@@ -125,7 +125,7 @@ export class DomainOrderService {
       domain: order.domain,
       type: 'managed',
       provider: this.deps.domainService.getProviderCode(),
-      status: metadata.wire ? 'configuring' : purchase.status ?? 'pending',
+      status: 'dns_pending',
       verificationToken: metadata.dnsConfig.verificationToken,
       dnsSettings: metadata.dnsConfig,
     });

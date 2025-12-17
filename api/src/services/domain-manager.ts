@@ -1,13 +1,14 @@
 import { DatabaseService } from './database';
 import { DnsConfig, DnsRecord } from './domain';
 import { CanonicalMode, CertificateInfo, DomainEdgeService, ValidationRecord as EdgeValidationRecord } from './domain-edge';
-import { DomainRecord } from '../types';
+import { DomainRecord, DomainStatus } from '../types';
 import { NotificationService } from './notifications';
 
 export type PreparedEdgeMetadata = {
   canonicalMode: CanonicalMode;
   canonicalHost: string;
   certificate?: CertificateInfo | null;
+  lifecycleStatus?: DomainStatus;
 };
 
 export class DomainManager {
@@ -47,13 +48,44 @@ export class DomainManager {
     canonicalHost?: string;
   }): Promise<PreparedEdgeMetadata> {
     const canonicalMode = this.deps.edge.getCanonicalMode(params.canonicalMode);
-    const canonicalHost =
+    let canonicalHost =
       params.canonicalHost || this.deps.edge.deriveCanonicalHost(params.domain, canonicalMode);
-    const certificate = await this.deps.edge.ensureCertificate(params.domain);
+    let certificate: CertificateInfo | null = null;
+    try {
+      const existing = await this.deps.db.getDomainByName(params.domain);
+      if (existing) {
+        canonicalHost = canonicalHost || existing.canonicalHost || canonicalHost;
+        if (existing.certificateArn) {
+          try {
+            certificate = await this.deps.edge.describeCertificate(existing.certificateArn);
+          } catch (error: any) {
+            if (error?.name !== 'ResourceNotFoundException') {
+              throw error;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[domain-manager] Failed to read existing domain record', {
+        domain: params.domain,
+        err: (error as Error).message,
+      });
+    }
+    if (!certificate) {
+      certificate = await this.deps.edge.ensureCertificate(params.domain);
+    }
+    let lifecycleStatus: DomainStatus = 'cert_requested';
+    if (certificate.status === 'PENDING_VALIDATION') {
+      lifecycleStatus = 'cert_validating';
+    } else if (certificate.status === 'ISSUED') {
+      lifecycleStatus = 'edge_updating';
+    }
     const metadata: PreparedEdgeMetadata = {
       canonicalHost,
       canonicalMode,
       certificate,
+      lifecycleStatus,
     };
     await this.persistEdgeMetadata(params.domain, metadata);
     return metadata;
@@ -86,6 +118,9 @@ export class DomainManager {
         certificateValidation: metadata.certificate.validationRecords,
       });
     }
+    if (metadata.lifecycleStatus) {
+      patch.status = metadata.lifecycleStatus;
+    }
     await this.deps.db.updateSiteDomain(domain, {
       ...patch,
     });
@@ -98,6 +133,7 @@ export class DomainManager {
       httpsCheckedAt: now,
     };
     let dirty = false;
+    let lifecycleStatus: DomainStatus | null = null;
     const canonicalMode = this.deps.edge.getCanonicalMode(record.canonicalMode);
     const canonicalHost =
       record.canonicalHost || this.deps.edge.deriveCanonicalHost(record.domain, canonicalMode);
@@ -110,6 +146,7 @@ export class DomainManager {
         dirty = true;
         if (certificate.status !== 'ISSUED') {
           patch.httpsStatus = 'validating';
+          lifecycleStatus = lifecycleStatus || 'cert_validating';
         } else {
           const aliases = this.deps.edge.buildAliasList(record.domain);
           const distribution = await this.deps.edge.attachAliases(aliases);
@@ -122,6 +159,8 @@ export class DomainManager {
             patch.edgeStatus = distribution.status;
             patch.edgeStatusAt = now;
             patch.httpsStatus = distribution.status === 'Deployed' ? 'live' : 'provisioning';
+            lifecycleStatus =
+              distribution.status === 'Deployed' ? 'active' : 'edge_updating';
             if (distribution.status === 'Deployed') {
               patch.httpsReadyAt = patch.httpsReadyAt ?? now;
               patch.routingError = null;
@@ -145,15 +184,22 @@ export class DomainManager {
             patch.httpsStatus = 'live';
             patch.httpsReadyAt = patch.httpsReadyAt ?? now;
             patch.routingError = null;
+            lifecycleStatus = 'active';
+          } else {
+            lifecycleStatus = lifecycleStatus || 'edge_updating';
           }
         }
       } catch (error: any) {
         patch.routingError = error?.message || 'Unable to fetch distribution status';
         dirty = true;
+        lifecycleStatus = lifecycleStatus || 'failed';
       }
     }
 
     if (!dirty) return null;
+    if (lifecycleStatus) {
+      patch.status = lifecycleStatus;
+    }
     const updated = await this.deps.db.updateSiteDomain(record.domain, patch);
     if (
       updated &&
