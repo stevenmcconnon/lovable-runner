@@ -19,6 +19,12 @@ const forbidden = (message = 'Forbidden') => {
   return error;
 };
 
+const toBooleanClaim = (value: unknown): boolean => {
+  if (value === true) return true;
+  if (value === 'true' || value === '1') return true;
+  return false;
+};
+
 const createUserVerifier = () =>
   CognitoJwtVerifier.create({
     userPoolId: config.cognito.userPoolId,
@@ -146,10 +152,17 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
         if (!token) throw unauthorized();
         try {
           const payload = await machineVerifier.verify(token);
+          const allowAccountContextClaim =
+            (payload as any)['lovable:allowAccountContext'] ??
+            (payload as any)['lovable:allow_account_context'] ??
+            (payload as any)['lovable:allow-account-context'];
           const context: AuthContext = {
             type: 'machine',
             sub: payload.sub,
             roles: ['super-admin'],
+            permissions: {
+              allowAccountContext: toBooleanClaim(allowAccountContextClaim),
+            },
           };
           request.auth = context;
         } catch (error) {

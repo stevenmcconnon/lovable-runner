@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
 import path from 'node:path';
 import { z } from 'zod';
@@ -20,6 +20,16 @@ const { ensurePreviewPlaceholder } = rootRequire('src/preview-placeholder.js') a
     brandName?: string | null;
     requestId?: string;
   }) => Promise<boolean>;
+};
+const { enforceRateLimit, RateLimitError } = rootRequire('src/rate-limit.js') as {
+  enforceRateLimit: (params: {
+    slug?: string | null;
+    action: string;
+    identifier: string;
+    limit: number;
+    windowMs?: number;
+  }) => Promise<void>;
+  RateLimitError: new (message?: string) => Error & { statusCode?: number };
 };
 
 const launchPayload = z
@@ -127,17 +137,59 @@ export const buildPublicUrl = ({ bucket, prefix }: { bucket: string; prefix: str
   return `https://${bucket}.s3.amazonaws.com/${normalizedPrefix}`;
 };
 
-const toUuidFromHash = (hash: string) =>
-  `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+const unauthorized = (message: string) => {
+  const error = new Error(message);
+  // @ts-expect-error statusCode
+  error.statusCode = 401;
+  return error;
+};
 
-export const deriveAnonymousAccountId = (request: FastifyRequest) => {
+const forbidden = (message: string) => {
+  const error = new Error(message);
+  // @ts-expect-error statusCode
+  error.statusCode = 403;
+  return error;
+};
+
+const badRequest = (message: string) => {
+  const error = new Error(message);
+  // @ts-expect-error statusCode
+  error.statusCode = 400;
+  return error;
+};
+
+const deriveRequesterIp = (request: FastifyRequest) => {
   const forwarded = (request.headers['x-forwarded-for'] as string | undefined)?.split(',')?.[0]?.trim();
-  const visitorHeader =
-    (request.headers['x-visitor-id'] as string | undefined) ||
-    (request.headers['x-visitor-token'] as string | undefined);
-  const raw = visitorHeader || forwarded || request.ip || randomUUID();
-  const hash = createHash('sha256').update(raw).digest('hex');
-  return toUuidFromHash(hash);
+  return forwarded || request.ip || 'unknown';
+};
+
+const resolveAccountContext = (request: FastifyRequest, requestedAccountId?: string | null) => {
+  if (request.auth?.type === 'user') {
+    const accountId = request.auth.profile?.accountId;
+    if (!accountId) {
+      throw unauthorized('Account not found for user');
+    }
+    if (requestedAccountId && requestedAccountId !== accountId) {
+      throw forbidden('You cannot launch sites for another account');
+    }
+    return {
+      accountId,
+      source: 'user' as const,
+    };
+  }
+  if (request.auth?.type === 'machine') {
+    if (!request.auth.permissions?.allowAccountContext) {
+      throw forbidden('Machine token is not allowed to select account context');
+    }
+    if (!requestedAccountId) {
+      throw badRequest('accountId is required for machine launches');
+    }
+    return {
+      accountId: requestedAccountId,
+      source: 'machine' as const,
+    };
+  }
+  throw unauthorized('Authentication required');
 };
 
 export const registerLaunchRoutes = (
@@ -146,19 +198,16 @@ export const registerLaunchRoutes = (
 ) => {
   const { db, runner } = deps;
 
-  const launchPreHandler = async (request: any, reply: any) => {
+  const launchPreHandler = async (request: FastifyRequest, reply: any) => {
     try {
       await app.authenticateUser(request, reply);
-      request.launchAuthContext = 'user';
       return;
-    } catch {
-      /* continue */
-    }
-    try {
-      await app.authenticateMachine(request, reply);
-      request.launchAuthContext = 'machine';
-    } catch {
-      request.launchAuthContext = 'anonymous';
+    } catch (userError) {
+      try {
+        await app.authenticateMachine(request, reply);
+      } catch {
+        throw unauthorized((userError as Error)?.message || 'Authentication required');
+      }
     }
   };
 
@@ -190,24 +239,48 @@ export const registerLaunchRoutes = (
       slugCandidate: desiredSlug,
     });
     const publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
-    const launchContext = (request as any).launchAuthContext || 'anonymous';
-    const profileAccountId = request.auth?.profile?.accountId ?? null;
-    const profileUserId = request.auth?.profile?.id ?? null;
-    const accountId =
-      body.accountId ??
-      profileAccountId ??
-      (launchContext === 'anonymous' ? deriveAnonymousAccountId(request) : null);
-    const userId = profileUserId;
+    const { accountId } = resolveAccountContext(request, body.accountId);
+    const userId = request.auth?.profile?.id ?? null;
     const testMode = Boolean(body.testMode);
-    if (testMode && launchContext !== 'machine') {
+    const isMachine = request.auth?.type === 'machine';
+    if (testMode && !isMachine) {
       return reply.code(403).send({ message: 'testMode is only available for machine credentials' });
+    }
+    if (process.env.LAUNCH_RATE_LIMIT_DISABLED !== 'true') {
+      const perAccountLimit = Number(process.env.LAUNCH_PER_ACCOUNT_PER_MINUTE || 10);
+      const perIpLimit = Number(process.env.LAUNCH_PER_IP_PER_MINUTE || 30);
+      try {
+        if (!isMachine && perAccountLimit > 0) {
+          await enforceRateLimit({
+            slug: null,
+            action: 'launch:account',
+            identifier: `acct:${accountId}`,
+            limit: perAccountLimit,
+            windowMs: 60 * 1000,
+          });
+        }
+        if (perIpLimit > 0) {
+          await enforceRateLimit({
+            slug: null,
+            action: 'launch:ip',
+            identifier: `ip:${deriveRequesterIp(request)}`,
+            limit: perIpLimit,
+            windowMs: 60 * 1000,
+          });
+        }
+      } catch (error) {
+        if (error instanceof RateLimitError || (error as any)?.statusCode === 429) {
+          return reply.code(429).send({
+            message: 'Too many launch requests. Please wait a moment and try again.',
+          });
+        }
+        throw error;
+      }
     }
     let subscription = null;
     let usage: any = null;
-    let usageLimit = launchContext === 'anonymous'
-      ? config.limits.anonymousLaunchLimit
-      : config.limits.trialEditLimit + config.limits.signedInBonusEdits;
-    if (launchContext !== 'machine' && accountId) {
+    let usageLimit = config.limits.trialEditLimit + config.limits.signedInBonusEdits;
+    if (!isMachine) {
       subscription = await db.getSubscription(accountId);
       usageLimit = subscription?.monthlyEditLimit ?? usageLimit;
       const limits = db.buildUsageLimits(subscription, usageLimit);
@@ -254,7 +327,7 @@ export const registerLaunchRoutes = (
       prefix: prefixPath,
       bucket: resolvedBucket,
     });
-    if (launchContext !== 'machine' && accountId) {
+    if (!isMachine && accountId) {
       await db.incrementUsage(accountId, usageLimit, 1).catch((error) => {
         request.log.warn({ err: error }, '[launch] Failed to increment usage');
       });

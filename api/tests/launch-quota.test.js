@@ -20,6 +20,7 @@ process.env.AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 process.env.PREVIEW_DOMAIN = process.env.PREVIEW_DOMAIN || 'preview.ai-sitemaker.com';
 process.env.DATABASE_URL =
   process.env.DATABASE_URL || 'postgresql://user:pass@localhost:5432/lovable_runner_test';
+process.env.LAUNCH_RATE_LIMIT_DISABLED = 'true';
 
 // Prevent real AWS calls from the S3 client used in ensureUniqueSlug.
 S3Client.prototype.send = async () => ({ Contents: [] });
@@ -32,7 +33,11 @@ const buildMockServer = (dbImpl) => {
   app.decorate('authenticateUser', async (request) => {
     const token = request.headers.authorization;
     if (token) {
-      request.auth = { roles: ['customer'], profile: { accountId: 'acct-user', id: 'user-1' } };
+      request.auth = {
+        type: 'user',
+        roles: ['customer'],
+        profile: { accountId: 'acct-user', id: 'user-1' },
+      };
       return;
     }
     const error = new Error('unauthorized');
@@ -67,7 +72,7 @@ const buildMockServer = (dbImpl) => {
   return app;
 };
 
-test('accepts anonymous launch with quota remaining and returns slug', async () => {
+test('accepts signed-in launch with quota remaining and returns slug', async () => {
   const state = {
     usage: { monthlyEditLimit: 1, editsUsedThisPeriod: 0, remainingEdits: 1 },
     incremented: false,
@@ -93,13 +98,63 @@ test('accepts anonymous launch with quota remaining and returns slug', async () 
     method: 'POST',
     url: '/launch',
     payload: { url: 'https://example.com' },
-    headers: { 'x-forwarded-for': '203.0.113.7' },
+    headers: { authorization: 'Bearer token' },
   });
   assert.strictEqual(response.statusCode, 202);
   const body = response.json();
   assert.ok(body.slug, 'slug should be present');
   assert.ok(body.publicUrl?.startsWith('https://preview.ai-sitemaker.com/'));
   assert.ok(state.incremented, 'usage should be incremented for anon launch');
+  await app.close();
+});
+
+test('rejects cross-tenant launch attempts', async () => {
+  const db = {
+    getSubscription: async () => ({ status: 'active', monthlyEditLimit: 5 }),
+    getUsage: async () => ({ monthlyEditLimit: 5, editsUsedThisPeriod: 0, remainingEdits: 5 }),
+    buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 5, freeSiteLimit: 10 }),
+    listSiteGenerations: async () => [],
+    createSiteGenerationRequest: async () => {
+      throw new Error('should not create when forbidden');
+    },
+    touchSiteGenerationStage: async () => {},
+    updateSiteGeneration: async () => {},
+    incrementUsage: async () => {},
+  };
+  const app = buildMockServer(db);
+  const response = await app.inject({
+    method: 'POST',
+    url: '/launch',
+    payload: {
+      url: 'https://example.com/evil',
+      accountId: '00000000-0000-4000-8000-000000000000',
+    },
+    headers: { authorization: 'Bearer token' },
+  });
+  assert.strictEqual(response.statusCode, 403);
+  await app.close();
+});
+
+test('requires authentication for launch', async () => {
+  const db = {
+    getSubscription: async () => null,
+    getUsage: async () => ({ monthlyEditLimit: 1, editsUsedThisPeriod: 0, remainingEdits: 1 }),
+    buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 10 }),
+    listSiteGenerations: async () => [],
+    createSiteGenerationRequest: async () => {
+      throw new Error('unauthenticated users should not launch');
+    },
+    touchSiteGenerationStage: async () => {},
+    updateSiteGeneration: async () => {},
+    incrementUsage: async () => {},
+  };
+  const app = buildMockServer(db);
+  const response = await app.inject({
+    method: 'POST',
+    url: '/launch',
+    payload: { url: 'https://example.com/no-auth' },
+  });
+  assert.strictEqual(response.statusCode, 401);
   await app.close();
 });
 

@@ -47,6 +47,9 @@ export interface AuthContext {
   email?: string;
   roles: UserRole[];
   profile?: ProfileRecord;
+  permissions?: {
+    allowAccountContext?: boolean;
+  };
 }
 
 export interface MeResponse {

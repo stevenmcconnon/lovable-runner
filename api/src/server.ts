@@ -103,6 +103,7 @@ export const buildServer = (): FastifyInstance => {
       domainManager,
       stripe,
       notifications: notificationService,
+      runner,
     });
     registerPublishingRoutes(instance, { db: database, notifications: notificationService });
     registerUsageRoutes(instance, { db: database });

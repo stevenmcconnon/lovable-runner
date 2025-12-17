@@ -75,8 +75,6 @@ export const registerAuthRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
         // Leave as string so validation fails with a useful error
       }
     }
-    // eslint-disable-next-line no-console
-    console.log('Received callback payload:', incomingPayload);
     const parsed = authCallbackSchema.safeParse(incomingPayload);
     if (!parsed.success) {
       return reply.code(400).send({

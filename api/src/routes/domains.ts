@@ -216,15 +216,6 @@ const withDns = (
   };
 };
 
-const shouldRefreshHttps = (record: DomainRecord): boolean => {
-  if (!record.httpsStatus || record.httpsStatus === 'pending') return true;
-  if (record.httpsStatus === 'live') return false;
-  const lastChecked = record.httpsCheckedAt ? Date.parse(record.httpsCheckedAt) : 0;
-  if (!lastChecked) return true;
-  const ageMs = Date.now() - lastChecked;
-  return ageMs > 5 * 60 * 1000;
-};
-
 const cartCheckoutSchema = z.object({
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
@@ -255,28 +246,17 @@ export const registerDomainRoutes = (
     domainManager: DomainManager;
     stripe: StripeService;
     notifications?: NotificationService;
+    runner?: import('../services/runner').RunnerService;
   }
 ) => {
-  const { db, domainService, domainOrderService, domainManager, stripe, notifications } = deps;
+  const { db, domainService, domainOrderService, domainManager, stripe, notifications, runner } = deps;
 
   app.get('/domains', { preHandler: app.authenticateUser }, async (request, reply) => {
     if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
       return reply.code(403).send({ message: 'Forbidden' });
     }
     const records = await db.listDomainsForAccount(request.auth.profile.accountId);
-    const hydrated = await Promise.all(
-      records.map(async (record) => {
-        if (shouldRefreshHttps(record)) {
-          try {
-            return (await domainManager.refreshHttps(record)) ?? record;
-          } catch {
-            return record;
-          }
-        }
-        return record;
-      })
-    );
-    const items = hydrated.map((record) => withDns(record, domainService));
+    const items = records.map((record) => withDns(record, domainService));
     return { items };
   });
 
@@ -319,179 +299,15 @@ export const registerDomainRoutes = (
   });
 
   app.post('/domains/purchase', { preHandler: app.authenticateUser }, async (request, reply) => {
-    if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
-      return reply.code(403).send({ message: 'Forbidden' });
+    if (request.auth?.type !== 'machine') {
+      return reply
+        .code(403)
+        .send({ message: 'Direct domain purchase endpoint is no longer available. Please use checkout.' });
     }
-    const profile = request.auth.profile;
-    const body = purchaseSchema.parse(request.body);
-    try {
-      await enforceRateLimit({
-        slug: body.slug,
-        action: 'domain:purchase',
-        identifier: buildRateLimitIdentifier(profile),
-        limit: Number(process.env.DOMAIN_PURCHASE_HOURLY_LIMIT || 3),
-        windowMs: 60 * 60 * 1000,
-      });
-    } catch (error) {
-      if (isRateLimitError(error)) {
-        return reply
-          .code(429)
-          .send({ message: 'Domain purchase limit reached. Please try again later.' });
-      }
-      throw error;
-    }
-    const sanitizedDomain = sanitizeDomainOrThrow(body.domain);
-    const existing = await db.getDomainByName(sanitizedDomain);
-    if (existing && existing.slug !== body.slug) {
-      return reply.code(409).send({ message: 'Domain is already connected to another site' });
-    }
-    const shouldWire = Boolean(body.wire);
-    if (shouldWire && !domainService.supportsManagedRegistrar()) {
-      return reply.code(400).send({ message: 'Automatic domain wiring is not available' });
-    }
-    const basePrice = await domainService
-      .lookupBasePrice(sanitizedDomain)
-      .catch(() => DEFAULT_DOMAIN_PRICE_CENTS);
-    const priceCents = Math.round((body.termYears ?? 1) * (basePrice + PRICE_MARKUP_CENTS));
-    let purchase;
-    try {
-      purchase = await domainService.purchaseDomain({
-        domain: sanitizedDomain,
-        slug: body.slug,
-        years: body.termYears,
-        contact: body.contact,
-      });
-    } catch (error) {
-      request.log.error(
-        {
-          domain: sanitizedDomain,
-          slug: body.slug,
-          err: (error as Error)?.message,
-        },
-        '[domains] purchase failed'
-      );
-      return reply.code(502).send({ message: 'Unable to register domain' });
-    }
-    const baseDnsConfig = domainService.buildDnsConfig({
-      slug: body.slug,
-      domain: sanitizedDomain,
-      verificationToken: existing?.verificationToken ?? undefined,
-    });
-    const { dnsConfig: enrichedDnsConfig, metadata: edgeMetadata } = await domainManager.prepareDnsConfig({
-      domain: sanitizedDomain,
-      slug: body.slug,
-      dnsConfig: baseDnsConfig,
-      canonicalMode: body.canonical,
-    });
-
-    const order = await db.createDomainOrder({
-      accountId: profile.accountId,
-      slug: body.slug,
-      domain: sanitizedDomain,
-      status: purchase.status,
-      providerOrderId: purchase.providerOrderId,
-      priceCents,
-      currency: 'USD',
-      metadata: body.contact ? { contact: body.contact } : null,
-    });
-
-    const record = await db.upsertSiteDomain({
-      accountId: profile.accountId,
-      slug: body.slug,
-      domain: sanitizedDomain,
-      type: 'managed',
-      provider: domainService.getProviderCode(),
-      status: shouldWire ? 'configuring' : purchase.status ?? 'pending',
-      verificationToken: baseDnsConfig.verificationToken,
-      dnsSettings: enrichedDnsConfig,
-    });
-    await domainManager.persistEdgeMetadata(sanitizedDomain, edgeMetadata);
-
-    let wired = false;
-    if (shouldWire) {
-      try {
-        await domainService.wireDomain({ domain: sanitizedDomain, dnsConfig: enrichedDnsConfig });
-        wired = true;
-      } catch (error) {
-        request.log.error(
-          {
-            domain: sanitizedDomain,
-            slug: body.slug,
-            err: (error as Error)?.message,
-          },
-          '[domains] automatic wiring failed'
-        );
-        logDomainEvent(request, profile, {
-          slug: body.slug,
-          action: 'domain.wire.failed',
-          description: `Automatic wiring failed for ${sanitizedDomain}`,
-          metadata: {
-            domain: sanitizedDomain,
-            error: (error as Error)?.message,
-            autoWireRequested: true,
-          },
-        });
-        if (notifications) {
-          notifications
-            .notifyDomainWireFailure({
-              slug: body.slug,
-              accountId: profile.accountId,
-              domain: sanitizedDomain,
-              error: (error as Error)?.message,
-            })
-            .catch((notifyErr) =>
-              request.log.warn(
-                { err: notifyErr, domain: sanitizedDomain },
-                '[domains] Failed to enqueue wire failure notification'
-              )
-            );
-        }
-        return reply
-          .code(502)
-          .send({ message: 'Domain purchase succeeded but wiring failed. Please try again.' });
-      }
-    }
-
-    const currentRecord = (await db.getDomainByName(sanitizedDomain)) ?? record;
-    const refreshed = await domainManager.refreshHttps(currentRecord).catch(() => null);
-    const finalRecord = refreshed ?? currentRecord;
-
-    if (notifications) {
-      notifications
-        .notifyDomainPurchase({
-          slug: body.slug,
-          accountId: profile.accountId,
-          domain: sanitizedDomain,
-          wired,
-          autoWireRequested: shouldWire,
-        })
-        .catch((error) =>
-          request.log.warn(
-            { err: error, domain: sanitizedDomain },
-            '[domains] Failed to enqueue purchase notification'
-          )
-        );
-    }
-
-    logDomainEvent(request, profile, {
-      slug: body.slug,
-      action: 'domain.purchase',
-      description: `Purchased domain ${sanitizedDomain}${wired ? ' (wired)' : ''}`,
-      metadata: {
-        domain: sanitizedDomain,
-        wired,
-        autoWireRequested: shouldWire,
-        orderId: order.id,
-        providerOrderId: purchase?.providerOrderId ?? null,
-      },
-    });
-
-    return {
-      order,
-      domain: finalRecord ? withDns(finalRecord, domainService) : null,
-      dns: enrichedDnsConfig,
-      wired,
-    };
+    request.log.warn('[domains] Direct domain purchase endpoint invoked by machine token');
+    return reply
+      .code(410)
+      .send({ message: 'Direct domain purchase endpoint has been disabled in favor of async orders.' });
   });
 
   app.post(
@@ -690,6 +506,26 @@ export const registerDomainRoutes = (
         dnsSettings: enrichedDnsConfig,
       });
       await domainManager.persistEdgeMetadata(sanitizedDomain, edgeMetadata);
+      setImmediate(() => {
+        domainManager
+          .ensureCertificateForDomain({
+            domain: sanitizedDomain,
+            canonicalMode: edgeMetadata.canonicalMode,
+            canonicalHost: edgeMetadata.canonicalHost,
+          })
+          .then(async () => {
+            const latest = await db.getDomainByName(sanitizedDomain);
+            if (latest) {
+              await domainManager.refreshHttps(latest).catch(() => null);
+            }
+          })
+          .catch((error) =>
+            request.log.warn(
+              { err: (error as Error)?.message, domain: sanitizedDomain },
+              '[domains] Failed to enqueue certificate provisioning'
+            )
+          );
+      });
       const refreshed = await domainManager.refreshHttps(record).catch(() => null);
       const finalRecord = refreshed ?? record;
       logDomainEvent(request, profile, {
@@ -806,9 +642,6 @@ export const registerDomainRoutes = (
     '/sites/:slug/domains/:domain/https-refresh',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      if (!domainManager) {
-        return reply.code(503).send({ message: 'Domain manager is not configured' });
-      }
       if (!request.auth?.profile || !ensureCustomerAccess(request.auth.roles)) {
         return reply.code(403).send({ message: 'Forbidden' });
       }
@@ -822,6 +655,52 @@ export const registerDomainRoutes = (
       const isOwner = !record.accountId || record.accountId === request.auth.profile.accountId;
       if (!isOwner && !isSuperAdmin) {
         return reply.code(404).send({ message: 'Domain not found' });
+      }
+      const rateLimit = Number(process.env.DOMAIN_HTTPS_REFRESH_PER_HOUR || 5);
+      if (rateLimit > 0) {
+        try {
+          await enforceRateLimit({
+            slug: params.slug,
+            action: 'domain:https-refresh',
+            identifier: `${buildRateLimitIdentifier(request.auth.profile)}:${params.slug}`,
+            limit: rateLimit,
+            windowMs: 60 * 60 * 1000,
+          });
+        } catch (error) {
+          if (isRateLimitError(error)) {
+            return reply
+              .code(429)
+              .send({ message: 'Too many HTTPS refresh requests. Please wait and try again.' });
+          }
+          throw error;
+        }
+      }
+      if (runner) {
+        await runner
+          .requestDomainRefresh({ domain: sanitizedDomain })
+          .catch((error) => {
+            request.log.warn(
+              { err: error, domain: sanitizedDomain, slug: params.slug },
+              '[domains] Failed to enqueue domain refresh'
+            );
+            throw error;
+          });
+        logDomainEvent(request, request.auth.profile, {
+          slug: params.slug,
+          action: 'domain.https.refresh.enqueue',
+          description: `Queued HTTPS refresh for ${sanitizedDomain}`,
+          metadata: {
+            domain: sanitizedDomain,
+            status: record.httpsStatus ?? 'unknown',
+          },
+        });
+        return reply.code(202).send({
+          status: 'queued',
+          domain: withDns(record, domainService),
+        });
+      }
+      if (!domainManager) {
+        return reply.code(503).send({ message: 'Domain manager is not configured' });
       }
       const refreshed = await domainManager.refreshHttps(record).catch((error) => {
         request.log.warn(
@@ -859,19 +738,7 @@ export const registerDomainRoutes = (
         if (record.accountId === request.auth?.profile?.accountId) return true;
         return isSuperAdmin;
       });
-      const refreshed = await Promise.all(
-        filtered.map(async (record) => {
-          if (shouldRefreshHttps(record)) {
-            try {
-              return (await domainManager.refreshHttps(record)) ?? record;
-            } catch {
-              return record;
-            }
-          }
-          return record;
-        })
-      );
-      const enriched = refreshed.map((record) => withDns(record, domainService));
+      const enriched = filtered.map((record) => withDns(record, domainService));
       return { items: enriched };
     }
   );

@@ -131,10 +131,17 @@ export class DomainOrderService {
     });
 
     if (metadata.edge && this.deps.domainManager) {
-      await this.deps.domainManager.persistEdgeMetadata(order.domain, metadata.edge);
+      const provisioned = await this.deps.domainManager.ensureCertificateForDomain({
+        domain: order.domain,
+        canonicalMode: metadata.edge.canonicalMode,
+        canonicalHost: metadata.edge.canonicalHost,
+      });
       const latestRecord = await this.deps.db.getDomainByName(order.domain);
       if (latestRecord) {
-        await this.deps.domainManager.refreshHttps(latestRecord);
+        await this.deps.domainManager.refreshHttps({
+          ...latestRecord,
+          certificateArn: provisioned.certificate?.arn ?? latestRecord.certificateArn,
+        } as DomainRecord);
       }
     }
 

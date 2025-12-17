@@ -115,4 +115,25 @@ export class RunnerService {
     }
     return { status: 'queued' };
   }
+
+  async requestDomainRefresh(params: { domain?: string; limit?: number }) {
+    const functionName =
+      config.runner.functionName || process.env.AWS_LAMBDA_FUNCTION_NAME || '';
+    if (!functionName) {
+      throw new Error('Runner function name is not configured');
+    }
+    const payload = {
+      action: 'RUN_DOMAIN_HTTPS_REFRESH',
+      domain: params.domain,
+      limit: params.limit,
+    };
+    await this.lambda.send(
+      new InvokeCommand({
+        FunctionName: functionName,
+        InvocationType: 'Event',
+        Payload: Buffer.from(JSON.stringify(payload)),
+      })
+    );
+    return { status: 'queued' };
+  }
 }

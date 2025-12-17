@@ -7,7 +7,7 @@ import { NotificationService } from './notifications';
 export type PreparedEdgeMetadata = {
   canonicalMode: CanonicalMode;
   canonicalHost: string;
-  certificate: CertificateInfo;
+  certificate?: CertificateInfo | null;
 };
 
 export class DomainManager {
@@ -27,11 +27,7 @@ export class DomainManager {
   }): Promise<{ dnsConfig: DnsConfig; metadata: PreparedEdgeMetadata }> {
     const canonicalMode = this.deps.edge.getCanonicalMode(params.canonicalMode);
     const canonicalHost = this.deps.edge.deriveCanonicalHost(params.domain, canonicalMode);
-    const certificate = await this.deps.edge.ensureCertificate(params.domain);
-    const validationRecords = certificate.validationRecords.map((record) =>
-      this.toDnsRecord(record, params.domain)
-    );
-    const mergedRecords = this.mergeRecords(params.dnsConfig.records || [], validationRecords);
+    const mergedRecords = this.mergeRecords(params.dnsConfig.records || [], []);
     const enrichedConfig: DnsConfig = {
       ...params.dnsConfig,
       records: mergedRecords,
@@ -41,28 +37,57 @@ export class DomainManager {
       metadata: {
         canonicalHost,
         canonicalMode,
-        certificate,
       },
     };
   }
 
+  async ensureCertificateForDomain(params: {
+    domain: string;
+    canonicalMode?: CanonicalMode;
+    canonicalHost?: string;
+  }): Promise<PreparedEdgeMetadata> {
+    const canonicalMode = this.deps.edge.getCanonicalMode(params.canonicalMode);
+    const canonicalHost =
+      params.canonicalHost || this.deps.edge.deriveCanonicalHost(params.domain, canonicalMode);
+    const certificate = await this.deps.edge.ensureCertificate(params.domain);
+    const metadata: PreparedEdgeMetadata = {
+      canonicalHost,
+      canonicalMode,
+      certificate,
+    };
+    await this.persistEdgeMetadata(params.domain, metadata);
+    return metadata;
+  }
+
   async persistEdgeMetadata(domain: string, metadata: PreparedEdgeMetadata): Promise<void> {
     const now = new Date().toISOString();
-    const httpsStatus = metadata.certificate.status === 'ISSUED' ? 'provisioning' : 'validating';
     const distribution = await this.deps.edge.getDistribution();
-    await this.deps.db.updateSiteDomain(domain, {
+    const httpsStatus =
+      metadata.certificate && metadata.certificate.status === 'ISSUED'
+        ? 'provisioning'
+        : metadata.certificate
+        ? 'validating'
+        : undefined;
+    const patch: Partial<DomainRecord> = {
       canonicalHost: metadata.canonicalHost,
       canonicalMode: metadata.canonicalMode,
-      certificateArn: metadata.certificate.arn,
-      certificateStatus: metadata.certificate.status,
-      certificateStatusAt: now,
-      certificateValidation: metadata.certificate.validationRecords,
+      httpsCheckedAt: httpsStatus ? now : undefined,
       httpsStatus,
-      httpsCheckedAt: now,
       edgeDistributionId: distribution?.id ?? null,
       edgeDomain: distribution?.domainName ?? null,
       edgeStatus: distribution?.status ?? null,
       edgeStatusAt: distribution ? now : undefined,
+    };
+    if (metadata.certificate) {
+      Object.assign(patch, {
+        certificateArn: metadata.certificate.arn,
+        certificateStatus: metadata.certificate.status,
+        certificateStatusAt: now,
+        certificateValidation: metadata.certificate.validationRecords,
+      });
+    }
+    await this.deps.db.updateSiteDomain(domain, {
+      ...patch,
     });
   }
 
