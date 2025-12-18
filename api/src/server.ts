@@ -28,6 +28,7 @@ import { NotificationService } from './services/notifications';
 import { registerAnalyticsRoutes } from './routes/analytics';
 import { DomainJobService } from './services/domain-job';
 import { registerCoreRoutes } from './routes/core';
+import { randomUUID } from 'node:crypto';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -57,6 +58,36 @@ export const buildServer = (): FastifyInstance => {
   app.options('*', async (request, reply) => {
     reply.header('Access-Control-Max-Age', '86400');
     reply.code(204).send();
+  });
+
+  app.addHook('onRequest', async (request) => {
+    if (!request.id) {
+      request.id = randomUUID();
+    }
+    (request as any).startTimeNs = process.hrtime.bigint();
+    request.log.info(
+      {
+        requestId: request.id,
+        method: request.method,
+        url: request.url,
+      },
+      'request received'
+    );
+  });
+
+  app.addHook('onResponse', async (request, reply) => {
+    const start = (request as any).startTimeNs;
+    const durationMs = start ? Number(process.hrtime.bigint() - start) / 1_000_000 : undefined;
+    request.log.info(
+      {
+        requestId: request.id,
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+        durationMs,
+      },
+      'request completed'
+    );
   });
 
   app.register(multipart);

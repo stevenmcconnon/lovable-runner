@@ -2,6 +2,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { DatabaseService } from '../services/database';
+import { ensureAnySiteAccess, ensureSlugAccess, resolveSlugOrDefault, loadAllowedSlugs } from '../services/site-access';
 import { UserRole } from '../types';
 
 const rootRequire = (relativePath: string): any => {
@@ -113,71 +114,6 @@ const buildAccessContext = (request: FastifyRequest) => ({
   profile: request.auth?.profile ?? null,
   groups: request.auth?.roles ?? [],
 });
-
-const allowedSlugsCacheKey = Symbol('allowedSlugs');
-
-const loadAllowedSlugs = async (request: FastifyRequest, db: DatabaseService): Promise<string[]> => {
-  const cached = (request as any)[allowedSlugsCacheKey];
-  if (cached) return cached;
-  const accountId = request.auth?.profile?.accountId;
-  if (!accountId) {
-    (request as any)[allowedSlugsCacheKey] = [];
-    return [];
-  }
-  const slugs = await db.listAccountSlugs(accountId);
-  (request as any)[allowedSlugsCacheKey] = slugs;
-  return slugs;
-};
-
-const ensureAnySiteAccess = async (
-  request: FastifyRequest,
-  reply: FastifyReply,
-  db: DatabaseService
-): Promise<string[] | null> => {
-  const slugs = await loadAllowedSlugs(request, db);
-  if (!slugs.length) {
-    reply.code(403).send({ error: 'No sites assigned to this account yet.' });
-    return null;
-  }
-  return slugs;
-};
-
-const ensureSlugAccess = async (
-  request: FastifyRequest,
-  reply: FastifyReply,
-  db: DatabaseService,
-  slug?: string | null
-): Promise<string | null> => {
-  if (!slug) {
-    reply.code(400).send({ error: 'slug is required' });
-    return null;
-  }
-  const slugs = await ensureAnySiteAccess(request, reply, db);
-  if (!slugs) return null;
-  if (!slugs.includes(slug)) {
-    reply.code(403).send({ error: 'You do not have access to this site.' });
-    return null;
-  }
-  return slug;
-};
-
-const resolveSlugOrDefault = async (
-  request: FastifyRequest,
-  reply: FastifyReply,
-  db: DatabaseService,
-  slug?: string | null
-): Promise<string | null> => {
-  const slugs = await ensureAnySiteAccess(request, reply, db);
-  if (!slugs) return null;
-  if (slug) {
-    if (!slugs.includes(slug)) {
-      reply.code(403).send({ error: 'You do not have access to this site.' });
-      return null;
-    }
-    return slug;
-  }
-  return slugs[0];
-};
 
 const decodeOauthState = (value: string) => {
   try {
