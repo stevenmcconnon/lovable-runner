@@ -94,6 +94,7 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 ### Database (Amazon RDS)
 - The SAM stack provisions a managed PostgreSQL instance (`RunnerDatabase`) plus a Secrets Manager entry storing the username/password. Lambda receives `DATABASE_URL` automatically; local tooling can either rely on the stack metadata or pass `TEST_DATABASE_URL`.
 - Required SAM parameters: `DBName`, `DBUsername`, `DBPassword`, `DBInstanceClass`, `DBAllocatedStorage`, `DbVpcId`, `DbSubnetIds`, and (optionally) `DbAllowedCidr`. By default the instance is private and only the runner Lambda security group can reach it; set `DbAllowedCidr` to a tightly-scoped range (e.g., your VPN/bastion) if you need temporary direct access.
+- Set `UseRdsProxy=true` (default) to provision an Amazon RDS Proxy endpoint automatically; the Lambdas connect through the proxy so connection churn doesn’t overload Postgres. Disable it if you’re testing locally or don’t want the extra resource yet.
 - After deployment, fetch credentials and the host with:
   ```bash
   STACK=lovable-runner-api

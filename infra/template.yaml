@@ -38,8 +38,8 @@ Parameters:
     Description: Master user password for the RDS instance
   DBInstanceClass:
     Type: String
-    Default: db.t4g.micro
-    Description: Instance class for the RDS instance
+    Default: db.t4g.small
+    Description: Instance class for the RDS instance (adjust for load)
   DBAllocatedStorage:
     Type: Number
     Default: 20
@@ -287,6 +287,13 @@ Parameters:
     Type: String
     Default: 'https://api.ai-sitemaker.com/oauth/calendar/outlook/callback'
     Description: Redirect URI registered for Outlook calendar OAuth.
+  UseRdsProxy:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable an Amazon RDS Proxy endpoint for the Lambda functions to connect through (recommended)
 
 Conditions:
   HasCustomDomain: !And
@@ -298,6 +305,7 @@ Conditions:
   HasIntegrationKmsKey: !Not [!Equals [!Ref IntegrationKmsKeyArn, '']]
   HasReservedConcurrency: !Not [!Equals [!Ref RunnerReservedConcurrency, 0]]
   HasDbAllowedCidr: !Not [!Equals [!Ref DbAllowedCidr, '']]
+  UseDbProxy: !Equals [!Ref UseRdsProxy, 'true']
 
 Resources:
   RunnerApi:
@@ -392,6 +400,54 @@ Resources:
     Properties:
       DBSubnetGroupDescription: Subnets for Lovable Runner database
       SubnetIds: !Ref DbSubnetIds
+  RunnerDbProxyRole:
+    Condition: UseDbProxy
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - rds.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: allow-db-secret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref DatabaseCredentialsSecret
+  RunnerDbProxy:
+    Condition: UseDbProxy
+    Type: AWS::RDS::DBProxy
+    Properties:
+      DBProxyName: !Sub ${AWS::StackName}-proxy
+      EngineFamily: POSTGRESQL
+      IdleClientTimeout: 1800
+      RequireTLS: true
+      Auth:
+        - AuthScheme: SECRETS
+          SecretArn: !Ref DatabaseCredentialsSecret
+          IAMAuth: DISABLED
+      RoleArn: !GetAtt RunnerDbProxyRole.Arn
+      VpcSecurityGroupIds:
+        - !Ref RunnerFunctionSecurityGroup
+      VpcSubnetIds:
+        - !Ref RunnerLambdaPrivateSubnetA
+        - !Ref RunnerLambdaPrivateSubnetB
+  RunnerDbProxyTargetGroup:
+    Condition: UseDbProxy
+    Type: AWS::RDS::DBProxyTargetGroup
+    Properties:
+      DBProxyName: !Ref RunnerDbProxy
+      TargetGroupName: default
+      DBInstanceIdentifiers:
+        - !Ref RunnerDatabase
   RunnerLambdaPrivateSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
@@ -569,8 +625,8 @@ Resources:
       Environment:
         Variables: &RunnerEnvVariables
           NODE_ENV: production
-          DB_HOST: !GetAtt RunnerDatabase.Endpoint.Address
-          DB_PORT: !GetAtt RunnerDatabase.Endpoint.Port
+          DB_HOST: !If [UseDbProxy, !GetAtt RunnerDbProxy.Endpoint, !GetAtt RunnerDatabase.Endpoint.Address]
+          DB_PORT: !If [UseDbProxy, 5432, !GetAtt RunnerDatabase.Endpoint.Port]
           DB_NAME: !Ref DBName
           DB_USERNAME: !Ref DBUsername
           DB_PASSWORD: !Ref DBPassword
@@ -1025,3 +1081,7 @@ Outputs:
   StaticEgressIpAddress:
     Description: Elastic IP address used for Lambda outbound traffic
     Value: !Ref RunnerStaticEgressEip
+  DatabaseProxyEndpoint:
+    Condition: UseDbProxy
+    Description: RDS Proxy endpoint used by the Lambda functions
+    Value: !GetAtt RunnerDbProxy.Endpoint
