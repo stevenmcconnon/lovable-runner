@@ -50,9 +50,10 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `GET|POST /notifications/preferences` – fetch or update per-recipient email preferences/unsubscribe flags so owners can opt into specific notification types.
 
 #### Background workers
-- The SAM stack also deploys two worker Lambdas:
-  - `RunnerWorkerFunction` handles async invocations from the API (launches, edits, updates) plus generic schedules like notifications and analytics.
-  - `DomainWorkerFunction` is dedicated to custom-domain automation (HTTPS refresh + domain job batches) so bursty domain retries can’t starve launches or emails.
+- The SAM stack also deploys dedicated worker Lambdas:
+  - `RunnerWorkerFunction` handles async invocations from the API (launches, edits, updates) plus analytics rollups.
+  - `DomainWorkerFunction` is dedicated to custom-domain automation (HTTPS refresh + domain job batches) so bursty domain retries can’t starve other traffic.
+  - `NotificationWorkerFunction` wakes up every few minutes to drain the notification job table and send SES emails without competing with launches or domains.
 - `RUNNER_FUNCTION_NAME` inside the API now points at this worker so tenant traffic can’t be starved by long-running jobs.
 
 Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, PostgreSQL database, and the Lambda function wired to all routes.

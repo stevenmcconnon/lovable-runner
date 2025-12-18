@@ -903,6 +903,38 @@ Resources:
                 - cloudfront:DescribeFunction
                 - cloudfront:PublishFunction
               Resource: '*'
+  NotificationWorkerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - RunnerDatabase
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ../
+      Handler: dist/lambda.handler
+      Description: Notification queue worker
+      Timeout: 300
+      MemorySize: 1024
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref RunnerFunctionSecurityGroup
+        SubnetIds:
+          - !Ref RunnerLambdaPrivateSubnetA
+          - !Ref RunnerLambdaPrivateSubnetB
+      Environment:
+        Variables: *RunnerEnvVariables
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeadInboxTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationPreferencesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
 
   DomainHttpsRefreshRule:
     Type: AWS::Events::Rule
@@ -955,14 +987,14 @@ Resources:
       State: ENABLED
       Targets:
         - Id: NotificationWorkerTarget
-          Arn: !GetAtt RunnerWorkerFunction.Arn
+          Arn: !GetAtt NotificationWorkerFunction.Arn
           Input: |
             {"action":"RUN_NOTIFICATION_JOBS","limit":25}
 
   NotificationWorkerInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref RunnerWorkerFunction
+      FunctionName: !Ref NotificationWorkerFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt NotificationWorkerRule.Arn
