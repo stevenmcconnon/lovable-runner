@@ -56,8 +56,8 @@ Parameters:
     Description: Two or more subnets (different AZs) for the RDS subnet group
   DbAllowedCidr:
     Type: String
-    Default: 0.0.0.0/0
-    Description: CIDR block allowed to access the PostgreSQL port (adjust to your frontend's IP range)
+    Default: ''
+    Description: Optional CIDR block allowed to reach PostgreSQL directly (leave blank to restrict access to the Lambda security group only)
   NatGatewaySubnetId:
     Type: AWS::EC2::Subnet::Id
     Default: subnet-04c228a7b5b68ff53
@@ -297,6 +297,7 @@ Conditions:
   HasPreviewDomain: !Not [!Equals [!Ref PreviewDomainName, '']]
   HasIntegrationKmsKey: !Not [!Equals [!Ref IntegrationKmsKeyArn, '']]
   HasReservedConcurrency: !Not [!Equals [!Ref RunnerReservedConcurrency, 0]]
+  HasDbAllowedCidr: !Not [!Equals [!Ref DbAllowedCidr, '']]
 
 Resources:
   RunnerApi:
@@ -353,7 +354,7 @@ Resources:
     Type: AWS::RDS::DBInstance
     Properties:
       Engine: postgres
-      PubliclyAccessible: true
+      PubliclyAccessible: false
       AllocatedStorage: !Ref DBAllocatedStorage
       DBInstanceClass: !Ref DBInstanceClass
       MasterUsername: !Ref DBUsername
@@ -376,11 +377,15 @@ Resources:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          CidrIp: !Ref DbAllowedCidr
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
           SourceSecurityGroupId: !Ref RunnerFunctionSecurityGroup
+        - !If
+          - HasDbAllowedCidr
+          - 
+            IpProtocol: tcp
+            FromPort: 5432
+            ToPort: 5432
+            CidrIp: !Ref DbAllowedCidr
+          - !Ref AWS::NoValue
 
   RunnerDbSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
