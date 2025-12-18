@@ -44,6 +44,8 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `POST /reviews` / `POST /reviews/status` – capture visitor reviews and approve/reject them from the admin side.
 - `GET /analytics` – authenticated summary of traffic/leads/bookings plus simple health alerts.
 - `POST /analytics/events` – lightweight pixel endpoint generated sites call for page views, leads, and bookings.
+- `GET /audit/logs` – authenticated endpoint returning audit entries for the caller’s account (paginated).
+- `GET /admin/job-events` – admin-only feed of job events (launches/updates) with filtering + pagination.
 - `GET /appointments`, `POST /appointments/status`, `GET|POST /appointments/settings`, `GET /appointments/ics` – manage booking requests, configure availability/calendar tokens, and export ICS feeds.
 - `POST /appointments/calendar/connect` – start an OAuth connect flow for Google/Outlook calendars or return an Apple ICS link to subscribe manually. OAuth callbacks live at `/oauth/calendar/{provider}/callback`.
 - `POST /domains/check`, `POST /domains/register` – talk to the configured registrar to check availability or request a new domain on behalf of a customer.
@@ -72,6 +74,8 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
   - `scripts/request-cert.sh <domain>` – requests/validates an ACM certificate in `us-east-1`.
   - `scripts/deploy-sam.sh` – deploys the SAM stack (configure env vars inside the script).
   - `scripts/create-api-alias.sh <hosted-zone-id>` – creates/updates the Route 53 alias once `API_DOMAIN_NAME` is exported.
+  - `scripts/backfill-account-sites.js` – backfills historical account/site mappings for pagination.
+  - `scripts/backfill-job-events.js` – recreates job event history from legacy site generations.
   - `scripts/backfill-account-sites.js` – backfills the `account_sites` table from historical launches so large accounts load quickly.
 
 #### Customer site domains

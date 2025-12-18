@@ -58,6 +58,37 @@ const userIdParamsSchema = z.object({
   userId: z.string().uuid(),
 });
 
+const jobEventsQuery = z.object({
+  slug: z.string().optional(),
+  action: z.string().optional(),
+  status: z.string().optional(),
+  type: z.string().optional(),
+  requestId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  cursor: z.string().optional(),
+});
+
+const encodeJobCursor = (cursor: { createdAt: string; id: string }) =>
+  Buffer.from(JSON.stringify(cursor)).toString('base64');
+
+const decodeJobCursor = (token?: string | null) => {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      typeof (payload as any).createdAt === 'string' &&
+      typeof (payload as any).id === 'string'
+    ) {
+      return payload as { createdAt: string; id: string };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const s3Client = new S3Client({ region: config.awsRegion });
 const cognitoClient = new AWS.CognitoIdentityServiceProvider({ region: config.awsRegion });
 
@@ -195,6 +226,31 @@ export const registerAdminRoutes = (
     }
     const items = await db.listSiteGenerationsAdmin(parsed.data);
     return items;
+  });
+
+  app.get('/admin/job-events', { preHandler: superAdminPreHandler }, async (request, reply) => {
+    const parsed = jobEventsQuery.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
+    }
+    const cursor = parsed.data.cursor ? decodeJobCursor(parsed.data.cursor) : null;
+    if (parsed.data.cursor && !cursor) {
+      return reply.code(400).send({ message: 'Cursor token is invalid' });
+    }
+    const { items, nextCursor } = await db.listJobEvents({
+      limit: parsed.data.limit,
+      cursor: cursor ?? undefined,
+      slug: parsed.data.slug,
+      action: parsed.data.action,
+      status: parsed.data.status,
+      type: parsed.data.type,
+      requestId: parsed.data.requestId,
+    });
+    const encodedCursor = nextCursor ? encodeJobCursor(nextCursor) : null;
+    if (encodedCursor) {
+      reply.header('x-next-cursor', encodedCursor);
+    }
+    return { items, nextCursor: encodedCursor };
   });
 
   app.get(

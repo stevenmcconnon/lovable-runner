@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { DatabaseService } from '../services/database';
 import { ensureAnySiteAccess, ensureSlugAccess, resolveSlugOrDefault, loadAllowedSlugs } from '../services/site-access';
 import { UserRole } from '../types';
@@ -105,6 +106,33 @@ const { recordAuditEvent } = rootRequire('src/audit-log.js') as {
     userAgent?: string | null;
   }) => Promise<void>;
 };
+
+const encodeCursor = (cursor: { createdAt: string; id: string }) =>
+  Buffer.from(JSON.stringify(cursor)).toString('base64');
+
+const decodeCursor = (token?: string | null) => {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      typeof (payload as any).createdAt === 'string' &&
+      typeof (payload as any).id === 'string'
+    ) {
+      return payload as { createdAt: string; id: string };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const auditLogQuery = z.object({
+  slug: z.string().min(3).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  cursor: z.string().optional(),
+});
 
 const buildAccessContext = (request: FastifyRequest) => ({
   accountId: request.auth?.profile?.accountId ?? null,
@@ -270,6 +298,33 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
       reply.send(result);
     }
   );
+
+  app.get('/audit/logs', { preHandler: app.authenticateUser }, async (request, reply) => {
+    if (!request.auth?.profile) {
+      return reply.code(401).send({ message: 'Unauthorized' });
+    }
+    const parsed = auditLogQuery.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ message: 'Invalid query', details: parsed.error.flatten() });
+    }
+    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor) : null;
+    if (parsed.data.cursor && !cursor) {
+      return reply.code(400).send({ message: 'Cursor token is invalid' });
+    }
+    const { items, nextCursor } = await db.listAuditLogs(request.auth.profile.accountId, {
+      limit: parsed.data.limit,
+      cursor: cursor ?? undefined,
+      slug: parsed.data.slug,
+    });
+    const encodedCursor = nextCursor ? encodeCursor(nextCursor) : null;
+    if (encodedCursor) {
+      reply.header('x-next-cursor', encodedCursor);
+    }
+    return {
+      items,
+      nextCursor: encodedCursor,
+    };
+  });
 
   app.post(
     '/approve-update',

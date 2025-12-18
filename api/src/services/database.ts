@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Pool, PoolClient, QueryResultRow } from 'pg';
 import { config } from '../env';
+import { jobEvents } from './job-events';
 import {
   AccountSummary,
   AccountWithUsers,
@@ -197,6 +198,34 @@ const mapDomainJob = (row: any): DomainJobRecord => ({
   lastError: row.last_error ?? null,
   createdAt: toIsoString(row.created_at),
   updatedAt: toIsoString(row.updated_at),
+});
+
+const mapAuditLog = (row: any) => ({
+  id: row.id,
+  slug: row.slug,
+  accountId: row.account_id,
+  actorUserId: row.actor_user_id,
+  actorEmail: row.actor_email,
+  action: row.action,
+  description: row.description,
+  metadata: row.metadata,
+  ipAddress: row.ip_address,
+  userAgent: row.user_agent,
+  createdAt: row.created_at?.toISOString?.() ?? row.created_at,
+});
+
+const mapJobEventRow = (row: any) => ({
+  id: row.id,
+  type: row.type,
+  slug: row.slug,
+  accountId: row.account_id,
+  requestId: row.request_id,
+  jobId: row.job_id,
+  action: row.action,
+  status: row.status,
+  description: row.description,
+  metadata: row.metadata,
+  createdAt: row.created_at?.toISOString?.() ?? row.created_at,
 });
 
 const normalizeTimestamp = (value?: string | Date | null) => {
@@ -1120,6 +1149,18 @@ export class DatabaseService {
     }
     const record = mapSiteGeneration(rows[0]);
     await this.recordAccountSite(record.accountId ?? null, record.slug ?? null, record.createdAt);
+    await jobEvents
+      .record({
+        type: 'site_generation',
+        slug: record.slug ?? null,
+        accountId: record.accountId ?? null,
+        requestId: record.requestId,
+        action: 'CREATE',
+        status: record.status,
+        metadata: { sourceUrl: record.sourceUrl ?? null },
+        createdAt: record.createdAt,
+      })
+      .catch(() => undefined);
     return record;
   }
 
@@ -1149,6 +1190,22 @@ export class DatabaseService {
     `,
       params
     );
+    if (updates.status) {
+      const record = await this.getSiteGenerationByRequestId(requestId);
+      if (record) {
+        await jobEvents
+          .record({
+            type: 'site_generation',
+            slug: record.slug ?? null,
+            accountId: record.accountId ?? null,
+            requestId,
+            action: 'STATUS',
+            status: updates.status,
+            description: updates.errorMessage ?? null,
+          })
+          .catch(() => undefined);
+      }
+    }
   }
 
   async touchSiteGenerationStage(requestId: string, stage: SiteGenerationRecord['status']) {
@@ -1231,6 +1288,92 @@ export class DatabaseService {
       [accountId]
     );
     return rows.map((row) => row.slug).filter(Boolean);
+  }
+
+  async listAuditLogs(
+    accountId: string,
+    options: { limit?: number; cursor?: { createdAt: string; id: string }; slug?: string }
+  ): Promise<{ items: any[]; nextCursor: { createdAt: string; id: string } | null }> {
+    const limit = Math.max(1, Math.min(options.limit ?? 50, 200));
+    const values: any[] = [accountId];
+    const conditions: string[] = ['account_id = $1'];
+    let paramIndex = 2;
+    if (options.slug) {
+      conditions.push(`slug = $${paramIndex}`);
+      values.push(options.slug);
+      paramIndex += 1;
+    }
+    if (options.cursor?.createdAt && options.cursor?.id) {
+      conditions.push(
+        `(created_at < $${paramIndex} OR (created_at = $${paramIndex} AND id < $${paramIndex + 1}))`
+      );
+      values.push(options.cursor.createdAt, options.cursor.id);
+      paramIndex += 2;
+    }
+    values.push(limit + 1);
+    const sql = `
+      SELECT *
+      FROM site_audit_logs
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY created_at DESC, id DESC
+      LIMIT $${paramIndex}
+    `;
+    const { rows } = await this.query(sql, values);
+    const items = rows.slice(0, limit).map(mapAuditLog);
+    if (rows.length > limit && items.length) {
+      const last = items[items.length - 1];
+      return { items, nextCursor: { createdAt: last.createdAt, id: last.id } };
+    }
+    return { items, nextCursor: null };
+  }
+
+  async listJobEvents(options: {
+    limit?: number;
+    cursor?: { createdAt: string; id: string };
+    slug?: string;
+    action?: string;
+    status?: string;
+    type?: string;
+    requestId?: string;
+  }): Promise<{ items: any[]; nextCursor: { createdAt: string; id: string } | null }> {
+    const limit = Math.max(1, Math.min(options.limit ?? 50, 200));
+    const values: any[] = [];
+    const conditions: string[] = [];
+    let paramIndex = 1;
+    const addFilter = (clause: string, value?: string | null) => {
+      if (!value) return;
+      conditions.push(clause.replace('?', `$${paramIndex}`));
+      values.push(value);
+      paramIndex += 1;
+    };
+    addFilter('slug = ?', options.slug);
+    addFilter('action = ?', options.action);
+    addFilter('status = ?', options.status);
+    addFilter('type = ?', options.type);
+    addFilter('request_id = ?', options.requestId);
+    if (options.cursor?.createdAt && options.cursor?.id) {
+      conditions.push(
+        `(created_at < $${paramIndex} OR (created_at = $${paramIndex} AND id < $${paramIndex + 1}))`
+      );
+      values.push(options.cursor.createdAt, options.cursor.id);
+      paramIndex += 2;
+    }
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    values.push(limit + 1);
+    const sql = `
+      SELECT *
+      FROM job_events
+      ${whereClause}
+      ORDER BY created_at DESC, id DESC
+      LIMIT $${paramIndex}
+    `;
+    const { rows } = await this.query(sql, values);
+    const items = rows.slice(0, limit).map(mapJobEventRow);
+    if (rows.length > limit && items.length) {
+      const last = items[items.length - 1];
+      return { items, nextCursor: { createdAt: last.createdAt, id: last.id } };
+    }
+    return { items, nextCursor: null };
   }
 
   async listAccountsAdmin(): Promise<AccountSummary[]> {
