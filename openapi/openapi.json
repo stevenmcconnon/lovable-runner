@@ -1450,6 +1450,33 @@
         }
       }
     },
+    "/admin/owner-metrics": {
+      "get": {
+        "summary": "Fetch owner dashboard metrics",
+        "operationId": "getOwnerDashboardSnapshot",
+        "description": "Returns a single payload containing revenue, plan mix, launch throughput, and queue depth metrics powering the operator dashboard (super-admin access only).",
+        "responses": {
+          "200": {
+            "description": "Current snapshot",
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Responses should not be cached; included for completeness."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerDashboardSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/billing/create-checkout-session": {
       "post": {
         "summary": "Start a Stripe checkout session",
@@ -3536,6 +3563,167 @@
             }
           }
         ]
+      },
+      "OwnerDashboardSnapshot": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accounts": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "paying": {
+                "type": "integer"
+              },
+              "new7d": {
+                "type": "integer"
+              },
+              "new30d": {
+                "type": "integer"
+              }
+            }
+          },
+          "revenue": {
+            "type": "object",
+            "properties": {
+              "mrr": {
+                "type": "number"
+              },
+              "arr": {
+                "type": "number"
+              },
+              "domainTotal": {
+                "type": "number",
+                "description": "Cumulative domain revenue in USD."
+              },
+              "domain30d": {
+                "type": "number",
+                "description": "Domain revenue collected in the trailing 30 days."
+              },
+              "byPlan": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "planKey": {
+                      "type": "string"
+                    },
+                    "planName": {
+                      "type": "string"
+                    },
+                    "active": {
+                      "type": "integer"
+                    },
+                    "trialing": {
+                      "type": "integer"
+                    },
+                    "mrr": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "launches": {
+            "type": "object",
+            "properties": {
+              "totalSites": {
+                "type": "integer"
+              },
+              "launches7d": {
+                "type": "integer"
+              },
+              "launches30d": {
+                "type": "integer"
+              },
+              "avgSitesPerPayingAccount": {
+                "type": "number"
+              },
+              "recent": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "launches": {
+                      "type": "integer"
+                    },
+                    "accounts": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "jobs": {
+            "type": "object",
+            "properties": {
+              "runner": {
+                "type": "object",
+                "properties": {
+                  "queued": {
+                    "type": "integer"
+                  },
+                  "running": {
+                    "type": "integer"
+                  },
+                  "failed24h": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "domain": {
+                "type": "object",
+                "properties": {
+                  "pending": {
+                    "type": "integer"
+                  },
+                  "retry": {
+                    "type": "integer"
+                  },
+                  "failed24h": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "notifications": {
+                "type": "object",
+                "properties": {
+                  "pending": {
+                    "type": "integer"
+                  },
+                  "retry": {
+                    "type": "integer"
+                  },
+                  "failed24h": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "jobEvents": {
+                "type": "object",
+                "properties": {
+                  "total24h": {
+                    "type": "integer"
+                  },
+                  "errors24h": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       "SiteGeneration": {
         "type": "object",
