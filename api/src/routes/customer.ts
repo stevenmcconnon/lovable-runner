@@ -57,6 +57,12 @@ const siteLaunchInput = z.object({
   business: businessDetailsSchema,
 });
 
+const siteListQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.string().optional(),
+  includeMeta: z.string().optional(),
+});
+
 const trialAllowance = () => config.limits.trialEditLimit + config.limits.signedInBonusEdits;
 
 const buildThumbnailUrl = (publicUrl: string, refresh?: boolean) => {
@@ -82,6 +88,29 @@ const derivePlaceholderLabel = (params: {
   url?: string | null;
   fallback?: string;
 }) => params.business?.businessName || extractHostname(params.url) || params.fallback || 'Preview site';
+
+const shouldIncludeMeta = (value?: string | null) =>
+  typeof value === 'string' && ['1', 'true', 'yes'].includes(value.toLowerCase());
+
+const encodeSiteCursor = (cursor: { createdAt: string; requestId: string }) =>
+  Buffer.from(JSON.stringify(cursor)).toString('base64');
+
+const decodeSiteCursor = (token: string) => {
+  try {
+    const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof (payload as any).createdAt !== 'string' ||
+      typeof (payload as any).requestId !== 'string'
+    ) {
+      return null;
+    }
+    return payload as { createdAt: string; requestId: string };
+  } catch {
+    return null;
+  }
+};
 
 const ensureCustomerAccess = (request: FastifyRequest) => {
   if (!request.auth || !request.auth.profile) {
@@ -320,14 +349,65 @@ export const registerCustomerRoutes = (
 
   app.get('/customer/sites', { preHandler: app.authenticateUser }, async (request, reply) => {
     const profile = ensureCustomerAccess(request);
-    const items = await db.listSiteGenerations(profile.accountId);
+    const parsedQuery = siteListQuery.safeParse(request.query ?? {});
+    if (!parsedQuery.success) {
+      return reply.code(400).send({
+        message: 'Invalid query',
+        details: parsedQuery.error.flatten(),
+      });
+    }
+    const query = parsedQuery.data;
+    let cursor = null;
+    if (query.cursor) {
+      cursor = decodeSiteCursor(query.cursor);
+      if (!cursor) {
+        return reply.code(400).send({ message: 'Cursor is invalid' });
+      }
+    }
+    const { items, nextCursor } = await db.listSiteGenerationsPage(profile.accountId, {
+      limit: query.limit,
+      cursor: cursor ?? undefined,
+    });
+    const encodedCursor = nextCursor ? encodeSiteCursor(nextCursor) : null;
+    if (encodedCursor) {
+      reply.header('x-next-cursor', encodedCursor);
+    }
+    if (shouldIncludeMeta(query.includeMeta)) {
+      return { items, nextCursor: encodedCursor };
+    }
     return items;
   });
 
   app.get('/sites', { preHandler: app.authenticateUser }, async (request, reply) => {
     const profile = ensureCustomerAccess(request);
-    const items = await db.listSiteGenerations(profile.accountId);
-    return { items };
+    const parsedQuery = siteListQuery.safeParse(request.query ?? {});
+    if (!parsedQuery.success) {
+      return reply.code(400).send({
+        message: 'Invalid query',
+        details: parsedQuery.error.flatten(),
+      });
+    }
+    const query = parsedQuery.data;
+    let cursor = null;
+    if (query.cursor) {
+      cursor = decodeSiteCursor(query.cursor);
+      if (!cursor) {
+        return reply.code(400).send({ message: 'Cursor is invalid' });
+      }
+    }
+    const { items, nextCursor } = await db.listSiteGenerationsPage(profile.accountId, {
+      limit: query.limit,
+      cursor: cursor ?? undefined,
+    });
+    const encodedCursor = nextCursor ? encodeSiteCursor(nextCursor) : null;
+    if (encodedCursor) {
+      reply.header('x-next-cursor', encodedCursor);
+    }
+    const payload = { items };
+    if (shouldIncludeMeta(query.includeMeta)) {
+      Object.assign(payload, { nextCursor: encodedCursor });
+    }
+    return payload;
   });
 
   app.get('/sites/:slug/thumbnail', { preHandler: app.authenticateUser }, async (request, reply) => {

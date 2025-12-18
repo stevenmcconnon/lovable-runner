@@ -1152,6 +1152,47 @@ export class DatabaseService {
     return rows.map(mapSiteGeneration);
   }
 
+  async listSiteGenerationsPage(
+    accountId: string,
+    options: { limit?: number; cursor?: { createdAt: string; requestId: string } } = {}
+  ): Promise<{ items: SiteGenerationRecord[]; nextCursor: { createdAt: string; requestId: string } | null }> {
+    const limit = Math.max(1, Math.min(options.limit ?? 25, 100));
+    const values: any[] = [accountId];
+    const conditions: string[] = ['account_id = $1'];
+    let nextParamIndex = 2;
+    if (options.cursor?.createdAt && options.cursor?.requestId) {
+      conditions.push(
+        `(created_at < $${nextParamIndex} OR (created_at = $${nextParamIndex} AND request_id < $${nextParamIndex + 1}))`
+      );
+      values.push(options.cursor.createdAt, options.cursor.requestId);
+      nextParamIndex += 2;
+    }
+    values.push(limit + 1);
+    const limitParamIndex = nextParamIndex;
+    const sql = `
+      SELECT *
+      FROM site_generations
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY created_at DESC, request_id DESC
+      LIMIT $${limitParamIndex}
+    `;
+    const { rows } = await this.query(sql, values);
+    const items = rows.slice(0, limit).map(mapSiteGeneration);
+    if (rows.length > limit) {
+      const last = items[items.length - 1];
+      if (last) {
+        return {
+          items,
+          nextCursor: {
+            createdAt: last.createdAt,
+            requestId: last.requestId,
+          },
+        };
+      }
+    }
+    return { items, nextCursor: null };
+  }
+
   async listAccountSlugs(accountId: string): Promise<string[]> {
     if (!accountId) return [];
     const { rows } = await this.query(
