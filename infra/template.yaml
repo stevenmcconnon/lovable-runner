@@ -831,6 +831,78 @@ Resources:
                 - cloudfront:DescribeFunction
                 - cloudfront:PublishFunction
               Resource: '*'
+  DomainWorkerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - RunnerDatabase
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ../
+      Handler: dist/lambda.handler
+      Description: Domain automation worker
+      Timeout: 900
+      MemorySize: 2048
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref RunnerFunctionSecurityGroup
+        SubnetIds:
+          - !Ref RunnerLambdaPrivateSubnetA
+          - !Ref RunnerLambdaPrivateSubnetB
+      Environment:
+        Variables: *RunnerEnvVariables
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - S3CrudPolicy:
+            BucketName: !Ref DeployBucket
+        - S3CrudPolicy:
+            BucketName: !Ref TemplateUploadBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeadInboxTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAnalyticsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAppointmentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppointmentSettingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationPreferencesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+        - !If
+          - HasIntegrationKmsKey
+          - Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !Ref IntegrationKmsKeyArn
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
+        - Statement:
+            - Effect: Allow
+              Action:
+                - acm:DescribeCertificate
+                - acm:ListCertificates
+                - acm:RequestCertificate
+                - cloudfront:CreateDistribution
+                - cloudfront:GetDistribution
+                - cloudfront:CreateFunction
+                - cloudfront:UpdateFunction
+                - cloudfront:DescribeFunction
+                - cloudfront:PublishFunction
+              Resource: '*'
 
   DomainHttpsRefreshRule:
     Type: AWS::Events::Rule
@@ -841,14 +913,14 @@ Resources:
       State: ENABLED
       Targets:
         - Id: DomainHttpsRefreshTarget
-          Arn: !GetAtt RunnerWorkerFunction.Arn
+          Arn: !GetAtt DomainWorkerFunction.Arn
           Input: |
             {"action":"RUN_DOMAIN_HTTPS_REFRESH","limit":25}
 
   DomainHttpsRefreshInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref RunnerWorkerFunction
+      FunctionName: !Ref DomainWorkerFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt DomainHttpsRefreshRule.Arn
@@ -862,14 +934,14 @@ Resources:
       State: ENABLED
       Targets:
         - Id: DomainJobWorkerTarget
-          Arn: !GetAtt RunnerWorkerFunction.Arn
+          Arn: !GetAtt DomainWorkerFunction.Arn
           Input: !Sub |
             {"action":"RUN_DOMAIN_JOBS","limit":${DomainJobBatchLimit}}
 
   DomainJobWorkerInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref RunnerWorkerFunction
+      FunctionName: !Ref DomainWorkerFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt DomainJobWorkerRule.Arn
@@ -919,7 +991,7 @@ Resources:
   DomainJobFailureMetricFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
+      LogGroupName: !Sub /aws/lambda/${DomainWorkerFunction}
       FilterPattern: '"domain.job.failed"'
       MetricTransformations:
         - MetricValue: '1'
@@ -943,7 +1015,7 @@ Resources:
   DomainLifecycleFailureMetricFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
+      LogGroupName: !Sub /aws/lambda/${DomainWorkerFunction}
       FilterPattern: '"domain.lifecycle.failed"'
       MetricTransformations:
         - MetricValue: '1'
@@ -967,7 +1039,7 @@ Resources:
   DomainThrottleMetricFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
+      LogGroupName: !Sub /aws/lambda/${DomainWorkerFunction}
       FilterPattern: '"ThrottlingException"'
       MetricTransformations:
         - MetricValue: '1'
