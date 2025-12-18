@@ -21,6 +21,7 @@ const envSchema = z
     COGNITO_USER_POOL_DOMAIN: z.string().optional(),
     COGNITO_M2M_CLIENT_ID: z.string().optional(),
     RUNNER_FUNCTION_NAME: z.string().optional(),
+    RUNNER_QUEUE_URL: z.string().url().optional(),
     TEMPLATE_UPLOAD_BUCKET: z.string().min(1, 'TEMPLATE_UPLOAD_BUCKET is required'),
     DEFAULT_TRIAL_EDIT_LIMIT: z.coerce.number().default(1),
     SIGNED_IN_BONUS_EDITS: z.coerce.number().default(1),
@@ -90,6 +91,7 @@ const rawEnv = envSchema.parse({
   COGNITO_USER_POOL_DOMAIN: process.env.COGNITO_USER_POOL_DOMAIN,
   COGNITO_M2M_CLIENT_ID: process.env.COGNITO_M2M_CLIENT_ID,
   RUNNER_FUNCTION_NAME: process.env.RUNNER_FUNCTION_NAME,
+  RUNNER_QUEUE_URL: process.env.RUNNER_QUEUE_URL,
   TEMPLATE_UPLOAD_BUCKET: process.env.TEMPLATE_UPLOAD_BUCKET,
   DEFAULT_TRIAL_EDIT_LIMIT: process.env.DEFAULT_TRIAL_EDIT_LIMIT,
   SIGNED_IN_BONUS_EDITS: process.env.SIGNED_IN_BONUS_EDITS,
@@ -235,6 +237,7 @@ export const config = {
   },
   runner: {
     functionName: rawEnv.RUNNER_FUNCTION_NAME,
+    queueUrl: rawEnv.RUNNER_QUEUE_URL,
   },
   s3: {
     templateBucket: rawEnv.TEMPLATE_UPLOAD_BUCKET,

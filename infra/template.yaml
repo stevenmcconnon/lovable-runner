@@ -201,6 +201,10 @@ Parameters:
     MinValue: 0
     MaxValue: 500
     Description: Reserved concurrency limit for the runner Lambda to contain async worker storms (set to 0 to disable)
+  RunnerQueueUrl:
+    Type: String
+    Default: ''
+    Description: Optional SQS queue URL used to buffer runner jobs (leave blank to invoke Lambda directly)
   DomainMaxPerAccount:
     Type: Number
     Default: 5
@@ -694,6 +698,7 @@ Resources:
           DOMAIN_ORDER_DAILY_LIMIT: !Ref DomainOrderDailyLimit
           DOMAIN_REFRESH_DAILY_LIMIT: !Ref DomainRefreshDailyLimit
           RUNNER_FUNCTION_NAME: !Ref RunnerWorkerFunction
+          RUNNER_QUEUE_URL: !Ref RunnerQueueUrl
       Events:
         RootProxy:
           Type: HttpApi

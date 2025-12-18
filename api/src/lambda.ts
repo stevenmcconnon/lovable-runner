@@ -120,7 +120,23 @@ const handleActionEvent = async (event: any) => {
   throw new Error(`Unsupported action: ${event?.action ?? 'unknown'}`);
 };
 
+const isSqsEvent = (event: any) => Array.isArray(event?.Records) && event.Records.every((record) => record.eventSource?.includes('sqs') || record.eventSourceARN?.includes('sqs'));
+
 export const handler = async (event: APIGatewayProxyEventV2 | any, context: Context) => {
+  if (isSqsEvent(event)) {
+    for (const record of event.Records) {
+      if (!record?.body) continue;
+      let payload: any;
+      try {
+        payload = JSON.parse(record.body);
+      } catch (error) {
+        console.error('[lambda] Failed to parse SQS payload', { err: (error as Error)?.message });
+        throw error;
+      }
+      await handleActionEvent(payload);
+    }
+    return;
+  }
   if (event && typeof event === 'object' && 'action' in event) {
     return handleActionEvent(event);
   }
