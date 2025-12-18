@@ -53,6 +53,7 @@ const envSchema = z
     DOMAIN_ORDER_DAILY_LIMIT: z.string().optional(),
     DOMAIN_REFRESH_DAILY_LIMIT: z.string().optional(),
     ANALYTICS_DATABASE_URL: z.string().optional(),
+    ANALYTICS_QUEUE_URL: z.string().url({ message: 'ANALYTICS_QUEUE_URL must be a valid URL' }),
   })
   .refine(
     (value) =>
@@ -123,6 +124,7 @@ const rawEnv = envSchema.parse({
   DOMAIN_ORDER_DAILY_LIMIT: process.env.DOMAIN_ORDER_DAILY_LIMIT,
   DOMAIN_REFRESH_DAILY_LIMIT: process.env.DOMAIN_REFRESH_DAILY_LIMIT,
   ANALYTICS_DATABASE_URL: process.env.ANALYTICS_DATABASE_URL,
+  ANALYTICS_QUEUE_URL: process.env.ANALYTICS_QUEUE_URL || process.env.SITE_ANALYTICS_QUEUE_URL,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -284,4 +286,5 @@ export const config = {
     },
     limits: domainLimits,
   },
+  analyticsQueueUrl: rawEnv.ANALYTICS_QUEUE_URL,
 } as const;
