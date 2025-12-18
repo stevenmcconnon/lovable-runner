@@ -46,6 +46,7 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `POST /analytics/events` – lightweight pixel endpoint generated sites call for page views, leads, and bookings.
 - `GET /audit/logs` – authenticated endpoint returning audit entries for the caller’s account (paginated).
 - `GET /admin/job-events` – admin-only feed of job events (launches/updates) with filtering + pagination.
+- `GET /admin/owner-metrics` – super-admin snapshot of revenue, subscription mix, launch throughput, and queue health used to power the operator dashboard.
 - `GET /appointments`, `POST /appointments/status`, `GET|POST /appointments/settings`, `GET /appointments/ics` – manage booking requests, configure availability/calendar tokens, and export ICS feeds.
 - `POST /appointments/calendar/connect` – start an OAuth connect flow for Google/Outlook calendars or return an Apple ICS link to subscribe manually. OAuth callbacks live at `/oauth/calendar/{provider}/callback`.
 - `POST /domains/check`, `POST /domains/register` – talk to the configured registrar to check availability or request a new domain on behalf of a customer.
@@ -123,6 +124,7 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 - Let Lovable host your customer-facing site and add an `/admin` route (or create a separate project). The admin app should authenticate via the Cognito Hosted UI belonging to the user pool created by the SAM stack.
 - After login, send the Cognito ID token in the `Authorization: Bearer <token>` header to `https://api.ai-sitemaker.com`. Users in the `admin` or `super-admin` groups can call `/update` and `/approve-update`; regular `user` group members can be limited to read-only endpoints (e.g., `GET /updates`).
 - Admin listings such as `/admin/jobs` and `/admin/job-events` use cursor pagination. Pass `?limit=100` to control page size and reuse the `x-next-cursor` header (or the `nextCursor` field in the JSON body) to fetch subsequent pages.
+- Operators can build a single-owner dashboard by hitting `/admin/owner-metrics` (super-admin only). The endpoint returns current MRR/ARR, domain revenue (total + trailing 30 days), plan mix, launch throughput (total, trailing 7/30 days, daily timeline), and queue health (runner/domain/notification depth plus job-event failure counts) so you can render a cockpit without hitting half a dozen tables from the browser.
 - Because the backend holds the Lovable credentials, no token ever needs to be exposed to the frontend.
 - **REST API** – run `npm run serve`, then POST `/launch` with JSON `{ "url": "...", "bucket": "...", "prefix": "...", "slug": "...", "wait": 10, "attempts": 60 }`. Uses the same defaults/env as `launch`.
 

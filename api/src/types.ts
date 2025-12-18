@@ -41,6 +41,61 @@ export interface AccountWithUsers extends AccountSummary {
   users: AdminUserRecord[];
 }
 
+export interface OwnerDashboardSnapshot {
+  generatedAt: string;
+  accounts: {
+    total: number;
+    paying: number;
+    new7d: number;
+    new30d: number;
+  };
+  revenue: {
+    mrr: number;
+    arr: number;
+    domainTotal: number;
+    domain30d: number;
+    byPlan: {
+      planKey: string;
+      planName: string;
+      active: number;
+      trialing: number;
+      mrr: number;
+    }[];
+  };
+  launches: {
+    totalSites: number;
+    launches7d: number;
+    launches30d: number;
+    avgSitesPerPayingAccount: number;
+    recent: {
+      date: string;
+      launches: number;
+      accounts: number;
+    }[];
+  };
+  jobs: {
+    runner: {
+      queued: number;
+      running: number;
+      failed24h: number;
+    };
+    domain: {
+      pending: number;
+      retry: number;
+      failed24h: number;
+    };
+    notifications: {
+      pending: number;
+      retry: number;
+      failed24h: number;
+    };
+    jobEvents: {
+      total24h: number;
+      errors24h: number;
+    };
+  };
+}
+
 export interface AuthContext {
   type: 'user' | 'machine';
   sub: string;

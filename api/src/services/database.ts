@@ -28,6 +28,7 @@ import {
   DomainJobRecord,
   DomainJobStatus,
   DomainJobType,
+  OwnerDashboardSnapshot,
 } from '../types';
 
 const pool = new Pool({
@@ -1455,6 +1456,217 @@ export class DatabaseService {
     };
     const users = await this.listUsersAdmin({ accountId });
     return { ...summary, users };
+  }
+
+  async getOwnerDashboardSnapshot(): Promise<OwnerDashboardSnapshot> {
+    const now = new Date().toISOString();
+    const [
+      accountStatsResult,
+      subscriptionRowsResult,
+      siteStatsResult,
+      launchTimelineResult,
+      runnerJobsResult,
+      domainJobsResult,
+      notificationJobsResult,
+      jobEventsResult,
+      domainRevenueResult,
+    ] = await Promise.all([
+      this.query(
+        `
+        SELECT
+          COUNT(*) AS total_accounts,
+          COUNT(*) FILTER (WHERE first_seen >= NOW() - INTERVAL '7 days') AS new_accounts_7d,
+          COUNT(*) FILTER (WHERE first_seen >= NOW() - INTERVAL '30 days') AS new_accounts_30d
+        FROM (
+          SELECT account_id, MIN(created_at) AS first_seen
+          FROM profiles
+          WHERE account_id IS NOT NULL
+          GROUP BY account_id
+        ) accounts
+      `
+      ),
+      this.query(
+        `
+        SELECT
+          s.plan_key,
+          sp.plan_name,
+          COALESCE(sp.price_monthly, 0) AS price_monthly,
+          COUNT(*) FILTER (WHERE s.status = 'active') AS active_count,
+          COUNT(*) FILTER (WHERE s.status = 'trialing') AS trialing_count
+        FROM subscriptions s
+        LEFT JOIN subscription_plans sp ON sp.plan_key = s.plan_key
+        GROUP BY s.plan_key, sp.plan_name, sp.price_monthly
+      `
+      ),
+      this.query(
+        `
+        SELECT
+          COUNT(*) AS total_sites,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS launches_7d,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS launches_30d
+        FROM site_generations
+        WHERE slug IS NOT NULL
+      `
+      ),
+      this.query(
+        `
+        SELECT
+          DATE_TRUNC('day', created_at) AS bucket,
+          COUNT(*) AS launches,
+          COUNT(DISTINCT account_id) AS accounts
+        FROM site_generations
+        WHERE slug IS NOT NULL
+          AND created_at >= NOW() - INTERVAL '14 days'
+        GROUP BY bucket
+        ORDER BY bucket DESC
+      `
+      ),
+      this.query(
+        `
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'queued') AS queued,
+          COUNT(*) FILTER (WHERE status = 'running') AS running,
+          COUNT(*) FILTER (WHERE status = 'failed' AND updated_at >= NOW() - INTERVAL '24 hours') AS failed_24h
+        FROM edit_jobs
+      `
+      ),
+      this.query(
+        `
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+          COUNT(*) FILTER (WHERE status = 'retry') AS retry,
+          COUNT(*) FILTER (WHERE status = 'failed' AND updated_at >= NOW() - INTERVAL '24 hours') AS failed_24h
+        FROM domain_jobs
+      `
+      ),
+      this.query(
+        `
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+          COUNT(*) FILTER (WHERE status = 'retry') AS retry,
+          COUNT(*) FILTER (WHERE status = 'failed' AND updated_at >= NOW() - INTERVAL '24 hours') AS failed_24h
+        FROM notification_jobs
+      `
+      ),
+      this.query(
+        `
+        SELECT
+          COUNT(*) AS total_24h,
+          COUNT(*) FILTER (
+            WHERE
+              LOWER(COALESCE(status, '')) IN ('failed','error','retry')
+              OR LOWER(COALESCE(status, '')) LIKE 'fail%'
+              OR LOWER(COALESCE(status, '')) LIKE 'error%'
+          ) AS errors_24h
+        FROM job_events
+        WHERE created_at >= NOW() - INTERVAL '24 hours'
+      `
+      ),
+      this.query(
+        `
+        SELECT
+          COALESCE(SUM(price_cents) FILTER (
+            WHERE price_cents IS NOT NULL AND LOWER(COALESCE(status, '')) NOT IN ('pending','pending_payment','failed','canceled','cancelled')
+          ), 0) AS total_cents,
+          COALESCE(SUM(price_cents) FILTER (
+            WHERE price_cents IS NOT NULL
+              AND LOWER(COALESCE(status, '')) NOT IN ('pending','pending_payment','failed','canceled','cancelled')
+              AND created_at >= NOW() - INTERVAL '30 days'
+          ), 0) AS last_30d_cents
+        FROM domain_orders
+      `
+      ),
+    ]);
+
+    const accountRow = accountStatsResult.rows?.[0] ?? {};
+    const siteRow = siteStatsResult.rows?.[0] ?? {};
+    const runnerRow = runnerJobsResult.rows?.[0] ?? {};
+    const domainRow = domainJobsResult.rows?.[0] ?? {};
+    const notificationRow = notificationJobsResult.rows?.[0] ?? {};
+    const jobEventRow = jobEventsResult.rows?.[0] ?? {};
+    const domainRevenueRow = domainRevenueResult.rows?.[0] ?? {};
+
+    const byPlan = (subscriptionRowsResult.rows ?? []).map((row) => {
+      const price = Number(row.price_monthly ?? 0);
+      const active = Number(row.active_count ?? 0);
+      const trialing = Number(row.trialing_count ?? 0);
+      return {
+        planKey: row.plan_key ?? 'unknown',
+        planName: row.plan_name ?? row.plan_key ?? 'Unknown',
+        active,
+        trialing,
+        mrr: price * active,
+      };
+    });
+    const payingAccounts = byPlan.reduce((sum, plan) => sum + plan.active, 0);
+    const mrr = byPlan.reduce((sum, plan) => sum + plan.mrr, 0);
+
+    const recentLaunchTimeline = (launchTimelineResult.rows ?? [])
+      .map((row) => {
+        const iso = toIsoString(row.bucket);
+        if (!iso) return null;
+        return {
+          date: iso.slice(0, 10),
+          launches: Number(row.launches ?? 0),
+          accounts: Number(row.accounts ?? 0),
+        };
+      })
+      .filter(
+        (value): value is { date: string; launches: number; accounts: number } => Boolean(value)
+      )
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const totalSites = Number(siteRow.total_sites ?? 0);
+    const launches7d = Number(siteRow.launches_7d ?? 0);
+    const launches30d = Number(siteRow.launches_30d ?? 0);
+
+    return {
+      generatedAt: now,
+      accounts: {
+        total: Number(accountRow.total_accounts ?? 0),
+        paying: payingAccounts,
+        new7d: Number(accountRow.new_accounts_7d ?? 0),
+        new30d: Number(accountRow.new_accounts_30d ?? 0),
+      },
+      revenue: {
+        mrr,
+        arr: mrr * 12,
+        domainTotal: Number(domainRevenueRow.total_cents ?? 0) / 100,
+        domain30d: Number(domainRevenueRow.last_30d_cents ?? 0) / 100,
+        byPlan: byPlan.sort((a, b) => b.mrr - a.mrr),
+      },
+      launches: {
+        totalSites,
+        launches7d,
+        launches30d,
+        avgSitesPerPayingAccount:
+          payingAccounts > 0
+            ? Number((totalSites / payingAccounts).toFixed(2))
+            : totalSites,
+        recent: recentLaunchTimeline,
+      },
+      jobs: {
+        runner: {
+          queued: Number(runnerRow.queued ?? 0),
+          running: Number(runnerRow.running ?? 0),
+          failed24h: Number(runnerRow.failed_24h ?? 0),
+        },
+        domain: {
+          pending: Number(domainRow.pending ?? 0),
+          retry: Number(domainRow.retry ?? 0),
+          failed24h: Number(domainRow.failed_24h ?? 0),
+        },
+        notifications: {
+          pending: Number(notificationRow.pending ?? 0),
+          retry: Number(notificationRow.retry ?? 0),
+          failed24h: Number(notificationRow.failed_24h ?? 0),
+        },
+        jobEvents: {
+          total24h: Number(jobEventRow.total_24h ?? 0),
+          errors24h: Number(jobEventRow.errors_24h ?? 0),
+        },
+      },
+    };
   }
 
   async listSiteGenerationsAdmin(filters: {

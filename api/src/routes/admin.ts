@@ -268,6 +268,11 @@ export const registerAdminRoutes = (
     return { items, nextCursor: encodedCursor };
   });
 
+  app.get('/admin/owner-metrics', { preHandler: superAdminPreHandler }, async () => {
+    const snapshot = await db.getOwnerDashboardSnapshot();
+    return snapshot;
+  });
+
   app.get(
     '/admin/site-launches/:requestId',
     { preHandler: adminPreHandler },
