@@ -396,6 +396,23 @@ CREATE TABLE IF NOT EXISTS site_audit_logs (
 
 CREATE INDEX IF NOT EXISTS site_audit_logs_slug_idx ON site_audit_logs(slug, created_at);
 
+CREATE TABLE IF NOT EXISTS job_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT NOT NULL,
+  slug TEXT,
+  account_id UUID,
+  request_id UUID,
+  job_id UUID,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL,
+  description TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS job_events_slug_idx ON job_events(slug, created_at DESC);
+CREATE INDEX IF NOT EXISTS job_events_action_idx ON job_events(action, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS rate_limit_counters (
   slug TEXT,
   action TEXT NOT NULL,
