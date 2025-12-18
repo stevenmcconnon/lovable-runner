@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { DatabaseService } from '../services/database';
 import { UserRole } from '../types';
 
 const rootRequire = (relativePath: string): any => {
@@ -21,11 +22,9 @@ const { runUpdate, approveUpdate, listUpdates } = rootRequire('src/update.js') a
 const {
   listHistoryEntries,
   restoreSiteFromHistory,
-  getAllowedSlugsForUser,
 } = rootRequire('src/site-store.js') as {
   listHistoryEntries: (params: { slug: string; limit?: number }) => Promise<any>;
   restoreSiteFromHistory: (params: { slug: string; historyId: string }) => Promise<any>;
-  getAllowedSlugsForUser: (user: any) => string[] | null;
 };
 const { submitContactMessage } = rootRequire('src/contact.js') as {
   submitContactMessage: (params: any) => Promise<any>;
@@ -114,6 +113,71 @@ const buildAccessContext = (request: FastifyRequest) => ({
   profile: request.auth?.profile ?? null,
   groups: request.auth?.roles ?? [],
 });
+
+const allowedSlugsCacheKey = Symbol('allowedSlugs');
+
+const loadAllowedSlugs = async (request: FastifyRequest, db: DatabaseService): Promise<string[]> => {
+  const cached = (request as any)[allowedSlugsCacheKey];
+  if (cached) return cached;
+  const accountId = request.auth?.profile?.accountId;
+  if (!accountId) {
+    (request as any)[allowedSlugsCacheKey] = [];
+    return [];
+  }
+  const slugs = await db.listAccountSlugs(accountId);
+  (request as any)[allowedSlugsCacheKey] = slugs;
+  return slugs;
+};
+
+const ensureAnySiteAccess = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  db: DatabaseService
+): Promise<string[] | null> => {
+  const slugs = await loadAllowedSlugs(request, db);
+  if (!slugs.length) {
+    reply.code(403).send({ error: 'No sites assigned to this account yet.' });
+    return null;
+  }
+  return slugs;
+};
+
+const ensureSlugAccess = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  db: DatabaseService,
+  slug?: string | null
+): Promise<string | null> => {
+  if (!slug) {
+    reply.code(400).send({ error: 'slug is required' });
+    return null;
+  }
+  const slugs = await ensureAnySiteAccess(request, reply, db);
+  if (!slugs) return null;
+  if (!slugs.includes(slug)) {
+    reply.code(403).send({ error: 'You do not have access to this site.' });
+    return null;
+  }
+  return slug;
+};
+
+const resolveSlugOrDefault = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  db: DatabaseService,
+  slug?: string | null
+): Promise<string | null> => {
+  const slugs = await ensureAnySiteAccess(request, reply, db);
+  if (!slugs) return null;
+  if (slug) {
+    if (!slugs.includes(slug)) {
+      reply.code(403).send({ error: 'You do not have access to this site.' });
+      return null;
+    }
+    return slug;
+  }
+  return slugs[0];
+};
 
 const decodeOauthState = (value: string) => {
   try {
@@ -241,7 +305,8 @@ const getUserAgent = (request: FastifyRequest) =>
   (request.headers['User-Agent'] as string | undefined) ||
   null;
 
-export const registerCoreRoutes = (app: FastifyInstance) => {
+export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseService }) => {
+  const { db } = deps;
   app.post(
     '/update',
     {
@@ -372,18 +437,9 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/appointments',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
-      if (!allowedSlugs?.length) {
-        reply.code(403).send({ error: 'No sites assigned to this account yet.' });
-        return;
-      }
       const query = request.query as Record<string, any>;
-      const slug = query.slug || allowedSlugs[0];
-      if (!allowedSlugs.includes(slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const slug = await resolveSlugOrDefault(request, reply, db, query.slug);
+      if (!slug) return;
       const limit = query.limit ? Number(query.limit) : undefined;
       const status = query.status;
       const cursorToken = query.cursor;
@@ -408,15 +464,11 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/appointments/status',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
       const body = request.body as any;
-      if (!allowedSlugs?.includes(body.slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const slug = await ensureSlugAccess(request, reply, db, body.slug);
+      if (!slug) return;
       const result = await updateAppointmentStatus({
-        slug: body.slug,
+        slug,
         appointmentId: body.appointmentId,
         status: body.status,
         confirmedStart: body.confirmedStart,
@@ -426,7 +478,7 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
       if (body.status && typeof body.status === 'string' && body.status.toLowerCase() === 'confirmed') {
         try {
           await syncAppointmentWithProvider({
-            slug: body.slug,
+            slug,
             appointmentId: body.appointmentId,
           });
         } catch (error) {
@@ -444,18 +496,9 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/appointments/settings',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
-      if (!allowedSlugs?.length) {
-        reply.code(403).send({ error: 'No sites assigned yet.' });
-        return;
-      }
       const query = request.query as Record<string, any>;
-      const slug = query.slug || allowedSlugs[0];
-      if (!allowedSlugs.includes(slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const slug = await resolveSlugOrDefault(request, reply, db, query.slug);
+      if (!slug) return;
       const settings = await getAppointmentSettings({ slug });
       reply.send(settings);
     }
@@ -465,16 +508,12 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/appointments/settings',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
       const body = request.body as any;
-      if (!allowedSlugs?.includes(body.slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
-      const previous = await getAppointmentSettings({ slug: body.slug });
+      const slug = await ensureSlugAccess(request, reply, db, body.slug);
+      if (!slug) return;
+      const previous = await getAppointmentSettings({ slug });
       const settings = await saveAppointmentSettings({
-        slug: body.slug,
+        slug,
         availability: body.availability,
         timezone: body.timezone,
         calendarProvider: body.calendarProvider,
@@ -486,11 +525,11 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
       ) {
         try {
           await deleteIntegrationToken({
-            slug: body.slug,
+            slug,
             provider: previous.calendarProvider,
           });
         } catch (error) {
-          request.log.warn({ err: error, slug: body.slug }, '[appointments] failed to remove integration token');
+          request.log.warn({ err: error, slug }, '[appointments] failed to remove integration token');
         }
       }
       reply.send(settings);
@@ -524,19 +563,10 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/appointments/calendar/connect',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
-      if (!allowedSlugs?.length) {
-        reply.code(403).send({ error: 'No sites assigned yet.' });
-        return;
-      }
       const body = request.body as any;
       const provider = String(body.provider || '').toLowerCase();
-      const slug = body.slug || allowedSlugs[0];
-      if (!allowedSlugs.includes(slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const slug = await resolveSlugOrDefault(request, reply, db, body.slug);
+      if (!slug) return;
       if (provider === 'apple') {
         const settings = await getAppointmentSettings({ slug });
         let token = settings.calendarIcsToken;
@@ -577,18 +607,9 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/leads',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
-      if (!allowedSlugs?.length) {
-        reply.code(403).send({ error: 'No sites assigned to this account yet.' });
-        return;
-      }
       const query = request.query as Record<string, any>;
-      const slug = query.slug || allowedSlugs[0];
-      if (!allowedSlugs.includes(slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const slug = await resolveSlugOrDefault(request, reply, db, query.slug);
+      if (!slug) return;
       const limit = query.limit ? Number(query.limit) : undefined;
       const status = query.status;
       const cursorToken = query.cursor;
@@ -613,15 +634,11 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/leads/reply',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
       const body = request.body as any;
-      if (!allowedSlugs?.includes(body.slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const slug = await ensureSlugAccess(request, reply, db, body.slug);
+      if (!slug) return;
       const result = await sendLeadReply({
-        slug: body.slug,
+        slug,
         leadId: body.leadId,
         message: body.message,
         subject: body.subject,
@@ -635,15 +652,11 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/leads/status',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
       const body = request.body as any;
-      if (!allowedSlugs?.includes(body.slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const slug = await ensureSlugAccess(request, reply, db, body.slug);
+      if (!slug) return;
       const result = await markLeadStatus({
-        slug: body.slug,
+        slug,
         leadId: body.leadId,
         status: body.status,
         followUpAt: body.followUpAt,
@@ -679,15 +692,11 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/reviews/status',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
       const body = request.body as any;
-      if (!allowedSlugs?.includes(body.slug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const slug = await ensureSlugAccess(request, reply, db, body.slug);
+      if (!slug) return;
       const result = await setReviewStatus({
-        slug: body.slug,
+        slug,
         reviewId: body.reviewId,
         status: body.status,
       });
@@ -699,18 +708,13 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/notifications/preferences',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
       const { slug, recipient } = request.query as { slug?: string; recipient?: string };
-      const resolvedSlug = slug || allowedSlugs?.[0];
-      if (!resolvedSlug || !recipient) {
+      if (!recipient) {
         reply.code(400).send({ error: 'slug and recipient are required' });
         return;
       }
-      if (!allowedSlugs?.includes(resolvedSlug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const resolvedSlug = await resolveSlugOrDefault(request, reply, db, slug);
+      if (!resolvedSlug) return;
       const prefs = await getPreferences({ slug: resolvedSlug, recipient });
       reply.send(prefs);
     }
@@ -755,18 +759,9 @@ export const registerCoreRoutes = (app: FastifyInstance) => {
     '/analytics',
     { preHandler: app.authenticateUser },
     async (request, reply) => {
-      const accessContext = buildAccessContext(request);
-      const allowedSlugs = getAllowedSlugsForUser(accessContext);
-      if (!allowedSlugs?.length) {
-        reply.code(403).send({ error: 'No sites assigned yet.' });
-        return;
-      }
       const { slug, days } = request.query as { slug?: string; days?: string };
-      const resolvedSlug = slug || allowedSlugs[0];
-      if (!allowedSlugs.includes(resolvedSlug)) {
-        reply.code(403).send({ error: 'You do not have access to this site.' });
-        return;
-      }
+      const resolvedSlug = await resolveSlugOrDefault(request, reply, db, slug);
+      if (!resolvedSlug) return;
       const records = await listAnalytics({ slug: resolvedSlug, days: days ? Number(days) : undefined });
       const alerts = buildAlerts(records);
       reply.send({ slug: resolvedSlug, records, alerts });

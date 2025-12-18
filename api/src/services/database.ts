@@ -1130,6 +1130,26 @@ export class DatabaseService {
     return rows.map(mapSiteGeneration);
   }
 
+  async listAccountSlugs(accountId: string): Promise<string[]> {
+    if (!accountId) return [];
+    const { rows } = await this.query(
+      `
+      SELECT slug
+      FROM (
+        SELECT slug, MAX(created_at) AS last_created_at
+        FROM site_generations
+        WHERE account_id = $1
+          AND slug IS NOT NULL
+        GROUP BY slug
+      ) s
+      ORDER BY last_created_at DESC
+      LIMIT 200
+    `,
+      [accountId]
+    );
+    return rows.map((row) => row.slug).filter(Boolean);
+  }
+
   async listAccountsAdmin(): Promise<AccountSummary[]> {
     const { rows } = await this.query(
       `

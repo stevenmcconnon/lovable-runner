@@ -119,7 +119,7 @@ export const buildServer = (): FastifyInstance => {
     registerSiteBuilderRoutes(instance, { db: database, runner });
     registerTrackingRoutes(instance);
     registerSeoRoutes(instance, { db: database, seo: siteSeoService });
-    registerCoreRoutes(instance);
+    registerCoreRoutes(instance, { db: database });
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
