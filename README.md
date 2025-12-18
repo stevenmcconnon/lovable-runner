@@ -49,6 +49,10 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 - `POST /domains/check`, `POST /domains/register` – talk to the configured registrar to check availability or request a new domain on behalf of a customer.
 - `GET|POST /notifications/preferences` – fetch or update per-recipient email preferences/unsubscribe flags so owners can opt into specific notification types.
 
+#### Background workers
+- The SAM stack also deploys `RunnerWorkerFunction`, a second Lambda that only handles EventBridge schedules (domain HTTPS refresh, domain job batches, notification delivery, analytics rollups) and async invocations from the API (launches, edits, updates).
+- `RUNNER_FUNCTION_NAME` inside the API now points at this worker so tenant traffic can’t be starved by long-running jobs.
+
 Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, PostgreSQL database, and the Lambda function wired to all routes.
 
 ### AuthZ model

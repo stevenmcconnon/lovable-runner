@@ -567,7 +567,7 @@ Resources:
           - !Ref RunnerLambdaPrivateSubnetA
           - !Ref RunnerLambdaPrivateSubnetB
       Environment:
-        Variables:
+        Variables: &RunnerEnvVariables
           NODE_ENV: production
           DB_HOST: !GetAtt RunnerDatabase.Endpoint.Address
           DB_PORT: !GetAtt RunnerDatabase.Endpoint.Port
@@ -637,6 +637,7 @@ Resources:
           DOMAIN_MAX_PER_ACCOUNT: !Ref DomainMaxPerAccount
           DOMAIN_ORDER_DAILY_LIMIT: !Ref DomainOrderDailyLimit
           DOMAIN_REFRESH_DAILY_LIMIT: !Ref DomainRefreshDailyLimit
+          RUNNER_FUNCTION_NAME: !Ref RunnerWorkerFunction
       Events:
         RootProxy:
           Type: HttpApi
@@ -702,6 +703,78 @@ Resources:
                 - cloudfront:DescribeFunction
                 - cloudfront:PublishFunction
               Resource: '*'
+  RunnerWorkerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - RunnerDatabase
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: ../
+      Handler: dist/lambda.handler
+      Description: Background worker for AI SiteMaker
+      Timeout: 900
+      MemorySize: 2048
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref RunnerFunctionSecurityGroup
+        SubnetIds:
+          - !Ref RunnerLambdaPrivateSubnetA
+          - !Ref RunnerLambdaPrivateSubnetB
+      Environment:
+        Variables: *RunnerEnvVariables
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - S3CrudPolicy:
+            BucketName: !Ref DeployBucket
+        - S3CrudPolicy:
+            BucketName: !Ref TemplateUploadBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeadInboxTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAnalyticsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAppointmentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppointmentSettingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationPreferencesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+        - !If
+          - HasIntegrationKmsKey
+          - Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !Ref IntegrationKmsKeyArn
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
+        - Statement:
+            - Effect: Allow
+              Action:
+                - acm:DescribeCertificate
+                - acm:ListCertificates
+                - acm:RequestCertificate
+                - cloudfront:CreateDistribution
+                - cloudfront:GetDistribution
+                - cloudfront:CreateFunction
+                - cloudfront:UpdateFunction
+                - cloudfront:DescribeFunction
+                - cloudfront:PublishFunction
+              Resource: '*'
 
   DomainHttpsRefreshRule:
     Type: AWS::Events::Rule
@@ -712,14 +785,14 @@ Resources:
       State: ENABLED
       Targets:
         - Id: DomainHttpsRefreshTarget
-          Arn: !GetAtt RunnerFunction.Arn
+          Arn: !GetAtt RunnerWorkerFunction.Arn
           Input: |
             {"action":"RUN_DOMAIN_HTTPS_REFRESH","limit":25}
 
   DomainHttpsRefreshInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref RunnerFunction
+      FunctionName: !Ref RunnerWorkerFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt DomainHttpsRefreshRule.Arn
@@ -733,14 +806,14 @@ Resources:
       State: ENABLED
       Targets:
         - Id: DomainJobWorkerTarget
-          Arn: !GetAtt RunnerFunction.Arn
+          Arn: !GetAtt RunnerWorkerFunction.Arn
           Input: !Sub |
             {"action":"RUN_DOMAIN_JOBS","limit":${DomainJobBatchLimit}}
 
   DomainJobWorkerInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref RunnerFunction
+      FunctionName: !Ref RunnerWorkerFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt DomainJobWorkerRule.Arn
@@ -754,14 +827,14 @@ Resources:
       State: ENABLED
       Targets:
         - Id: NotificationWorkerTarget
-          Arn: !GetAtt RunnerFunction.Arn
+          Arn: !GetAtt RunnerWorkerFunction.Arn
           Input: |
             {"action":"RUN_NOTIFICATION_JOBS","limit":25}
 
   NotificationWorkerInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref RunnerFunction
+      FunctionName: !Ref RunnerWorkerFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt NotificationWorkerRule.Arn
@@ -775,14 +848,14 @@ Resources:
       State: ENABLED
       Targets:
         - Id: AnalyticsRollupTarget
-          Arn: !GetAtt RunnerFunction.Arn
+          Arn: !GetAtt RunnerWorkerFunction.Arn
           Input: |
             {"action":"RUN_ANALYTICS_ROLLUP"}
 
   AnalyticsRollupInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref RunnerFunction
+      FunctionName: !Ref RunnerWorkerFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt AnalyticsRollupRule.Arn
@@ -790,7 +863,7 @@ Resources:
   DomainJobFailureMetricFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${RunnerFunction}
+      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
       FilterPattern: '"domain.job.failed"'
       MetricTransformations:
         - MetricValue: '1'
@@ -814,7 +887,7 @@ Resources:
   DomainLifecycleFailureMetricFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${RunnerFunction}
+      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
       FilterPattern: '"domain.lifecycle.failed"'
       MetricTransformations:
         - MetricValue: '1'
@@ -838,7 +911,7 @@ Resources:
   DomainThrottleMetricFilter:
     Type: AWS::Logs::MetricFilter
     Properties:
-      LogGroupName: !Sub /aws/lambda/${RunnerFunction}
+      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
       FilterPattern: '"ThrottlingException"'
       MetricTransformations:
         - MetricValue: '1'
