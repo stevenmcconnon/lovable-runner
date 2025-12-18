@@ -62,7 +62,7 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 - **End-user access** – Dashboard callers must present a Cognito ID token; the backend derives `accountId`/`profileId` from that token and never trusts a client-supplied `accountId`. Customer routes allow the `user`, `admin`, or `super-admin` groups, and admin routes hard-require the privileged groups.
 - **Machine access** – Internal automation (launch jobs, domain refreshes, etc.) runs with machine tokens minted by Cognito. Those tokens must include a `permissions` claim (e.g., `{"machine": true, "jobs":{"run":true}}`), and every `/internal` route verifies the relevant permission before enqueuing work.
 - **Launch reservations** – `/launch` uses the `launch_reservations` table to atomically reserve capacity per account/request id. A reservation is consumed only after the launch completes and is released on failure callbacks, which prevents double-spend when an idempotency key is retried.
-- **Rate limits & quotas** – Persistent counters in `rate_limit_counters` enforce anonymous launch caps, per-account domain quotas, purchase/day ceilings, and HTTPS refresh throttles so one noisy tenant cannot starve the rest.
+- **Rate limits & quotas** – Persistent counters in `rate_limit_counters` enforce anonymous launch caps, per-account domain quotas, purchase/day ceilings, and HTTPS refresh throttles so one noisy tenant cannot starve the rest. CloudWatch dashboards + alarms track domain lifecycle failures, notification job send failures, and launch latency so operators know when a tenant is misbehaving.
 
 #### Custom domain & DNS
 - Request an ACM certificate in `us-east-1` that covers your API host (e.g., `api.ai-sitemaker.com`). Validate it in Route 53.
@@ -98,6 +98,7 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 - The SAM stack provisions a managed PostgreSQL instance (`RunnerDatabase`) plus a Secrets Manager entry storing the username/password. Lambda receives `DATABASE_URL` automatically; local tooling can either rely on the stack metadata or pass `TEST_DATABASE_URL`.
 - Required SAM parameters: `DBName`, `DBUsername`, `DBPassword`, `DBInstanceClass`, `DBAllocatedStorage`, `DbVpcId`, `DbSubnetIds`, and (optionally) `DbAllowedCidr`. By default the instance is private and only the runner Lambda security group can reach it; set `DbAllowedCidr` to a tightly-scoped range (e.g., your VPN/bastion) if you need temporary direct access.
 - Set `UseRdsProxy=true` (default) to provision an Amazon RDS Proxy endpoint automatically; the Lambdas connect through the proxy so connection churn doesn’t overload Postgres. Disable it if you’re testing locally or don’t want the extra resource yet.
+- You can point analytics-heavy workloads (site metrics + rollups) at a different Postgres by setting `ANALYTICS_DATABASE_URL`. When omitted, analytics share the primary DB; when provided, DatabaseService and the worker will read/write metrics through that connection string so you can offload later without code changes.
 - After deployment, fetch credentials and the host with:
   ```bash
   STACK=lovable-runner-api

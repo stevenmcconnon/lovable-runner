@@ -51,6 +51,7 @@ const envSchema = z
     DOMAIN_MAX_PER_ACCOUNT: z.string().optional(),
     DOMAIN_ORDER_DAILY_LIMIT: z.string().optional(),
     DOMAIN_REFRESH_DAILY_LIMIT: z.string().optional(),
+    ANALYTICS_DATABASE_URL: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -119,6 +120,7 @@ const rawEnv = envSchema.parse({
   DOMAIN_MAX_PER_ACCOUNT: process.env.DOMAIN_MAX_PER_ACCOUNT,
   DOMAIN_ORDER_DAILY_LIMIT: process.env.DOMAIN_ORDER_DAILY_LIMIT,
   DOMAIN_REFRESH_DAILY_LIMIT: process.env.DOMAIN_REFRESH_DAILY_LIMIT,
+  ANALYTICS_DATABASE_URL: process.env.ANALYTICS_DATABASE_URL,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -217,6 +219,7 @@ export const config = {
   nodeEnv: rawEnv.NODE_ENV ?? 'development',
   database: {
     url: buildDatabaseUrl(),
+    analyticsUrl: rawEnv.ANALYTICS_DATABASE_URL || undefined,
   },
   stripe: {
     secretKey: rawEnv.STRIPE_SECRET_KEY,

@@ -34,6 +34,14 @@ const pool = new Pool({
   ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
 });
 
+const analyticsPool =
+  config.database.analyticsUrl && config.database.analyticsUrl !== config.database.url
+    ? new Pool({
+        connectionString: config.database.analyticsUrl,
+        ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
+      })
+    : pool;
+
 const DOMAIN_JOB_LOCK_KEY = 837492;
 
 const toIsoString = (value: any) => value?.toISOString?.() ?? value ?? null;
@@ -221,8 +229,11 @@ const mapDeploymentRecord = (row: any): DeploymentRecord => ({
 export class DatabaseService {
   private pool: Pool;
 
-  constructor(poolInstance: Pool = pool) {
-    this.pool = poolInstance;
+  private analyticsPool: Pool;
+
+  constructor(options: { pool?: Pool; analyticsPool?: Pool } = {}) {
+    this.pool = options.pool ?? pool;
+    this.analyticsPool = options.analyticsPool ?? analyticsPool;
   }
 
   async getProfileDetails(userId: string): Promise<ProfileDetails | null> {
@@ -288,6 +299,17 @@ export class DatabaseService {
 
   private async getClient(): Promise<PoolClient> {
     return this.pool.connect();
+  }
+
+  private async analyticsQuery<T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    params: any[] = []
+  ) {
+    return this.analyticsPool.query<T>(text, params);
+  }
+
+  private async getAnalyticsClient(): Promise<PoolClient> {
+    return this.analyticsPool.connect();
   }
 
   async getProfileByCognitoSub(sub: string): Promise<ProfileRecord | null> {
@@ -1957,7 +1979,7 @@ export class DatabaseService {
   }
 
   async recordSiteMetric(slug: string, event: 'view' | 'cta'): Promise<void> {
-    const client = await this.getClient();
+    const client = await this.getAnalyticsClient();
     try {
       await client.query('BEGIN');
       const column = event === 'cta' ? 'cta_clicks' : 'views';
@@ -1980,7 +2002,7 @@ export class DatabaseService {
   }
 
   async getSiteMetrics(slug: string, days = 30): Promise<{ views: number; ctaClicks: number }> {
-    const daily = await this.query(
+    const daily = await this.analyticsQuery(
       `
       SELECT
         COALESCE(SUM(views), 0) AS views,
@@ -1999,7 +2021,7 @@ export class DatabaseService {
         ctaClicks: Number(ctaValue ?? 0),
       };
     }
-    const fallback = await this.query(
+    const fallback = await this.analyticsQuery(
       `
       SELECT
         COALESCE(SUM(views), 0) AS views,
