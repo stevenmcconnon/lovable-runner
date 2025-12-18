@@ -1299,6 +1299,34 @@
       "get": {
         "summary": "List customer accounts",
         "operationId": "listAccounts",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Optional page size (defaults to 50)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque cursor token returned from a previous page."
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter accounts by partial email or account id match."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Account collection",
@@ -1311,6 +1339,12 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/AccountSummary"
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Opaque cursor token to fetch the next page (also emitted via the x-next-cursor header)."
                       }
                     }
                   }

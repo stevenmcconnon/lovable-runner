@@ -1400,23 +1400,58 @@ export class DatabaseService {
     return { items, nextCursor: null };
   }
 
-  async listAccountsAdmin(): Promise<AccountSummary[]> {
+  async listAccountsAdmin(options: {
+    limit?: number;
+    cursor?: { sortDate: string; accountId: string };
+    search?: string;
+  } = {}): Promise<{ items: AccountSummary[]; nextCursor: { sortDate: string; accountId: string } | null }> {
+    const limit = Math.max(1, Math.min(options.limit ?? 50, 200));
+    const conditions: string[] = [];
+    const params: any[] = [];
+    const searchValue = options.search?.trim();
+    if (searchValue) {
+      params.push(`%${searchValue.replace(/[%_]/g, '\\$&')}%`);
+      const searchParam = params.length;
+      conditions.push(
+        `(account_id::text ILIKE $${searchParam} ESCAPE '\\' OR primary_email ILIKE $${searchParam} ESCAPE '\\')`
+      );
+    }
+    if (options.cursor?.sortDate && options.cursor?.accountId) {
+      params.push(options.cursor.sortDate, options.cursor.accountId);
+      const sortParam = params.length - 1;
+      const accountParam = params.length;
+      conditions.push(
+        `(sort_key < $${sortParam}::timestamptz OR (sort_key = $${sortParam}::timestamptz AND account_id < $${accountParam}))`
+      );
+    }
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    params.push(limit + 1);
     const { rows } = await this.query(
       `
-      SELECT
-        p.account_id,
-        MIN(p.created_at) AS created_at,
-        MIN(p.email) FILTER (WHERE p.email IS NOT NULL) AS primary_email,
-        COUNT(DISTINCT p.id) AS user_count,
-        COUNT(DISTINCT sg.request_id) AS site_count,
-        MAX(sg.created_at) AS last_site_at
-      FROM profiles p
-      LEFT JOIN site_generations sg ON sg.account_id = p.account_id
-      GROUP BY p.account_id
-      ORDER BY MAX(sg.created_at) DESC NULLS LAST, MIN(p.created_at) DESC
-    `
+      WITH account_summary AS (
+        SELECT
+          p.account_id,
+          MIN(p.created_at) AS created_at,
+          MIN(p.email) FILTER (WHERE p.email IS NOT NULL) AS primary_email,
+          COUNT(DISTINCT p.id) AS user_count,
+          COUNT(DISTINCT sg.request_id) AS site_count,
+          MAX(sg.created_at) AS last_site_at,
+          COALESCE(MAX(sg.created_at), MIN(p.created_at)) AS sort_key
+        FROM profiles p
+        LEFT JOIN site_generations sg ON sg.account_id = p.account_id
+        WHERE p.account_id IS NOT NULL
+        GROUP BY p.account_id
+      )
+      SELECT *
+      FROM account_summary
+      ${whereClause}
+      ORDER BY sort_key DESC NULLS LAST, account_id DESC
+      LIMIT $${params.length}
+    `,
+      params
     );
-    return rows.map((row) => ({
+    const limitedRows = rows.slice(0, limit);
+    const items = limitedRows.map((row) => ({
       accountId: row.account_id,
       primaryEmail: row.primary_email ?? null,
       userCount: Number(row.user_count ?? 0),
@@ -1424,6 +1459,22 @@ export class DatabaseService {
       createdAt: toIsoString(row.created_at),
       lastSiteAt: toIsoString(row.last_site_at),
     }));
+    if (rows.length > limit && items.length) {
+      const lastRow = limitedRows[limitedRows.length - 1] ?? rows[limit];
+      const sortDate =
+        toIsoString(lastRow.sort_key) ||
+        toIsoString(lastRow.last_site_at) ||
+        toIsoString(lastRow.created_at) ||
+        new Date(0).toISOString();
+      return {
+        items,
+        nextCursor: {
+          sortDate,
+          accountId: lastRow.account_id,
+        },
+      };
+    }
+    return { items, nextCursor: null };
   }
 
   async getAccountWithUsers(accountId: string): Promise<AccountWithUsers | null> {

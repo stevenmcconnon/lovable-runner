@@ -70,20 +70,31 @@ const jobEventsQuery = z.object({
   cursor: z.string().optional(),
 });
 
-const encodeCursor = (cursor: { createdAt: string; id: string }) =>
+const adminAccountsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  cursor: z.string().optional(),
+  search: z.string().min(1).optional(),
+});
+
+const encodeCursor = (cursor: Record<string, string>) =>
   Buffer.from(JSON.stringify(cursor)).toString('base64');
 
-const decodeCursor = (token?: string | null) => {
+const decodeCursor = (
+  token?: string | null,
+  requiredKeys: string[] = []
+): Record<string, string> | null => {
   if (!token) return null;
   try {
     const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
     if (
       payload &&
       typeof payload === 'object' &&
-      typeof (payload as any).createdAt === 'string' &&
-      typeof (payload as any).id === 'string'
+      Object.values(payload as Record<string, unknown>).every((value) => typeof value === 'string')
     ) {
-      return payload as { createdAt: string; id: string };
+      const record = payload as Record<string, string>;
+      if (requiredKeys.every((key) => typeof record[key] === 'string')) {
+        return record;
+      }
     }
     return null;
   } catch {
@@ -166,7 +177,7 @@ export const registerAdminRoutes = (
     if (!parsed.success) {
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
-    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor) : null;
+    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor, ['createdAt', 'id']) : null;
     if (parsed.data.cursor && !cursor) {
       return reply.code(400).send({ message: 'Cursor token is invalid' });
     }
@@ -248,7 +259,7 @@ export const registerAdminRoutes = (
     if (!parsed.success) {
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
-    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor) : null;
+    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor, ['createdAt', 'id']) : null;
     if (parsed.data.cursor && !cursor) {
       return reply.code(400).send({ message: 'Cursor token is invalid' });
     }
@@ -420,9 +431,29 @@ export const registerAdminRoutes = (
     }
   );
 
-  app.get('/admin/accounts', { preHandler: superAdminPreHandler }, async () => {
-    const accounts = await db.listAccountsAdmin();
-    return { items: accounts };
+  app.get('/admin/accounts', { preHandler: superAdminPreHandler }, async (request, reply) => {
+    const parsed = adminAccountsQuery.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
+    }
+    const cursorPayload = parsed.data.cursor
+      ? decodeCursor(parsed.data.cursor, ['sortDate', 'accountId'])
+      : null;
+    if (parsed.data.cursor && !cursorPayload) {
+      return reply.code(400).send({ message: 'Cursor token is invalid' });
+    }
+    const { items, nextCursor } = await db.listAccountsAdmin({
+      limit: parsed.data.limit,
+      search: parsed.data.search,
+      cursor: cursorPayload
+        ? { sortDate: cursorPayload.sortDate, accountId: cursorPayload.accountId }
+        : undefined,
+    });
+    const encodedCursor = nextCursor ? encodeCursor(nextCursor) : null;
+    if (encodedCursor) {
+      reply.header('x-next-cursor', encodedCursor);
+    }
+    return { items, nextCursor: encodedCursor };
   });
 
   app.get(
