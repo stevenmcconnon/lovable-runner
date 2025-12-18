@@ -199,6 +199,12 @@ const mapDomainJob = (row: any): DomainJobRecord => ({
   updatedAt: toIsoString(row.updated_at),
 });
 
+const normalizeTimestamp = (value?: string | Date | null) => {
+  if (!value) return new Date().toISOString();
+  if (value instanceof Date) return value.toISOString();
+  return value;
+};
+
 const mapDomainEvent = (row: any): DomainEventRecord => ({
   id: row.id,
   domain: row.domain,
@@ -306,6 +312,24 @@ export class DatabaseService {
     params: any[] = []
   ) {
     return this.analyticsPool.query<T>(text, params);
+  }
+
+  private async recordAccountSite(
+    accountId?: string | null,
+    slug?: string | null,
+    createdAt?: string | Date | null
+  ): Promise<void> {
+    if (!accountId || !slug) return;
+    const timestamp = normalizeTimestamp(createdAt);
+    await this.query(
+      `
+      INSERT INTO account_sites (account_id, slug, created_at)
+      VALUES ($1,$2,$3)
+      ON CONFLICT (account_id, slug)
+      DO UPDATE SET created_at = LEAST(account_sites.created_at, EXCLUDED.created_at)
+    `,
+      [accountId, slug, timestamp]
+    );
   }
 
   private async getAnalyticsClient(): Promise<PoolClient> {
@@ -1094,7 +1118,9 @@ export class DatabaseService {
     if (!rows[0]) {
       throw new Error('Failed to create site generation request');
     }
-    return mapSiteGeneration(rows[0]);
+    const record = mapSiteGeneration(rows[0]);
+    await this.recordAccountSite(record.accountId ?? null, record.slug ?? null, record.createdAt);
+    return record;
   }
 
   async updateSiteGeneration(requestId: string, updates: Partial<SiteGenerationRecord>): Promise<void> {
@@ -1198,15 +1224,9 @@ export class DatabaseService {
     const { rows } = await this.query(
       `
       SELECT slug
-      FROM (
-        SELECT slug, MAX(created_at) AS last_created_at
-        FROM site_generations
-        WHERE account_id = $1
-          AND slug IS NOT NULL
-        GROUP BY slug
-      ) s
-      ORDER BY last_created_at DESC
-      LIMIT 200
+      FROM account_sites
+      WHERE account_id = $1
+      ORDER BY created_at DESC
     `,
       [accountId]
     );

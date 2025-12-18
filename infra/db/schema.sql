@@ -142,6 +142,15 @@ CREATE TABLE IF NOT EXISTS site_generations (
 CREATE INDEX IF NOT EXISTS site_generations_account_idx ON site_generations(account_id);
 CREATE INDEX IF NOT EXISTS site_generations_request_idx ON site_generations(request_id);
 
+CREATE TABLE IF NOT EXISTS account_sites (
+  account_id UUID NOT NULL,
+  slug TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (account_id, slug)
+);
+
+CREATE INDEX IF NOT EXISTS account_sites_slug_idx ON account_sites(slug);
+
 CREATE TABLE IF NOT EXISTS domain_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id UUID,

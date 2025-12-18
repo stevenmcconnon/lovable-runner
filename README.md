@@ -72,6 +72,7 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
   - `scripts/request-cert.sh <domain>` – requests/validates an ACM certificate in `us-east-1`.
   - `scripts/deploy-sam.sh` – deploys the SAM stack (configure env vars inside the script).
   - `scripts/create-api-alias.sh <hosted-zone-id>` – creates/updates the Route 53 alias once `API_DOMAIN_NAME` is exported.
+  - `scripts/backfill-account-sites.js` – backfills the `account_sites` table from historical launches so large accounts load quickly.
 
 #### Customer site domains
 - **Namecheap integration** – provide `NAMECHEAP_API_USER`, `NAMECHEAP_API_KEY`, and (optionally) `NAMECHEAP_USERNAME` / `NAMECHEAP_API_BASE`. The SAM template wires the static NAT IP into `NAMECHEAP_CLIENT_IP` (stack output `StaticEgressIpAddress`, currently `52.2.69.55`), so whitelist that IP inside Namecheap before hitting the API.
