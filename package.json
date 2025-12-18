@@ -36,6 +36,7 @@
     "@aws-sdk/client-cloudfront": "^3.952.0",
     "@aws-sdk/client-lambda": "^3.687.0",
     "@aws-sdk/client-s3": "^3.687.0",
+    "@aws-sdk/client-sqs": "^3.687.0",
     "@fastify/aws-lambda": "^4.1.0",
     "@fastify/multipart": "^8.3.1",
     "aws-jwt-verify": "^4.0.1",

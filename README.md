@@ -168,6 +168,7 @@ node src/cli.js publish --project 1234-abcd
 - `LOVABLE_DEPLOY_PREFIX` – optional base prefix appended before slug (e.g., `lovable`)
 - `LOVABLE_PLACEHOLDER_LIMIT` – max placeholder polling attempts before continuing anyway (defaults to 30; set to `0` to disable the limit)
 - `RUNNER_QUEUE_URL` – optional SQS queue URL; when set, the API enqueues runner jobs to this queue instead of invoking the Lambda directly.
+- `ANALYTICS_QUEUE_URL` – optional SQS queue for ingestion; when configured, `/track/pixel` and other producers drop events on the queue and the worker drains it to Postgres.
 - `GOOGLE_CALENDAR_CLIENT_ID` / `GOOGLE_CALENDAR_CLIENT_SECRET` / `GOOGLE_CALENDAR_REDIRECT_URI` – OAuth credentials for Google Calendar syncing (`redirect_uri` defaults to `https://api.ai-sitemaker.com/oauth/calendar/google/callback`).
 - `OUTLOOK_CALENDAR_CLIENT_ID` / `OUTLOOK_CALENDAR_CLIENT_SECRET` / `OUTLOOK_CALENDAR_REDIRECT_URI` – OAuth credentials for Microsoft/Outlook calendar syncing (`redirect_uri` defaults to `https://api.ai-sitemaker.com/oauth/calendar/outlook/callback`).
 - Apple Calendar uses the generated ICS feed (`/appointments/ics?slug=...&token=...`), no OAuth required.

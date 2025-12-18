@@ -9,6 +9,7 @@ import {
   handleSiteUpdateJob,
   handleAnalyticsRollupJob,
   handleDomainJobBatch,
+  handleAnalyticsIngest,
 } from './worker';
 
 let proxy: ReturnType<typeof awsLambdaFastify>;
@@ -115,6 +116,18 @@ const handleActionEvent = async (event: any) => {
     return {
       statusCode: 200,
       body: JSON.stringify(result),
+    };
+  }
+  if (event?.action === 'PROCESS_ANALYTICS_EVENT') {
+    const payload = event.payload ?? {
+      slug: event.slug,
+      type: event.type,
+      metadata: event.metadata,
+    };
+    await handleAnalyticsIngest(payload);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ status: 'ok' }),
     };
   }
   throw new Error(`Unsupported action: ${event?.action ?? 'unknown'}`);

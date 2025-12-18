@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const AWS = require('aws-sdk');
 const { query } = require('./pg-client');
 
 const EVENT_COLUMNS = {
@@ -82,7 +83,30 @@ const recordReferrer = async ({ slug, eventDate, referrer }) => {
   );
 };
 
-const recordAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
+const ANALYTICS_QUEUE_URL = process.env.ANALYTICS_QUEUE_URL || process.env.SITE_ANALYTICS_QUEUE_URL || '';
+
+const analyticsQueue =
+  ANALYTICS_QUEUE_URL && AWS.SQS
+    ? new AWS.SQS({
+        region: process.env.AWS_REGION,
+      })
+    : null;
+
+const enqueueAnalyticsEvent = async (payload) => {
+  if (!analyticsQueue || !ANALYTICS_QUEUE_URL) return false;
+  await analyticsQueue
+    .sendMessage({
+      QueueUrl: ANALYTICS_QUEUE_URL,
+      MessageBody: JSON.stringify({
+        action: 'PROCESS_ANALYTICS_EVENT',
+        payload,
+      }),
+    })
+    .promise();
+  return true;
+};
+
+const ingestAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
   if (!slug || !type) return;
   const normalizedType = type.toLowerCase();
   const column = EVENT_COLUMNS[normalizedType] || EVENT_COLUMNS.view;
@@ -98,6 +122,20 @@ const recordAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
   if (referrer) {
     await recordReferrer({ slug, eventDate, referrer });
   }
+};
+
+const recordAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
+  if (analyticsQueue && ANALYTICS_QUEUE_URL) {
+    try {
+      await enqueueAnalyticsEvent({ slug, type, metadata });
+      return;
+    } catch (error) {
+      console.warn('[analytics] Failed to enqueue event, falling back to direct write', {
+        err: error?.message,
+      });
+    }
+  }
+  await ingestAnalyticsEvent({ slug, type, metadata });
 };
 
 const fetchDailyMetrics = async ({ slug, days }) =>
@@ -221,6 +259,7 @@ const buildAlerts = (records = []) => {
 
 module.exports = {
   recordAnalyticsEvent,
+  ingestAnalyticsEvent,
   listAnalytics,
   buildAlerts,
   normalizePath,

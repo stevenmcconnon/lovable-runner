@@ -70,6 +70,9 @@ const {
   rollupDateRange,
   rollupPreviousDay,
 } = resolveRootModule('src/analytics-rollup.js');
+const { ingestAnalyticsEvent } = resolveRootModule('src/analytics.js') as {
+  ingestAnalyticsEvent: (params: { slug: string; type: string; metadata?: Record<string, any> }) => Promise<void>;
+};
 
 type SiteLaunchEvent = {
   requestId: string;
@@ -134,6 +137,12 @@ type AnalyticsRollupEvent = {
 
 type DomainJobEvent = {
   limit?: number;
+};
+
+type AnalyticsIngestEvent = {
+  slug: string;
+  type: string;
+  metadata?: Record<string, any>;
 };
 
 const updateStatus = async (requestId: string, status: string, extras: Record<string, unknown> = {}) => {
@@ -373,6 +382,18 @@ export const handleDomainJobBatch = async (event: DomainJobEvent = {}) => {
     maxRuntimeMs: config.domains.jobs.maxRuntimeMs,
   });
   return result;
+};
+
+export const handleAnalyticsIngest = async (event: AnalyticsIngestEvent) => {
+  if (!event?.slug || !event?.type) {
+    throw new Error('slug and type are required for analytics ingestion');
+  }
+  await ingestAnalyticsEvent({
+    slug: event.slug,
+    type: event.type,
+    metadata: event.metadata ?? {},
+  });
+  return { status: 'ok' };
 };
 
 export const handleEditRequestJob = async (event: EditJobEvent) => {
