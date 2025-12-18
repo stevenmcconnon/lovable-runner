@@ -24,6 +24,14 @@ const { enqueueNotificationJob } = rootRequire('src/notification-jobs.js') as {
   }) => Promise<any>;
 };
 
+const { getPreferences } = rootRequire('src/notification-preferences.js') as {
+  getPreferences: (params: { slug: string; recipient: string }) => Promise<{
+    slug: string;
+    recipient: string;
+    preferences: Record<string, boolean>;
+  }>;
+};
+
 type Recipient = { email: string; userId?: string };
 
 type NotificationPayload = {
@@ -41,7 +49,18 @@ const formatLink = (url?: string | null) => {
   return `<p style="margin:16px 0;"><a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a></p>`;
 };
 
+const TEMPLATE_PREFERENCE_MAP: Record<string, NotificationPreferenceKey> = {
+  'site-publish-complete': 'productUpdates',
+  'domain-purchase': 'productUpdates',
+  'domain-wire-failed': 'productUpdates',
+  'domain-https-live': 'productUpdates',
+};
+
+type NotificationPreferenceKey = 'contact' | 'booking' | 'newsletter' | 'productUpdates';
+
 export class NotificationService {
+  private preferenceCache = new Map<string, Record<string, boolean>>();
+
   constructor(private readonly deps: { db: DatabaseService }) {}
 
   private async resolveAccountRecipients(accountId?: string | null): Promise<Recipient[]> {
@@ -64,9 +83,18 @@ export class NotificationService {
     payload: NotificationPayload
   ): Promise<void> {
     const recipients = await this.resolveAccountRecipients(accountId);
-    if (!recipients.length) return;
+    if (!recipients.length || !payload.slug) return;
+    const preferenceKey = TEMPLATE_PREFERENCE_MAP[payload.template];
     await Promise.all(
       recipients.map(async (recipient) => {
+        if (preferenceKey) {
+          const allowed = await this.isRecipientOptedIn({
+            slug: payload.slug,
+            recipient: recipient.email,
+            preference: preferenceKey,
+          });
+          if (!allowed) return;
+        }
         try {
           await enqueueNotificationJob({
             slug: payload.slug,
@@ -88,6 +116,34 @@ export class NotificationService {
         }
       })
     );
+  }
+
+  private async isRecipientOptedIn(params: {
+    slug: string;
+    recipient: string;
+    preference: NotificationPreferenceKey;
+  }): Promise<boolean> {
+    const cacheKey = `${params.slug}:${params.recipient}`;
+    let prefs = this.preferenceCache.get(cacheKey);
+    if (!prefs) {
+      try {
+        const record = await getPreferences({
+          slug: params.slug,
+          recipient: params.recipient,
+        });
+        prefs = record.preferences || {};
+        this.preferenceCache.set(cacheKey, prefs);
+      } catch (error) {
+        console.warn('[notifications] Failed to load preferences, defaulting to send', {
+          slug: params.slug,
+          recipient: params.recipient,
+          err: (error as Error)?.message,
+        });
+        return true;
+      }
+    }
+    const choice = prefs[params.preference];
+    return choice !== false;
   }
 
   async notifyDeploymentComplete(params: {

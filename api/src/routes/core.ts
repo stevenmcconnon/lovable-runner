@@ -656,20 +656,26 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
     }
   );
 
-  app.post('/notifications/preferences', async (request, reply) => {
-    const body = request.body as any;
-    if (!body.slug || !body.recipient) {
-      reply.code(400).send({ error: 'slug and recipient are required' });
-      return;
+  app.post(
+    '/notifications/preferences',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      const body = request.body as any;
+      if (!body.recipient) {
+        reply.code(400).send({ error: 'slug and recipient are required' });
+        return;
+      }
+      const slug = await ensureSlugAccess(request, reply, db, body.slug);
+      if (!slug) return;
+      const prefs = await savePreferences({
+        slug,
+        recipient: body.recipient,
+        preferences: body.preferences,
+        unsubscribeAll: body.unsubscribeAll,
+      });
+      reply.send(prefs);
     }
-    const prefs = await savePreferences({
-      slug: body.slug,
-      recipient: body.recipient,
-      preferences: body.preferences,
-      unsubscribeAll: body.unsubscribeAll,
-    });
-    reply.send(prefs);
-  });
+  );
 
   app.post('/analytics/events', async (request, reply) => {
     const body = request.body as any;
