@@ -975,7 +975,9 @@ export class DatabaseService {
     return rows.map(mapRequest);
   }
 
-  async listJobs(filters: AdminJobFilters): Promise<EditJobRecord[]> {
+  async listJobs(
+    filters: AdminJobFilters
+  ): Promise<{ items: EditJobRecord[]; nextCursor: { createdAt: string; id: string } | null }> {
     const conditions: string[] = [];
     const params: any[] = [];
     if (filters.status) {
@@ -986,16 +988,37 @@ export class DatabaseService {
       params.push(filters.editRequestId);
       conditions.push(`edit_request_id = $${params.length}`);
     }
+    if (filters.cursor?.createdAt && filters.cursor?.id) {
+      params.push(filters.cursor.createdAt, filters.cursor.id);
+      conditions.push(
+        `(created_at < $${params.length - 1} OR (created_at = $${params.length - 1} AND id < $${params.length}))`
+      );
+    }
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limit = Math.max(1, Math.min(filters.limit ?? 100, 200));
+    params.push(limit + 1);
     const { rows } = await this.query(
       `
-      SELECT * FROM edit_jobs
+      SELECT *
+      FROM edit_jobs
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY created_at DESC, id DESC
+      LIMIT $${params.length}
     `,
       params
     );
-    return rows.map(mapJob);
+    const items = rows.slice(0, limit).map(mapJob);
+    if (rows.length > limit && items.length) {
+      const last = items[items.length - 1];
+      return {
+        items,
+        nextCursor: {
+          createdAt: last.createdAt,
+          id: last.id,
+        },
+      };
+    }
+    return { items, nextCursor: null };
   }
 
   async getJobById(jobId: string): Promise<EditJobRecord | null> {

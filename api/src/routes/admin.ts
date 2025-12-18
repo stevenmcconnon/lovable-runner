@@ -17,6 +17,8 @@ const adminEditRequestQuery = z.object({
 const adminJobsQuery = z.object({
   status: z.enum(['queued', 'running', 'failed', 'completed']).optional(),
   editRequestId: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  cursor: z.string().optional(),
 });
 
 const adminSiteLaunchQuery = z.object({
@@ -68,10 +70,10 @@ const jobEventsQuery = z.object({
   cursor: z.string().optional(),
 });
 
-const encodeJobCursor = (cursor: { createdAt: string; id: string }) =>
+const encodeCursor = (cursor: { createdAt: string; id: string }) =>
   Buffer.from(JSON.stringify(cursor)).toString('base64');
 
-const decodeJobCursor = (token?: string | null) => {
+const decodeCursor = (token?: string | null) => {
   if (!token) return null;
   try {
     const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
@@ -164,8 +166,21 @@ export const registerAdminRoutes = (
     if (!parsed.success) {
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
-    const jobs = await db.listJobs(parsed.data);
-    return jobs;
+    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor) : null;
+    if (parsed.data.cursor && !cursor) {
+      return reply.code(400).send({ message: 'Cursor token is invalid' });
+    }
+    const result = await db.listJobs({
+      status: parsed.data.status,
+      editRequestId: parsed.data.editRequestId,
+      limit: parsed.data.limit,
+      cursor: cursor ?? undefined,
+    });
+    const encodedCursor = result.nextCursor ? encodeCursor(result.nextCursor) : null;
+    if (encodedCursor) {
+      reply.header('x-next-cursor', encodedCursor);
+    }
+    return { items: result.items, nextCursor: encodedCursor };
   });
 
   app.post(
@@ -233,7 +248,7 @@ export const registerAdminRoutes = (
     if (!parsed.success) {
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
-    const cursor = parsed.data.cursor ? decodeJobCursor(parsed.data.cursor) : null;
+    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor) : null;
     if (parsed.data.cursor && !cursor) {
       return reply.code(400).send({ message: 'Cursor token is invalid' });
     }
@@ -246,7 +261,7 @@ export const registerAdminRoutes = (
       type: parsed.data.type,
       requestId: parsed.data.requestId,
     });
-    const encodedCursor = nextCursor ? encodeJobCursor(nextCursor) : null;
+    const encodedCursor = nextCursor ? encodeCursor(nextCursor) : null;
     if (encodedCursor) {
       reply.header('x-next-cursor', encodedCursor);
     }

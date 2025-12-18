@@ -159,6 +159,11 @@ export interface TemplateUploadRecord {
 export interface AdminJobFilters {
   status?: EditJobStatus;
   editRequestId?: string;
+  limit?: number;
+  cursor?: {
+    createdAt: string;
+    id: string;
+  };
 }
 
 export interface AdminEditRequestFilters {

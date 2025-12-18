@@ -74,8 +74,6 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
   - `scripts/request-cert.sh <domain>` – requests/validates an ACM certificate in `us-east-1`.
   - `scripts/deploy-sam.sh` – deploys the SAM stack (configure env vars inside the script).
   - `scripts/create-api-alias.sh <hosted-zone-id>` – creates/updates the Route 53 alias once `API_DOMAIN_NAME` is exported.
-  - `scripts/backfill-account-sites.js` – backfills historical account/site mappings for pagination.
-  - `scripts/backfill-job-events.js` – recreates job event history from legacy site generations.
   - `scripts/backfill-account-sites.js` – backfills the `account_sites` table from historical launches so large accounts load quickly.
 
 #### Customer site domains
@@ -124,6 +122,7 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 #### Admin UI at `/admin`
 - Let Lovable host your customer-facing site and add an `/admin` route (or create a separate project). The admin app should authenticate via the Cognito Hosted UI belonging to the user pool created by the SAM stack.
 - After login, send the Cognito ID token in the `Authorization: Bearer <token>` header to `https://api.ai-sitemaker.com`. Users in the `admin` or `super-admin` groups can call `/update` and `/approve-update`; regular `user` group members can be limited to read-only endpoints (e.g., `GET /updates`).
+- Admin listings such as `/admin/jobs` and `/admin/job-events` use cursor pagination. Pass `?limit=100` to control page size and reuse the `x-next-cursor` header (or the `nextCursor` field in the JSON body) to fetch subsequent pages.
 - Because the backend holds the Lovable credentials, no token ever needs to be exposed to the frontend.
 - **REST API** – run `npm run serve`, then POST `/launch` with JSON `{ "url": "...", "bucket": "...", "prefix": "...", "slug": "...", "wait": 10, "attempts": 60 }`. Uses the same defaults/env as `launch`.
 
