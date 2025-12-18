@@ -172,11 +172,20 @@ node src/cli.js publish --project 1234-abcd
 - `LOVABLE_DEPLOY_BUCKET` – default bucket for `launch`/`deploy-s3`
 - `LOVABLE_DEPLOY_PREFIX` – optional base prefix appended before slug (e.g., `lovable`)
 - `LOVABLE_PLACEHOLDER_LIMIT` – max placeholder polling attempts before continuing anyway (defaults to 30; set to `0` to disable the limit)
-- `RUNNER_QUEUE_URL` – optional SQS queue URL; when set, the API enqueues runner jobs to this queue instead of invoking the Lambda directly.
-- `ANALYTICS_QUEUE_URL` – SQS queue URL used to ingest analytics events (required; the worker consumes messages with `{action:"PROCESS_ANALYTICS_EVENT", payload:{...}}`).
+- `RUNNER_QUEUE_URL` – SQS queue buffering launch/edit requests; the SAM stack now provisions `${StackName}-runner-jobs` automatically and injects its URL into the API/worker (also exposed as a stack output if you need to reference it elsewhere).
+- `ANALYTICS_QUEUE_URL` – SQS queue ingesting analytics events; likewise provisioned as `${StackName}-analytics-events` and wired to the worker via SQS triggers so dashboards aren’t blocked by bursty metrics.
 - `GOOGLE_CALENDAR_CLIENT_ID` / `GOOGLE_CALENDAR_CLIENT_SECRET` / `GOOGLE_CALENDAR_REDIRECT_URI` – OAuth credentials for Google Calendar syncing (`redirect_uri` defaults to `https://api.ai-sitemaker.com/oauth/calendar/google/callback`).
 - `OUTLOOK_CALENDAR_CLIENT_ID` / `OUTLOOK_CALENDAR_CLIENT_SECRET` / `OUTLOOK_CALENDAR_REDIRECT_URI` – OAuth credentials for Microsoft/Outlook calendar syncing (`redirect_uri` defaults to `https://api.ai-sitemaker.com/oauth/calendar/outlook/callback`).
 - Apple Calendar uses the generated ICS feed (`/appointments/ics?slug=...&token=...`), no OAuth required.
+
+### Operations & Backfills
+- CloudWatch now publishes an `${StackName}-ops` dashboard with runner/analytics queue depth + age and job-event failure charts. Subscribe to the built-in alarms (`runner-queue-*`, `analytics-queue-*`, and `job-event-failures`) so backlog or log-write issues page you before tenants notice.
+- After migrating to this release, run the new scripts once to hydrate the aggregate tables:
+  ```bash
+  npm run backfill:account-sites
+  npm run backfill:job-events
+  ```
+  Both commands stream directly from RDS; use the same AWS profile/VPC access your Lambda functions use.
 
 You can also pass `--token` on the CLI to override `LOVABLE_ID_TOKEN`.
 

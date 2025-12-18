@@ -40,12 +40,23 @@ type JobEventPayload = {
 
 export const jobEvents = {
   async record(event: JobEventPayload): Promise<void> {
-    await recordJobEvent({
-      ...event,
-      createdAt:
-        event.createdAt instanceof Date
-          ? event.createdAt.toISOString()
-          : event.createdAt ?? new Date().toISOString(),
-    });
+    try {
+      await recordJobEvent({
+        ...event,
+        createdAt:
+          event.createdAt instanceof Date
+            ? event.createdAt.toISOString()
+            : event.createdAt ?? new Date().toISOString(),
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[job-events] record.failed', {
+        type: event.type,
+        action: event.action,
+        slug: event.slug,
+        err: (error as Error)?.message,
+      });
+      throw error;
+    }
   },
 };

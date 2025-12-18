@@ -128,7 +128,7 @@ export const registerAdminRoutes = (
   };
 
   const enforceSuperAdmin = (request: FastifyRequest) => {
-    if (!request.auth?.roles?.includes('super-admin')) {
+    if (request.auth?.type !== 'user' || !request.auth?.roles?.includes('super-admin')) {
       const error = new Error('Super admin role required');
       // @ts-expect-error attach status
       error.statusCode = 403;

@@ -201,10 +201,6 @@ Parameters:
     MinValue: 0
     MaxValue: 500
     Description: Reserved concurrency limit for the runner Lambda to contain async worker storms (set to 0 to disable)
-  RunnerQueueUrl:
-    Type: String
-    Default: ''
-    Description: Optional SQS queue URL used to buffer runner jobs (leave blank to invoke Lambda directly)
   DomainMaxPerAccount:
     Type: Number
     Default: 5
@@ -606,6 +602,24 @@ Resources:
           KeyType: HASH
         - AttributeName: recipient
           KeyType: RANGE
+  RunnerJobQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-runner-jobs
+      VisibilityTimeout: 900
+      MessageRetentionPeriod: 1209600 # 14 days
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-runner-jobs
+  AnalyticsEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-analytics-events
+      VisibilityTimeout: 90
+      MessageRetentionPeriod: 604800 # 7 days
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-analytics-events
   RunnerFunction:
     Type: AWS::Serverless::Function
     DependsOn:
@@ -698,7 +712,9 @@ Resources:
           DOMAIN_ORDER_DAILY_LIMIT: !Ref DomainOrderDailyLimit
           DOMAIN_REFRESH_DAILY_LIMIT: !Ref DomainRefreshDailyLimit
           RUNNER_FUNCTION_NAME: !Ref RunnerWorkerFunction
-          RUNNER_QUEUE_URL: !Ref RunnerQueueUrl
+          RUNNER_QUEUE_URL: !GetAtt RunnerJobQueue.QueueUrl
+          ANALYTICS_QUEUE_URL: !GetAtt AnalyticsEventQueue.QueueUrl
+          SITE_ANALYTICS_QUEUE_URL: !GetAtt AnalyticsEventQueue.QueueUrl
       Events:
         RootProxy:
           Type: HttpApi
@@ -735,6 +751,13 @@ Resources:
               Action:
                 - lambda:InvokeFunction
               Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt RunnerJobQueue.Arn
+                - !GetAtt AnalyticsEventQueue.Arn
         - !If
           - HasIntegrationKmsKey
           - Statement:
@@ -784,6 +807,19 @@ Resources:
           - !Ref RunnerLambdaPrivateSubnetB
       Environment:
         Variables: *RunnerEnvVariables
+      Events:
+        RunnerQueueConsumer:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RunnerJobQueue.Arn
+            BatchSize: 1
+            MaximumBatchingWindowInSeconds: 0
+        AnalyticsQueueConsumer:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AnalyticsEventQueue.Arn
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 5
       Policies:
         - AWSLambdaBasicExecutionRole
         - S3CrudPolicy:
@@ -1096,6 +1132,174 @@ Resources:
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
+  RunnerQueueBacklogAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-runner-queue-backlog
+      AlarmDescription: Runner queue depth is growing faster than the worker can drain it
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt RunnerJobQueue.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 50
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+  RunnerQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-runner-queue-age
+      AlarmDescription: Runner queue messages are getting stale
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt RunnerJobQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+  AnalyticsQueueBacklogAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-analytics-queue-backlog
+      AlarmDescription: Analytics ingestion queue depth is building up
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt AnalyticsEventQueue.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 500
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+  AnalyticsQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-analytics-queue-age
+      AlarmDescription: Old analytics messages are waiting too long
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt AnalyticsEventQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 120
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+  JobEventFailureMetricFilterApi:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RunnerFunction}
+      FilterPattern: '"[job-events] record.failed"'
+      MetricTransformations:
+        - MetricValue: '1'
+          MetricNamespace: !Sub ${AWS::StackName}/JobEvents
+          MetricName: RecordFailures
+  JobEventFailureMetricFilterWorker:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
+      FilterPattern: '"[job-events] record.failed"'
+      MetricTransformations:
+        - MetricValue: '1'
+          MetricNamespace: !Sub ${AWS::StackName}/JobEvents
+          MetricName: RecordFailures
+  JobEventFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-job-event-failures
+      AlarmDescription: Job event writes are failing
+      Namespace: !Sub ${AWS::StackName}/JobEvents
+      MetricName: RecordFailures
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+  OperationsDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub ${AWS::StackName}-ops
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Runner Queue Depth",
+                "metrics": [
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${RunnerJobQueue.QueueName}" ]
+                ],
+                "region": "${AWS::Region}",
+                "stat": "Sum",
+                "period": 60
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Runner Queue Age",
+                "metrics": [
+                  [ "AWS/SQS", "ApproximateAgeOfOldestMessage", "QueueName", "${RunnerJobQueue.QueueName}" ]
+                ],
+                "region": "${AWS::Region}",
+                "stat": "Maximum",
+                "period": 60
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Analytics Queue Depth",
+                "metrics": [
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${AnalyticsEventQueue.QueueName}" ]
+                ],
+                "region": "${AWS::Region}",
+                "stat": "Sum",
+                "period": 60
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Job Event Failures",
+                "metrics": [
+                  [ "${AWS::StackName}/JobEvents", "RecordFailures" ]
+                ],
+                "region": "${AWS::Region}",
+                "stat": "Sum",
+                "period": 300
+              }
+            }
+          ]
+        }
 
   ContactEmailIdentity:
     Type: AWS::SES::EmailIdentity
@@ -1194,3 +1398,9 @@ Outputs:
     Condition: UseDbProxy
     Description: RDS Proxy endpoint used by the Lambda functions
     Value: !GetAtt RunnerDbProxy.Endpoint
+  RunnerQueueUrlOutput:
+    Description: SQS queue URL buffering runner jobs
+    Value: !GetAtt RunnerJobQueue.QueueUrl
+  AnalyticsQueueUrlOutput:
+    Description: SQS queue URL ingesting analytics events
+    Value: !GetAtt AnalyticsEventQueue.QueueUrl
