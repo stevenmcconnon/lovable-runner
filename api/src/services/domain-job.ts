@@ -1,5 +1,6 @@
 import { DatabaseService } from './database';
 import { DomainJobRecord, DomainJobType } from '../types';
+import { jobEvents } from './job-events';
 
 type EnqueueParams = {
   domain: string;
@@ -13,7 +14,7 @@ export class DomainJobService {
   constructor(private readonly db: DatabaseService) {}
 
   async enqueueProvisionJob(params: EnqueueParams): Promise<DomainJobRecord> {
-    return this.db.enqueueDomainJob({
+    const job = await this.db.enqueueDomainJob({
       domain: params.domain,
       slug: params.slug ?? null,
       type: 'provision_certificate',
@@ -23,16 +24,44 @@ export class DomainJobService {
       },
       scheduleAt: params.delayMs ? new Date(Date.now() + params.delayMs) : undefined,
     });
+    jobEvents
+      .record({
+        type: 'domain_job',
+        slug: params.slug ?? null,
+        action: 'ENQUEUED',
+        status: 'pending',
+        jobId: job.id,
+        metadata: {
+          domain: params.domain,
+          jobType: 'provision_certificate',
+        },
+      })
+      .catch(() => undefined);
+    return job;
   }
 
   async enqueueEdgeSyncJob(params: EnqueueParams): Promise<DomainJobRecord> {
-    return this.db.enqueueDomainJob({
+    const job = await this.db.enqueueDomainJob({
       domain: params.domain,
       slug: params.slug ?? null,
       type: 'sync_edge',
       payload: {},
       scheduleAt: params.delayMs ? new Date(Date.now() + params.delayMs) : undefined,
     });
+    jobEvents
+      .record({
+        type: 'domain_job',
+        slug: params.slug ?? null,
+        action: 'ENQUEUED',
+        status: 'pending',
+        jobId: job.id,
+        metadata: {
+          domain: params.domain,
+          jobType: 'sync_edge',
+        },
+      })
+      .catch(() => undefined);
+    return job;
   }
 
   async claimBatch(limit = 10): Promise<DomainJobRecord[]> {

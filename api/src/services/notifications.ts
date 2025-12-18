@@ -1,5 +1,7 @@
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { DatabaseService } from './database';
+import { jobEvents } from './job-events';
 
 const rootRequire = (relativePath: string): any => {
   try {
@@ -63,6 +65,10 @@ export class NotificationService {
 
   constructor(private readonly deps: { db: DatabaseService }) {}
 
+  private hashRecipient(email: string) {
+    return createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
+  }
+
   private async resolveAccountRecipients(accountId?: string | null): Promise<Recipient[]> {
     if (!accountId) return [];
     const users = await this.deps.db.listUsersAdmin({ accountId });
@@ -96,7 +102,7 @@ export class NotificationService {
           if (!allowed) return;
         }
         try {
-          await enqueueNotificationJob({
+          const job = await enqueueNotificationJob({
             slug: payload.slug,
             recipient: recipient.email,
             template: payload.template,
@@ -106,6 +112,19 @@ export class NotificationService {
             metadata: payload.metadata ?? null,
             dedupeKey: `${payload.dedupeKey}:${recipient.email}`,
           });
+          jobEvents
+            .record({
+              type: 'notification_job',
+              slug: payload.slug,
+              action: 'ENQUEUED',
+              status: 'pending',
+              jobId: job.id,
+              metadata: {
+                template: payload.template,
+                recipientHash: this.hashRecipient(recipient.email),
+              },
+            })
+            .catch(() => undefined);
         } catch (error) {
           // eslint-disable-next-line no-console
           console.warn('[notifications] Failed to enqueue job', {

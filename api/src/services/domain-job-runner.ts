@@ -3,6 +3,7 @@ import { DatabaseService } from './database';
 import { DomainManager } from './domain-manager';
 import { DomainJobService } from './domain-job';
 import { CanonicalMode } from './domain-edge';
+import { jobEvents } from './job-events';
 
 const DEFAULT_PROVISION_RETRY_MS = Number(process.env.DOMAIN_CERT_RETRY_MS || 5 * 60 * 1000);
 const DEFAULT_EDGE_RETRY_MS = Number(process.env.DOMAIN_EDGE_RETRY_MS || 2 * 60 * 1000);
@@ -53,6 +54,10 @@ export class DomainJobRunner {
           continue;
         }
         try {
+          await this.logJobEvent(job, {
+            action: 'STARTED',
+            status: 'running',
+          });
           // eslint-disable-next-line no-await-in-loop
           const outcome = await this.processJob(job);
           if (outcome === 'completed') completed += 1;
@@ -106,22 +111,43 @@ export class DomainJobRunner {
       status: result.certificate?.status ?? 'unknown',
       description: `Certificate status for ${job.domain} is ${result.certificate?.status ?? 'unknown'}`,
     });
+    await this.logJobEvent(job, {
+      action: 'PROVISION_PROCESSED',
+      status: result.certificate?.status ?? 'unknown',
+      metadata: {
+        certificateArn: result.certificate?.arn ?? null,
+      },
+    });
     if (result.certificate?.status === 'ISSUED') {
       await this.deps.jobs.enqueueEdgeSyncJob({
         domain: job.domain,
         slug: job.slug ?? null,
       });
       await this.deps.jobs.markCompleted(job.id);
+      await this.logJobEvent(job, {
+        action: 'COMPLETED',
+        status: 'completed',
+      });
       return 'completed';
     }
     if (job.attempts >= MAX_PROVISION_ATTEMPTS) {
       await this.failDomainLifecycle(job.domain, 'Certificate validation timed out');
       await this.deps.jobs.markFailed(job.id, 'Certificate validation timed out');
+      await this.logJobEvent(job, {
+        action: 'FAILED',
+        status: 'failed',
+        description: 'Certificate validation timed out',
+      });
       return 'completed';
     }
     await this.deps.jobs.scheduleRetry(job.id, {
       delayMs: this.computeBackoff(job, DEFAULT_PROVISION_RETRY_MS),
       error: 'Certificate pending validation',
+    });
+    await this.logJobEvent(job, {
+      action: 'RETRY',
+      status: 'retry',
+      description: 'Certificate pending validation',
     });
     return 'retry';
   }
@@ -144,6 +170,13 @@ export class DomainJobRunner {
     });
     if (httpsStatus === 'live') {
       await this.deps.jobs.markCompleted(job.id);
+      await this.logJobEvent(job, {
+        action: 'COMPLETED',
+        status: 'completed',
+        metadata: {
+          httpsStatus,
+        },
+      });
       return 'completed';
     }
     if (job.attempts >= MAX_EDGE_ATTEMPTS) {
@@ -152,11 +185,21 @@ export class DomainJobRunner {
         `HTTPS provisioning still ${httpsStatus} after ${job.attempts} attempts`;
       await this.failDomainLifecycle(job.domain, reason);
       await this.deps.jobs.markFailed(job.id, reason);
+      await this.logJobEvent(job, {
+        action: 'FAILED',
+        status: 'failed',
+        description: reason,
+      });
       return 'completed';
     }
     await this.deps.jobs.scheduleRetry(job.id, {
       delayMs: this.computeBackoff(job, DEFAULT_EDGE_RETRY_MS),
       error: `HTTPS status ${httpsStatus}`,
+    });
+    await this.logJobEvent(job, {
+      action: 'RETRY',
+      status: 'retry',
+      description: `HTTPS status ${httpsStatus}`,
     });
     return 'retry';
   }
@@ -175,6 +218,11 @@ export class DomainJobRunner {
         error: 'Domain job runner exceeded max runtime window',
         status: 'retry',
       });
+      await this.logJobEvent(job, {
+        action: 'DEFERRED',
+        status: 'retry',
+        description: 'Domain job runner exceeded max runtime window',
+      });
     } catch (error) {
       await this.deps.jobs
         .markFailed(
@@ -182,6 +230,11 @@ export class DomainJobRunner {
           `Unable to reschedule domain job after runtime cap: ${(error as Error)?.message ?? 'unknown'}`
         )
         .catch(() => undefined);
+      await this.logJobEvent(job, {
+        action: 'FAILED',
+        status: 'failed',
+        description: 'Unable to reschedule domain job after runtime cap',
+      });
     }
   }
 
@@ -212,6 +265,27 @@ export class DomainJobRunner {
         type: 'domain.job.failed',
         status: 'failed',
         description: reason,
+      })
+      .catch(() => undefined);
+  }
+
+  private async logJobEvent(
+    job: DomainJobRecord,
+    params: { action: string; status: string; description?: string; metadata?: Record<string, unknown> }
+  ): Promise<void> {
+    await jobEvents
+      .record({
+        type: 'domain_job',
+        slug: job.slug ?? null,
+        action: params.action,
+        status: params.status,
+        description: params.description ?? null,
+        jobId: job.id,
+        metadata: {
+          domain: job.domain,
+          jobType: job.type,
+          ...(params.metadata ?? {}),
+        },
       })
       .catch(() => undefined);
   }

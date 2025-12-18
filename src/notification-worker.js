@@ -1,4 +1,5 @@
 const AWS = require('aws-sdk');
+const crypto = require('node:crypto');
 const { CONTACT_FROM_EMAIL } = require('./email-config');
 const {
   claimNotificationJobs,
@@ -6,6 +7,8 @@ const {
   markNotificationJobFailed,
 } = require('./notification-jobs');
 const { closePool } = require('./pg-client');
+const { recordJobEvent } = require('./audit-log');
+const MAX_ATTEMPTS = Number(process.env.NOTIFICATION_MAX_ATTEMPTS || 5);
 
 const buildEmailParams = (job) => {
   const destination = {
@@ -57,6 +60,7 @@ const runNotificationBatch = async ({
   let failed = 0;
   for (const job of jobs) {
     try {
+      await recordNotificationJobEvent(job, 'CLAIMED', 'sending', logger);
       if (dryRun) {
         logger.log(`[notifications] [dry-run] Would send ${job.id} to ${job.recipient}`);
       } else {
@@ -66,6 +70,7 @@ const runNotificationBatch = async ({
       }
       // eslint-disable-next-line no-await-in-loop
       await markNotificationJobSent(job.id);
+      await recordNotificationJobEvent(job, 'SENT', 'sent', logger);
       sent += 1;
     } catch (error) {
       failed += 1;
@@ -76,12 +81,41 @@ const runNotificationBatch = async ({
         attemptCount: job.attemptCount,
         error: error.message || 'Unknown error',
       });
+      await recordNotificationJobEvent(job, 'FAILED', job.attemptCount + 1 >= MAX_ATTEMPTS ? 'failed' : 'retrying', logger, {
+        error: error.message || 'Unknown error',
+      });
     }
   }
   if (autoClosePool) {
     await closePool().catch(() => undefined);
   }
   return { claimed: jobs.length, sent, failed };
+};
+
+const hashRecipient = (email = '') =>
+  crypto.createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
+
+const recordNotificationJobEvent = async (job, action, status, logger, metadata = {}) => {
+  try {
+    await recordJobEvent({
+      type: 'notification_job',
+      slug: job.slug ?? null,
+      jobId: job.id,
+      action,
+      status,
+      metadata: {
+        template: job.template,
+        recipientHash: hashRecipient(job.recipient),
+        ...metadata,
+      },
+    });
+  } catch (error) {
+    logger.warn('[notifications] Failed to record job event', {
+      jobId: job.id,
+      action,
+      err: error?.message,
+    });
+  }
 };
 
 module.exports = {
