@@ -45,6 +45,18 @@ const analyticsPool =
     : pool;
 
 const DOMAIN_JOB_LOCK_KEY = 837492;
+const DEFAULT_BACKFILL_BATCH_SIZE = (() => {
+  const raw =
+    Number(process.env.BACKFILL_BATCH_LIMIT ?? process.env.BACKFILL_BATCH_SIZE) || 250;
+  if (!Number.isFinite(raw) || raw <= 0) return 250;
+  return Math.min(Math.floor(raw), 1000);
+})();
+const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+const maxUuid = (a: string, b: string) => (a.localeCompare(b) >= 0 ? a : b);
+
+type SiteGenerationCursor = {
+  requestId: string;
+};
 
 const toIsoString = (value: any) => value?.toISOString?.() ?? value ?? null;
 
@@ -267,6 +279,10 @@ export class DatabaseService {
 
   private analyticsPool: Pool;
 
+  private accountSitesTablePromise: Promise<void> | null = null;
+
+  private jobEventsTablePromise: Promise<void> | null = null;
+
   constructor(options: { pool?: Pool; analyticsPool?: Pool } = {}) {
     this.pool = options.pool ?? pool;
     this.analyticsPool = options.analyticsPool ?? analyticsPool;
@@ -344,12 +360,72 @@ export class DatabaseService {
     return this.analyticsPool.query<T>(text, params);
   }
 
+  private ensureAccountSitesTable(): Promise<void> {
+    if (!this.accountSitesTablePromise) {
+      this.accountSitesTablePromise = (async () => {
+        await this.query(`
+          CREATE TABLE IF NOT EXISTS account_sites (
+            account_id UUID NOT NULL,
+            slug TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (account_id, slug)
+          )
+        `);
+        await this.query(`CREATE INDEX IF NOT EXISTS account_sites_slug_idx ON account_sites(slug)`);
+      })().catch((error) => {
+        this.accountSitesTablePromise = null;
+        throw error;
+      });
+    }
+    return this.accountSitesTablePromise;
+  }
+
+  private ensureJobEventsTable(): Promise<void> {
+    if (!this.jobEventsTablePromise) {
+      this.jobEventsTablePromise = (async () => {
+        await this.query(`
+          CREATE TABLE IF NOT EXISTS job_events (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            type TEXT NOT NULL,
+            slug TEXT,
+            account_id UUID,
+            request_id UUID,
+            job_id UUID,
+            action TEXT NOT NULL,
+            status TEXT NOT NULL,
+            description TEXT,
+            metadata JSONB,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          )
+        `);
+        await this.query(`CREATE INDEX IF NOT EXISTS job_events_slug_idx ON job_events(slug, created_at DESC)`);
+        await this.query(
+          `CREATE INDEX IF NOT EXISTS job_events_action_idx ON job_events(action, created_at DESC)`
+        );
+      })().catch((error) => {
+        this.jobEventsTablePromise = null;
+        throw error;
+      });
+    }
+    return this.jobEventsTablePromise;
+  }
+
+  private buildSiteGenerationCursorClause(params: any[], cursor?: SiteGenerationCursor) {
+    if (!cursor) return '';
+    const requestIndex = params.length + 1;
+    params.push(cursor.requestId);
+    return `
+      AND site_generations.request_id > $${requestIndex}
+    `;
+  }
+
   private async recordAccountSite(
     accountId?: string | null,
     slug?: string | null,
     createdAt?: string | Date | null
   ): Promise<void> {
     if (!accountId || !slug) return;
+    await this.ensureAccountSitesTable();
     const timestamp = normalizeTimestamp(createdAt);
     await this.query(
       `
@@ -360,6 +436,126 @@ export class DatabaseService {
     `,
       [accountId, slug, timestamp]
     );
+  }
+
+  async backfillAccountSitesFromGenerations(): Promise<number> {
+    await this.ensureAccountSitesTable();
+    const limit = DEFAULT_BACKFILL_BATCH_SIZE;
+    const { rows: timeoutRows } = await this.query<{ statement_timeout: string }>(
+      'SHOW statement_timeout'
+    );
+    console.log('[backfill] account_sites settings', {
+      statementTimeout: timeoutRows[0]?.statement_timeout,
+      limit,
+    });
+    let processed = 0;
+    let cursor: SiteGenerationCursor = { requestId: ZERO_UUID };
+    // Iterate site_generations in small batches so Lambda executions stay under the timeout.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const params: any[] = [limit];
+      const cursorClause = this.buildSiteGenerationCursorClause(params, cursor);
+      if (!processed) {
+        console.log('[backfill] account_sites batch fetch', { cursor: cursor.requestId });
+      }
+      const { rows } = await this.query(
+        `
+        SELECT request_id, account_id, slug, created_at
+        FROM site_generations
+        WHERE account_id IS NOT NULL
+          AND slug IS NOT NULL
+          AND request_id IS NOT NULL
+          ${cursorClause}
+        LIMIT $1
+      `,
+        params
+      );
+      if (!processed) {
+        console.log('[backfill] account_sites first batch size', { rows: rows.length });
+      }
+      if (!rows.length) break;
+      let highestRequestId = cursor.requestId;
+      for (const row of rows) {
+        await this.recordAccountSite(row.account_id, row.slug, row.created_at);
+        processed += 1;
+        highestRequestId = maxUuid(highestRequestId, row.request_id);
+      }
+      cursor = {
+        requestId: highestRequestId,
+      };
+      console.log('[backfill] account_sites batch complete', {
+        processed,
+      });
+    }
+    return processed;
+  }
+
+  async backfillJobEventsFromGenerations(): Promise<number> {
+    await this.ensureJobEventsTable();
+    const limit = DEFAULT_BACKFILL_BATCH_SIZE;
+    const { rows: timeoutRows } = await this.query<{ statement_timeout: string }>(
+      'SHOW statement_timeout'
+    );
+    console.log('[backfill] job_events settings', {
+      statementTimeout: timeoutRows[0]?.statement_timeout,
+      limit,
+    });
+    let inserted = 0;
+    let cursor: SiteGenerationCursor = { requestId: ZERO_UUID };
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const params: any[] = [limit];
+      const cursorClause = this.buildSiteGenerationCursorClause(params, cursor);
+      if (!inserted) {
+        console.log('[backfill] job_events batch fetch', { cursor: cursor.requestId });
+      }
+      const { rows } = await this.query(
+        `
+        SELECT request_id, account_id, slug, status, created_at, updated_at, error_message
+        FROM site_generations
+        WHERE request_id IS NOT NULL
+          ${cursorClause}
+        LIMIT $1
+      `,
+        params
+      );
+      if (!inserted) {
+        console.log('[backfill] job_events first batch size', { rows: rows.length });
+      }
+      if (!rows.length) break;
+      let highestRequestId = cursor.requestId;
+      for (const row of rows) {
+        const baseEvent = {
+          type: 'site_generation',
+          slug: row.slug,
+          accountId: row.account_id,
+          requestId: row.request_id,
+        };
+        highestRequestId = maxUuid(highestRequestId, row.request_id);
+        await jobEvents.record({
+          ...baseEvent,
+          action: 'CREATE',
+          status: 'queued',
+          createdAt: row.created_at,
+        });
+        inserted += 1;
+        await jobEvents.record({
+          ...baseEvent,
+          action: 'COMPLETE',
+          status: row.status ?? 'unknown',
+          description: row.error_message ?? null,
+          createdAt: row.updated_at ?? row.created_at,
+        });
+        inserted += 1;
+      }
+      cursor = {
+        requestId: highestRequestId,
+      };
+      console.log('[backfill] job_events batch complete', {
+        inserted,
+      });
+    }
+    return inserted;
   }
 
   private async getAnalyticsClient(): Promise<PoolClient> {

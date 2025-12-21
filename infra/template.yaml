@@ -387,6 +387,14 @@ Resources:
           ToPort: 5432
           SourceSecurityGroupId: !Ref RunnerFunctionSecurityGroup
         - !If
+          - UseDbProxy
+          - 
+            IpProtocol: tcp
+            FromPort: 5432
+            ToPort: 5432
+            SourceSecurityGroupId: !Ref RunnerDbProxySecurityGroup
+          - !Ref AWS::NoValue
+        - !If
           - HasDbAllowedCidr
           - 
             IpProtocol: tcp
@@ -436,7 +444,7 @@ Resources:
           IAMAuth: DISABLED
       RoleArn: !GetAtt RunnerDbProxyRole.Arn
       VpcSecurityGroupIds:
-        - !Ref RunnerFunctionSecurityGroup
+        - !Ref RunnerDbProxySecurityGroup
       VpcSubnetIds:
         - !Ref RunnerLambdaPrivateSubnetA
         - !Ref RunnerLambdaPrivateSubnetB
@@ -520,6 +528,23 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-runner-lambda
+  RunnerDbProxySecurityGroup:
+    Condition: UseDbProxy
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow Lambda ENIs to reach the RDS Proxy
+      VpcId: !Ref DbVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref RunnerFunctionSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-runner-db-proxy
   LeadInboxTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -615,7 +640,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ${AWS::StackName}-analytics-events
-      VisibilityTimeout: 90
+      VisibilityTimeout: 900
       MessageRetentionPeriod: 604800 # 7 days
       Tags:
         - Key: Name
@@ -641,80 +666,81 @@ Resources:
           - !Ref RunnerLambdaPrivateSubnetA
           - !Ref RunnerLambdaPrivateSubnetB
       Environment:
-        Variables: &RunnerEnvVariables
-          NODE_ENV: production
-          DB_HOST: !If [UseDbProxy, !GetAtt RunnerDbProxy.Endpoint, !GetAtt RunnerDatabase.Endpoint.Address]
-          DB_PORT: !If [UseDbProxy, 5432, !GetAtt RunnerDatabase.Endpoint.Port]
-          DB_NAME: !Ref DBName
-          DB_USERNAME: !Ref DBUsername
-          DB_PASSWORD: !Ref DBPassword
-          STRIPE_SECRET_KEY: !Ref StripeSecretKey
-          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
-          COGNITO_USER_POOL_ID: !Ref UserPool
-          COGNITO_USER_POOL_REGION: !Ref AWS::Region
-          COGNITO_APP_CLIENT_ID: !Ref UserPoolClient
-          COGNITO_DOMAIN: !Ref CognitoDomain
-          COGNITO_M2M_CLIENT_ID: !Ref UserPoolMachineClient
-          FRONTEND_ORIGIN: !Ref FrontendOrigin
-          AUTH_CALLBACK_URL: !Ref AuthCallbackUrl
-          LOVABLE_DEPLOY_BUCKET: !Ref DeployBucket
-          DEPLOY_BUCKET: !Ref DeployBucket
-          TEMPLATE_UPLOAD_BUCKET: !Ref TemplateUploadBucket
-          DEFAULT_TRIAL_EDIT_LIMIT: !Ref DefaultTrialEditLimit
-          PREVIEW_DOMAIN: !Ref PreviewDomainName
-          LIVE_DOMAIN: !Ref LiveDomainName
-          CUSTOM_DOMAIN_ORIGIN: !Ref CustomDomainOriginHost
-          CUSTOM_DOMAIN_CANONICAL_DEFAULT: !Ref CustomDomainCanonicalDefault
-          CUSTOM_DOMAIN_DISTRIBUTION_ID: !Ref CustomDomainDistributionId
-          CUSTOM_DOMAIN_CERT_REGION: !Ref CustomDomainCertRegion
-          CUSTOM_DOMAIN_PRICE_CLASS: !Ref CustomDomainPriceClass
-          DOMAIN_BASE_PRICE_CENTS: !Ref DomainBasePriceCents
-          DOMAIN_PRICE_MARKUP_CENTS: !Ref DomainPriceMarkupCents
-          GEMINI_API_KEY: !If
-            - HasGeminiSecret
-            - !Sub "{{resolve:secretsmanager:${GeminiApiKeySecretArn}:SecretString}}"
-            - !Ref GeminiApiKey
-          GEMINI_MODEL: !Ref GeminiModel
-          OPENAI_API_KEY: !If
-            - HasOpenAISecret
-            - !Sub "{{resolve:secretsmanager:${OpenAIApiKeySecretArn}:SecretString}}"
-            - !Ref OpenAIApiKey
-          OPENAI_MODEL: !Ref OpenAIModel
-          GOOGLE_IMAGE_MODEL: !Ref GoogleImageModel
-          INTEGRATION_KMS_KEY_ARN: !Ref IntegrationKmsKeyArn
-          RUNNER_API_BASE: !Ref RunnerApiBase
-          COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
-          SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
-          SITE_DOCS_TOKEN: !Ref SiteDocsToken
-          THUMBNAIL_SERVICE_BASE: !Ref ThumbnailServiceBase
-          UNSPLASH_ACCESS_KEY: !Ref UnsplashAccessKey
-          NAMECHEAP_API_USER: !Ref NamecheapApiUser
-          NAMECHEAP_API_KEY: !Ref NamecheapApiKey
-          NAMECHEAP_USERNAME: !Ref NamecheapUsername
-          NAMECHEAP_API_BASE: !Ref NamecheapApiBase
-          NAMECHEAP_CLIENT_IP: !Ref RunnerStaticEgressEip
-          CONTACT_FROM_EMAIL: !Ref ContactFromEmail
-          LEAD_INBOX_TABLE: !Ref LeadInboxTable
-          SITE_ANALYTICS_TABLE: !Ref SiteAnalyticsTable
-          SITE_REVIEWS_TABLE: !Ref SiteReviewsTable
-          SITE_APPOINTMENTS_TABLE: !Ref SiteAppointmentsTable
-          APPOINTMENT_SETTINGS_TABLE: !Ref AppointmentSettingsTable
-          NOTIFICATION_PREFS_TABLE: !Ref NotificationPreferencesTable
-          GOOGLE_CALENDAR_CLIENT_ID: !Ref GoogleCalendarClientId
-          GOOGLE_CALENDAR_CLIENT_SECRET: !Ref GoogleCalendarClientSecret
-          GOOGLE_CALENDAR_REDIRECT_URI: !Ref GoogleCalendarRedirectUri
-          OUTLOOK_CALENDAR_CLIENT_ID: !Ref OutlookCalendarClientId
-          OUTLOOK_CALENDAR_CLIENT_SECRET: !Ref OutlookCalendarClientSecret
-          OUTLOOK_CALENDAR_REDIRECT_URI: !Ref OutlookCalendarRedirectUri
-          DOMAIN_JOB_BATCH_LIMIT: !Ref DomainJobBatchLimit
-          DOMAIN_JOB_MAX_RUNTIME_MS: !Ref DomainJobMaxRuntimeMs
-          DOMAIN_MAX_PER_ACCOUNT: !Ref DomainMaxPerAccount
-          DOMAIN_ORDER_DAILY_LIMIT: !Ref DomainOrderDailyLimit
-          DOMAIN_REFRESH_DAILY_LIMIT: !Ref DomainRefreshDailyLimit
-          RUNNER_FUNCTION_NAME: !Ref RunnerWorkerFunction
-          RUNNER_QUEUE_URL: !GetAtt RunnerJobQueue.QueueUrl
-          ANALYTICS_QUEUE_URL: !GetAtt AnalyticsEventQueue.QueueUrl
-          SITE_ANALYTICS_QUEUE_URL: !GetAtt AnalyticsEventQueue.QueueUrl
+        Variables:
+          <<: &RunnerEnvVariables
+            NODE_ENV: production
+            DB_HOST: !If [UseDbProxy, !GetAtt RunnerDbProxy.Endpoint, !GetAtt RunnerDatabase.Endpoint.Address]
+            DB_PORT: !If [UseDbProxy, 5432, !GetAtt RunnerDatabase.Endpoint.Port]
+            DB_NAME: !Ref DBName
+            DB_USERNAME: !Ref DBUsername
+            DB_PASSWORD: !Ref DBPassword
+            STRIPE_SECRET_KEY: !Ref StripeSecretKey
+            STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+            COGNITO_USER_POOL_ID: !Ref UserPool
+            COGNITO_USER_POOL_REGION: !Ref AWS::Region
+            COGNITO_APP_CLIENT_ID: !Ref UserPoolClient
+            COGNITO_DOMAIN: !Ref CognitoDomain
+            COGNITO_M2M_CLIENT_ID: !Ref UserPoolMachineClient
+            FRONTEND_ORIGIN: !Ref FrontendOrigin
+            AUTH_CALLBACK_URL: !Ref AuthCallbackUrl
+            LOVABLE_DEPLOY_BUCKET: !Ref DeployBucket
+            DEPLOY_BUCKET: !Ref DeployBucket
+            TEMPLATE_UPLOAD_BUCKET: !Ref TemplateUploadBucket
+            DEFAULT_TRIAL_EDIT_LIMIT: !Ref DefaultTrialEditLimit
+            PREVIEW_DOMAIN: !Ref PreviewDomainName
+            LIVE_DOMAIN: !Ref LiveDomainName
+            CUSTOM_DOMAIN_ORIGIN: !Ref CustomDomainOriginHost
+            CUSTOM_DOMAIN_CANONICAL_DEFAULT: !Ref CustomDomainCanonicalDefault
+            CUSTOM_DOMAIN_DISTRIBUTION_ID: !Ref CustomDomainDistributionId
+            CUSTOM_DOMAIN_CERT_REGION: !Ref CustomDomainCertRegion
+            CUSTOM_DOMAIN_PRICE_CLASS: !Ref CustomDomainPriceClass
+            DOMAIN_BASE_PRICE_CENTS: !Ref DomainBasePriceCents
+            DOMAIN_PRICE_MARKUP_CENTS: !Ref DomainPriceMarkupCents
+            GEMINI_API_KEY: !If
+              - HasGeminiSecret
+              - !Sub "{{resolve:secretsmanager:${GeminiApiKeySecretArn}:SecretString}}"
+              - !Ref GeminiApiKey
+            GEMINI_MODEL: !Ref GeminiModel
+            OPENAI_API_KEY: !If
+              - HasOpenAISecret
+              - !Sub "{{resolve:secretsmanager:${OpenAIApiKeySecretArn}:SecretString}}"
+              - !Ref OpenAIApiKey
+            OPENAI_MODEL: !Ref OpenAIModel
+            GOOGLE_IMAGE_MODEL: !Ref GoogleImageModel
+            INTEGRATION_KMS_KEY_ARN: !Ref IntegrationKmsKeyArn
+            RUNNER_API_BASE: !Ref RunnerApiBase
+            COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
+            SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
+            SITE_DOCS_TOKEN: !Ref SiteDocsToken
+            THUMBNAIL_SERVICE_BASE: !Ref ThumbnailServiceBase
+            UNSPLASH_ACCESS_KEY: !Ref UnsplashAccessKey
+            NAMECHEAP_API_USER: !Ref NamecheapApiUser
+            NAMECHEAP_API_KEY: !Ref NamecheapApiKey
+            NAMECHEAP_USERNAME: !Ref NamecheapUsername
+            NAMECHEAP_API_BASE: !Ref NamecheapApiBase
+            NAMECHEAP_CLIENT_IP: !Ref RunnerStaticEgressEip
+            CONTACT_FROM_EMAIL: !Ref ContactFromEmail
+            LEAD_INBOX_TABLE: !Ref LeadInboxTable
+            SITE_ANALYTICS_TABLE: !Ref SiteAnalyticsTable
+            SITE_REVIEWS_TABLE: !Ref SiteReviewsTable
+            SITE_APPOINTMENTS_TABLE: !Ref SiteAppointmentsTable
+            APPOINTMENT_SETTINGS_TABLE: !Ref AppointmentSettingsTable
+            NOTIFICATION_PREFS_TABLE: !Ref NotificationPreferencesTable
+            GOOGLE_CALENDAR_CLIENT_ID: !Ref GoogleCalendarClientId
+            GOOGLE_CALENDAR_CLIENT_SECRET: !Ref GoogleCalendarClientSecret
+            GOOGLE_CALENDAR_REDIRECT_URI: !Ref GoogleCalendarRedirectUri
+            OUTLOOK_CALENDAR_CLIENT_ID: !Ref OutlookCalendarClientId
+            OUTLOOK_CALENDAR_CLIENT_SECRET: !Ref OutlookCalendarClientSecret
+            OUTLOOK_CALENDAR_REDIRECT_URI: !Ref OutlookCalendarRedirectUri
+            DOMAIN_JOB_BATCH_LIMIT: !Ref DomainJobBatchLimit
+            DOMAIN_JOB_MAX_RUNTIME_MS: !Ref DomainJobMaxRuntimeMs
+            DOMAIN_MAX_PER_ACCOUNT: !Ref DomainMaxPerAccount
+            DOMAIN_ORDER_DAILY_LIMIT: !Ref DomainOrderDailyLimit
+            DOMAIN_REFRESH_DAILY_LIMIT: !Ref DomainRefreshDailyLimit
+            RUNNER_QUEUE_URL: !GetAtt RunnerJobQueue.QueueUrl
+            ANALYTICS_QUEUE_URL: !GetAtt AnalyticsEventQueue.QueueUrl
+            SITE_ANALYTICS_QUEUE_URL: !GetAtt AnalyticsEventQueue.QueueUrl
+          RUNNER_FUNCTION_NAME: !Sub ${AWS::StackName}-runner-worker
       Events:
         RootProxy:
           Type: HttpApi
@@ -794,6 +820,7 @@ Resources:
     Metadata:
       BuildMethod: makefile
     Properties:
+      FunctionName: !Sub ${AWS::StackName}-runner-worker
       CodeUri: ../
       Handler: dist/lambda.handler
       Description: Background worker for AI SiteMaker
@@ -806,7 +833,9 @@ Resources:
           - !Ref RunnerLambdaPrivateSubnetA
           - !Ref RunnerLambdaPrivateSubnetB
       Environment:
-        Variables: *RunnerEnvVariables
+        Variables:
+          <<: *RunnerEnvVariables
+          RUNNER_FUNCTION_NAME: !Sub ${AWS::StackName}-runner-worker
       Events:
         RunnerQueueConsumer:
           Type: SQS
@@ -872,6 +901,10 @@ Resources:
                 - cloudfront:DescribeFunction
                 - cloudfront:PublishFunction
               Resource: '*'
+  RunnerWorkerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
   DomainWorkerFunction:
     Type: AWS::Serverless::Function
     DependsOn:
@@ -944,6 +977,10 @@ Resources:
                 - cloudfront:DescribeFunction
                 - cloudfront:PublishFunction
               Resource: '*'
+  DomainWorkerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${DomainWorkerFunction}
   NotificationWorkerFunction:
     Type: AWS::Serverless::Function
     DependsOn:
@@ -1063,6 +1100,8 @@ Resources:
 
   DomainJobFailureMetricFilter:
     Type: AWS::Logs::MetricFilter
+    DependsOn:
+      - DomainWorkerFunctionLogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${DomainWorkerFunction}
       FilterPattern: '"domain.job.failed"'
@@ -1087,6 +1126,8 @@ Resources:
 
   DomainLifecycleFailureMetricFilter:
     Type: AWS::Logs::MetricFilter
+    DependsOn:
+      - DomainWorkerFunctionLogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${DomainWorkerFunction}
       FilterPattern: '"domain.lifecycle.failed"'
@@ -1111,6 +1152,8 @@ Resources:
 
   DomainThrottleMetricFilter:
     Type: AWS::Logs::MetricFilter
+    DependsOn:
+      - DomainWorkerFunctionLogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${DomainWorkerFunction}
       FilterPattern: '"ThrottlingException"'
@@ -1207,6 +1250,8 @@ Resources:
           MetricName: RecordFailures
   JobEventFailureMetricFilterWorker:
     Type: AWS::Logs::MetricFilter
+    DependsOn:
+      - RunnerWorkerFunctionLogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
       FilterPattern: '"[job-events] record.failed"'

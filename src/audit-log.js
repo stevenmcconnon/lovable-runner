@@ -1,5 +1,35 @@
 const { query } = require('./pg-client');
 
+let jobEventsTablePromise = null;
+
+const ensureJobEventsTable = () => {
+  if (!jobEventsTablePromise) {
+    jobEventsTablePromise = (async () => {
+      await query(`
+        CREATE TABLE IF NOT EXISTS job_events (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          type TEXT NOT NULL,
+          slug TEXT,
+          account_id UUID,
+          request_id UUID,
+          job_id UUID,
+          action TEXT NOT NULL,
+          status TEXT NOT NULL,
+          description TEXT,
+          metadata JSONB,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await query(`CREATE INDEX IF NOT EXISTS job_events_slug_idx ON job_events(slug, created_at DESC)`);
+      await query(`CREATE INDEX IF NOT EXISTS job_events_action_idx ON job_events(action, created_at DESC)`);
+    })().catch((error) => {
+      jobEventsTablePromise = null;
+      throw error;
+    });
+  }
+  return jobEventsTablePromise;
+};
+
 const sanitizeText = (value) => {
   if (value === undefined || value === null) return null;
   return String(value).slice(0, 500);
@@ -70,6 +100,7 @@ module.exports = {
   }) => {
     if (!type || !action || !status) return;
     try {
+      await ensureJobEventsTable();
       await query(
         `
         INSERT INTO job_events (
