@@ -113,7 +113,60 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 
 ### Integration tests
 - `scripts/test-api.js` runs integration checks against a deployed API. It exercises `/health`, `/me`, `/customer/*`, `/admin/*`, and the internal job endpoint (when a machine token is available).
-- If `TEST_CUSTOMER_TOKEN` / `TEST_ADMIN_TOKEN` aren’t provided, set `TEST_BOOTSTRAP_USER=1`. The script now:
+- The runner automatically loads a local `.env` (if present). Add long-lived credentials there, e.g.:
+  ```
+  TEST_LOGIN_EMAIL=qa.cicd@ai-sitemaker.com
+  TEST_LOGIN_PASSWORD=LovableTest!2024
+  TEST_LOGIN_APPLY_TO_ADMIN=1   # optional: reuse the same token for admin tests once the DB roles exist
+  ```
+  When `TEST_CUSTOMER_TOKEN` / `TEST_ADMIN_TOKEN` aren’t already set, the script will log in via `/auth/login` with those credentials and populate whichever token slots are missing.
+- If your admin endpoints should run with the machine credential instead of a Cognito user, set `TEST_ADMIN_USE_MACHINE=1` (default). The script will fetch a client-credentials token using `COGNITO_DOMAIN`, `COGNITO_M2M_CLIENT_ID`, and `COGNITO_M2M_CLIENT_SECRET`, then reuse it for admin tests.
+- When the shared QA account runs out of edits, we top it up directly in Postgres via the VPC bastion `lovable-runner-bastion` (instance `i-02126f68319a162ee`). To reuse it:
+  1. Start a port-forward:  
+     `aws ssm start-session --target i-02126f68319a162ee --document-name AWS-StartPortForwardingSessionToRemoteHost --parameters host=lovable-runner-api-runnerdatabase-vilhtppry0wp.c216iuwccw88.us-east-1.rds.amazonaws.com,portNumber=5432,localPortNumber=15432`
+  2. Fetch DB creds: `aws secretsmanager get-secret-value --secret-id lovable-runner-api-db-credentials --profile lovable`
+  3. Run `psql "host=127.0.0.1 port=15432 dbname=aisitemaker user=lovable_runner sslmode=require"` and execute:
+     ```sql
+     DO $$
+     DECLARE acct UUID;
+     BEGIN
+       SELECT account_id INTO acct FROM profiles WHERE email = 'qa.cicd@ai-sitemaker.com' LIMIT 1;
+       IF acct IS NULL THEN
+         RAISE EXCEPTION 'Profile not found for %', 'qa.cicd@ai-sitemaker.com';
+       END IF;
+
+       INSERT INTO subscription_plans (plan_key, plan_name, price_monthly, monthly_edit_limit, stripe_price_id)
+       VALUES ('qa-infinite', 'CI Infinite', 0, 1000000, NULL)
+       ON CONFLICT (plan_key) DO UPDATE
+         SET monthly_edit_limit = EXCLUDED.monthly_edit_limit,
+             updated_at = NOW();
+
+       INSERT INTO subscriptions (account_id, plan_key, status, current_period_start, current_period_end, updated_at)
+       VALUES (acct, 'qa-infinite', 'active', date_trunc('month', NOW()), date_trunc('month', NOW()) + interval '1 month', NOW())
+       ON CONFLICT (account_id) DO UPDATE
+         SET plan_key = EXCLUDED.plan_key,
+             status = EXCLUDED.status,
+             current_period_start = EXCLUDED.current_period_start,
+             current_period_end = EXCLUDED.current_period_end,
+             updated_at = NOW();
+
+       IF EXISTS (SELECT 1 FROM edit_usage WHERE account_id = acct) THEN
+         UPDATE edit_usage
+         SET monthly_edit_limit = 1000000,
+             edits_used = 0,
+             edits_used_this_period = 0,
+             period_start = date_trunc('month', NOW()),
+             period_end = date_trunc('month', NOW()) + interval '1 month'
+         WHERE account_id = acct;
+       ELSE
+         INSERT INTO edit_usage (account_id, monthly_edit_limit, edits_used, edits_used_this_period, period_start, period_end)
+         VALUES (acct, 1000000, 0, 0, date_trunc('month', NOW()), date_trunc('month', NOW()) + interval '1 month');
+       END IF;
+     END
+     $$;
+     ```
+  The IAM role attached to the bastion already has `AmazonSSMManagedInstanceCore` + read access to the DB credentials secret, and the DB security group allows inbound 5432 from the bastion security group.
+- If no static credentials or tokens are configured, set `TEST_BOOTSTRAP_USER=1`. The script will then:
   1. Create a temporary Cognito user (using the default AWS profile or `AWS_PROFILE`).
   2. Inserts/updates the matching profile + roles in Postgres (fetching the RDS endpoint + secret automatically when `TEST_STACK_NAME` is left at the default `lovable-runner-api`).
   3. Runs the HTTP checks (note: the customer edit-request test triggers the runner Lambda configured in `RUNNER_FUNCTION_NAME`).
