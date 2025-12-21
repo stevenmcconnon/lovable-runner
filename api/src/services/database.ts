@@ -29,6 +29,7 @@ import {
   DomainJobStatus,
   DomainJobType,
   OwnerDashboardSnapshot,
+  StatusCount,
 } from '../types';
 
 const pool = new Pool({
@@ -2320,6 +2321,25 @@ export class DatabaseService {
     }
   }
 
+  async claimDomainJobById(id: string): Promise<DomainJobRecord | null> {
+    const { rows } = await this.query(
+      `
+      UPDATE domain_jobs
+      SET status = 'running',
+          started_at = NOW(),
+          attempts = COALESCE(attempts, 0) + 1,
+          last_error = NULL,
+          updated_at = NOW()
+      WHERE id = $1
+        AND status IN ('pending', 'retry')
+        AND scheduled_at <= NOW()
+      RETURNING *
+    `,
+      [id]
+    );
+    return rows[0] ? mapDomainJob(rows[0]) : null;
+  }
+
   async completeDomainJob(id: string, status: DomainJobStatus = 'completed'): Promise<DomainJobRecord | null> {
     const { rows } = await this.query(
       `
@@ -2625,6 +2645,65 @@ export class DatabaseService {
       [deploymentId]
     );
     return rows[0] ? mapDeploymentRecord(rows[0]) : null;
+  }
+
+  async summarizeDomainJobs(): Promise<StatusCount[]> {
+    const { rows } = await this.query(
+      `
+      SELECT status, COUNT(*)::int AS count
+      FROM domain_jobs
+      GROUP BY status
+    `
+    );
+    return rows.map((row) => ({
+      status: row.status || 'unknown',
+      count: Number(row.count ?? 0),
+    }));
+  }
+
+  async summarizeNotificationJobs(): Promise<StatusCount[]> {
+    const { rows } = await this.query(
+      `
+      SELECT status, COUNT(*)::int AS count
+      FROM notification_jobs
+      GROUP BY status
+    `
+    );
+    return rows.map((row) => ({
+      status: row.status || 'unknown',
+      count: Number(row.count ?? 0),
+    }));
+  }
+
+  async summarizeLaunches(hours = 24): Promise<StatusCount[]> {
+    const windowHours = Math.max(1, Math.min(hours, 168));
+    const { rows } = await this.query(
+      `
+      SELECT status, COUNT(*)::int AS count
+      FROM site_generations
+      WHERE created_at >= NOW() - ($1 || ' hours')::interval
+      GROUP BY status
+    `,
+      [windowHours]
+    );
+    return rows.map((row) => ({
+      status: row.status || 'unknown',
+      count: Number(row.count ?? 0),
+    }));
+  }
+
+  async countRecentJobErrors(hours = 24): Promise<number> {
+    const windowHours = Math.max(1, Math.min(hours, 168));
+    const { rows } = await this.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM job_events
+      WHERE created_at >= NOW() - ($1 || ' hours')::interval
+        AND LOWER(COALESCE(status, '')) IN ('error', 'failed')
+    `,
+      [windowHours]
+    );
+    return Number(rows[0]?.count ?? 0);
   }
 
   buildUsageLimits(subscription: SubscriptionDetails | null, fallbackLimit: number): UsageLimits {

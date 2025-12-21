@@ -81,6 +81,11 @@ Parameters:
   TemplateUploadBucket:
     Type: String
     Description: S3 bucket used to store uploaded templates
+  SiteSigningSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: HMAC secret used to verify signed site-to-backend requests
   DefaultTrialEditLimit:
     Type: Number
     Default: 1
@@ -712,6 +717,7 @@ Resources:
             COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
             SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
             SITE_DOCS_TOKEN: !Ref SiteDocsToken
+            SITE_SIGNING_SECRET: !Ref SiteSigningSecret
             THUMBNAIL_SERVICE_BASE: !Ref ThumbnailServiceBase
             UNSPLASH_ACCESS_KEY: !Ref UnsplashAccessKey
             NAMECHEAP_API_USER: !Ref NamecheapApiUser

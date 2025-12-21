@@ -1,6 +1,7 @@
 import { DatabaseService } from './database';
 import { DomainJobRecord, DomainJobType } from '../types';
 import { jobEvents } from './job-events';
+import { DomainJobDispatcher } from './domain-job-dispatcher';
 
 type EnqueueParams = {
   domain: string;
@@ -11,7 +12,17 @@ type EnqueueParams = {
 };
 
 export class DomainJobService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly deps: {
+      dispatcher?: DomainJobDispatcher;
+    } = {}
+  ) {}
+
+  private async dispatch(jobId: string, options?: { delayMs?: number }) {
+    if (!this.deps.dispatcher || !jobId) return;
+    await this.deps.dispatcher.dispatch(jobId, { delayMs: options?.delayMs });
+  }
 
   async enqueueProvisionJob(params: EnqueueParams): Promise<DomainJobRecord> {
     const job = await this.db.enqueueDomainJob({
@@ -37,6 +48,7 @@ export class DomainJobService {
         },
       })
       .catch(() => undefined);
+    await this.dispatch(job.id, { delayMs: params.delayMs });
     return job;
   }
 
@@ -61,11 +73,16 @@ export class DomainJobService {
         },
       })
       .catch(() => undefined);
+    await this.dispatch(job.id, { delayMs: params.delayMs });
     return job;
   }
 
   async claimBatch(limit = 10): Promise<DomainJobRecord[]> {
     return this.db.claimDomainJobs(limit);
+  }
+
+  async claimJobById(id: string): Promise<DomainJobRecord | null> {
+    return this.db.claimDomainJobById(id);
   }
 
   async markCompleted(jobId: string): Promise<DomainJobRecord | null> {
@@ -79,11 +96,15 @@ export class DomainJobService {
     if (options.terminal) {
       return this.db.failDomainJob(jobId, options.error);
     }
-    return this.db.retryDomainJob(jobId, {
+    const record = await this.db.retryDomainJob(jobId, {
       delayMs: options.delayMs,
       error: options.error,
       status: options.status,
     });
+    if (record) {
+      await this.dispatch(record.id, { delayMs: options.delayMs });
+    }
+    return record;
   }
 
   async markFailed(jobId: string, error?: string): Promise<DomainJobRecord | null> {

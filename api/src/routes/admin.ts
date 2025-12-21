@@ -7,6 +7,7 @@ import { config } from '../env';
 import { RunnerService } from '../services/runner';
 import { DatabaseService } from '../services/database';
 import { UserRole } from '../types';
+import { TelemetryService } from '../services/telemetry';
 
 const adminEditRequestQuery = z.object({
   status: z.enum(['pending', 'in_progress', 'completed', 'rejected']).optional(),
@@ -79,10 +80,10 @@ const adminAccountsQuery = z.object({
 const encodeCursor = (cursor: Record<string, string>) =>
   Buffer.from(JSON.stringify(cursor)).toString('base64');
 
-const decodeCursor = (
+const decodeCursor = <TKeys extends string>(
   token?: string | null,
-  requiredKeys: string[] = []
-): Record<string, string> | null => {
+  requiredKeys: TKeys[] = []
+): Record<TKeys, string> | null => {
   if (!token) return null;
   try {
     const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
@@ -93,7 +94,7 @@ const decodeCursor = (
     ) {
       const record = payload as Record<string, string>;
       if (requiredKeys.every((key) => typeof record[key] === 'string')) {
-        return record;
+        return record as Record<TKeys, string>;
       }
     }
     return null;
@@ -107,9 +108,9 @@ const cognitoClient = new AWS.CognitoIdentityServiceProvider({ region: config.aw
 
 export const registerAdminRoutes = (
   app: FastifyInstance,
-  deps: { db: DatabaseService; runner: RunnerService }
+  deps: { db: DatabaseService; runner: RunnerService; telemetry?: TelemetryService }
 ) => {
-  const { db, runner } = deps;
+  const { db, runner, telemetry } = deps;
 
   const adminPreHandler = async (request: FastifyRequest, reply: FastifyReply) => {
     let userError: any = null;
@@ -177,7 +178,9 @@ export const registerAdminRoutes = (
     if (!parsed.success) {
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
-    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor, ['createdAt', 'id']) : null;
+    const cursor = parsed.data.cursor
+      ? decodeCursor(parsed.data.cursor, ['createdAt', 'id'] as const)
+      : null;
     if (parsed.data.cursor && !cursor) {
       return reply.code(400).send({ message: 'Cursor token is invalid' });
     }
@@ -259,7 +262,9 @@ export const registerAdminRoutes = (
     if (!parsed.success) {
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
-    const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor, ['createdAt', 'id']) : null;
+    const cursor = parsed.data.cursor
+      ? decodeCursor(parsed.data.cursor, ['createdAt', 'id'] as const)
+      : null;
     if (parsed.data.cursor && !cursor) {
       return reply.code(400).send({ message: 'Cursor token is invalid' });
     }
@@ -437,7 +442,7 @@ export const registerAdminRoutes = (
       return reply.code(400).send({ message: 'Invalid filters', details: parsed.error.flatten() });
     }
     const cursorPayload = parsed.data.cursor
-      ? decodeCursor(parsed.data.cursor, ['sortDate', 'accountId'])
+      ? decodeCursor(parsed.data.cursor, ['sortDate', 'accountId'] as const)
       : null;
     if (parsed.data.cursor && !cursorPayload) {
       return reply.code(400).send({ message: 'Cursor token is invalid' });
@@ -482,4 +487,12 @@ export const registerAdminRoutes = (
       return { items };
     }
   );
+
+  app.get('/admin/telemetry', { preHandler: adminPreHandler }, async (request, reply) => {
+    if (!telemetry) {
+      return reply.code(503).send({ message: 'Telemetry service unavailable' });
+    }
+    const snapshot = await telemetry.getSnapshot();
+    return snapshot;
+  });
 };

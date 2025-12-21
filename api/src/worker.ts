@@ -64,7 +64,10 @@ const domainManager = new DomainManager({ db, edge: domainEdge, notifications: n
 const domainJobs = new DomainJobService(db);
 const domainJobRunner = new DomainJobRunner({ db, manager: domainManager, jobs: domainJobs });
 const defaultRefreshLimit = Number(process.env.DOMAIN_REFRESH_LIMIT || 25);
-const { runNotificationBatch } = resolveRootModule('src/notification-worker.js');
+const { runNotificationBatch, runNotificationJob } = resolveRootModule('src/notification-worker.js') as {
+  runNotificationBatch: (params: { limit?: number; dryRun?: boolean; logger?: Console }) => Promise<any>;
+  runNotificationJob: (params: { jobId: string; dryRun?: boolean; logger?: Console }) => Promise<any>;
+};
 const {
   rollupForDate,
   rollupDateRange,
@@ -137,6 +140,10 @@ type AnalyticsRollupEvent = {
 
 type DomainJobEvent = {
   limit?: number;
+};
+
+type DomainJobMessageEvent = {
+  jobId?: string;
 };
 
 type AnalyticsIngestEvent = {
@@ -325,6 +332,15 @@ export const handleNotificationJobBatch = async (event: NotificationJobEvent = {
   return result;
 };
 
+export const handleNotificationJob = async (event: NotificationJobEvent & { jobId?: string }) => {
+  if (!event?.jobId) throw new Error('jobId is required for notification job processing');
+  const result = await runNotificationJob({
+    jobId: event.jobId,
+    dryRun: Boolean(event.dryRun),
+  });
+  return result;
+};
+
 export const handleAnalyticsRollupJob = async (event: AnalyticsRollupEvent = {}) => {
   if (event.start || event.end) {
     if (!event.start || !event.end) {
@@ -384,6 +400,16 @@ export const handleDomainJobBatch = async (event: DomainJobEvent = {}) => {
   return result;
 };
 
+export const handleDomainJobMessage = async (event: DomainJobMessageEvent) => {
+  if (!event?.jobId) throw new Error('jobId is required for domain job processing');
+  const job = await domainJobs.claimJobById(event.jobId);
+  if (!job) {
+    return { status: 'skipped' };
+  }
+  const outcome = await domainJobRunner.runJob(job);
+  return { status: outcome, jobId: job.id };
+};
+
 export const handleAnalyticsIngest = async (event: AnalyticsIngestEvent) => {
   if (!event?.slug || !event?.type) {
     throw new Error('slug and type are required for analytics ingestion');
@@ -436,4 +462,18 @@ export const handleEditRequestJob = async (event: EditJobEvent) => {
     });
     throw error;
   }
+};
+
+export const handleAccountSitesBackfill = async () => {
+  console.log('[backfill] account_sites started');
+  const processed = await db.backfillAccountSitesFromGenerations();
+  console.log('[backfill] account_sites completed', { processed });
+  return { processed };
+};
+
+export const handleJobEventsBackfill = async () => {
+  console.log('[backfill] job_events started');
+  const inserted = await db.backfillJobEventsFromGenerations();
+  console.log('[backfill] job_events completed', { inserted });
+  return { inserted };
 };

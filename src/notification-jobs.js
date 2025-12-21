@@ -1,6 +1,15 @@
+const AWS = require('aws-sdk');
 const { query } = require('./pg-client');
 
 const MAX_ATTEMPTS = Number(process.env.NOTIFICATION_MAX_ATTEMPTS || 5);
+const NOTIFICATION_QUEUE_URL =
+  process.env.NOTIFICATION_JOB_QUEUE_URL || process.env.RUNNER_QUEUE_URL || '';
+const notificationQueue =
+  NOTIFICATION_QUEUE_URL && AWS.SQS
+    ? new AWS.SQS({
+        region: process.env.AWS_REGION,
+      })
+    : null;
 
 const parseJsonValue = (value) => {
   if (!value) return null;
@@ -44,6 +53,21 @@ const ensureArray = (value) => {
     return value.map((entry) => String(entry).trim()).filter(Boolean);
   }
   return [String(value).trim()].filter(Boolean);
+};
+
+const dispatchNotificationJob = async (jobId, delayMs = 0) => {
+  if (!jobId || !notificationQueue || !NOTIFICATION_QUEUE_URL) return;
+  const delaySeconds = delayMs > 0 ? Math.min(900, Math.max(0, Math.round(delayMs / 1000))) : 0;
+  await notificationQueue
+    .sendMessage({
+      QueueUrl: NOTIFICATION_QUEUE_URL,
+      MessageBody: JSON.stringify({
+        action: 'RUN_NOTIFICATION_JOB',
+        jobId,
+      }),
+      DelaySeconds: delaySeconds,
+    })
+    .promise();
 };
 
 const enqueueNotificationJob = async ({
@@ -108,7 +132,9 @@ const enqueueNotificationJob = async ({
     RETURNING *;
   `;
   const result = await query(statement, params);
-  return mapJobRow(result.rows[0]);
+  const job = mapJobRow(result.rows[0]);
+  await dispatchNotificationJob(job.id);
+  return job;
 };
 
 const claimNotificationJobs = async ({ limit = 10 } = {}) => {
@@ -167,18 +193,33 @@ const markNotificationJobFailed = async ({ jobId, attemptCount, error }) => {
         updated_at = NOW()
     WHERE id = $1
   `,
-    [
-      jobId,
-      exhausted ? 'failed' : 'retrying',
-      error ? error.slice(0, 500) : null,
-      nextAttempt,
-    ]
+    [jobId, exhausted ? 'failed' : 'retrying', error ? error.slice(0, 500) : null, nextAttempt]
   );
+  if (!exhausted && nextAttempt) {
+    const delayMs = Math.max(0, Date.parse(nextAttempt) - Date.now());
+    await dispatchNotificationJob(jobId, delayMs);
+  }
+};
+
+const claimNotificationJobById = async (jobId) => {
+  const statement = `
+    UPDATE notification_jobs
+    SET status = 'sending',
+        attempt_count = notification_jobs.attempt_count + 1,
+        updated_at = NOW()
+    WHERE id = $1
+      AND status IN ('pending', 'retrying')
+      AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+    RETURNING *;
+  `;
+  const result = await query(statement, [jobId]);
+  return result.rows && result.rows[0] ? mapJobRow(result.rows[0]) : null;
 };
 
 module.exports = {
   enqueueNotificationJob,
   claimNotificationJobs,
+  claimNotificationJobById,
   markNotificationJobSent,
   markNotificationJobFailed,
 };

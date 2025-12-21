@@ -23,6 +23,10 @@ const envSchema = z
     RUNNER_FUNCTION_NAME: z.string().optional(),
     RUNNER_QUEUE_URL: z.string().url().optional(),
     TEMPLATE_UPLOAD_BUCKET: z.string().min(1, 'TEMPLATE_UPLOAD_BUCKET is required'),
+    SITE_SIGNING_SECRET: z
+      .string()
+      .min(32, 'SITE_SIGNING_SECRET must be at least 32 characters')
+      .describe('HMAC secret for verifying site-signed requests'),
     DEFAULT_TRIAL_EDIT_LIMIT: z.coerce.number().default(1),
     SIGNED_IN_BONUS_EDITS: z.coerce.number().default(1),
     ANONYMOUS_LAUNCH_LIMIT: z.coerce.number().default(1),
@@ -54,6 +58,8 @@ const envSchema = z
     DOMAIN_REFRESH_DAILY_LIMIT: z.string().optional(),
     ANALYTICS_DATABASE_URL: z.string().optional(),
     ANALYTICS_QUEUE_URL: z.string().url({ message: 'ANALYTICS_QUEUE_URL must be a valid URL' }),
+    DOMAIN_JOB_QUEUE_URL: z.string().url().optional(),
+    NOTIFICATION_JOB_QUEUE_URL: z.string().url().optional(),
   })
   .refine(
     (value) =>
@@ -94,6 +100,7 @@ const rawEnv = envSchema.parse({
   RUNNER_FUNCTION_NAME: process.env.RUNNER_FUNCTION_NAME,
   RUNNER_QUEUE_URL: process.env.RUNNER_QUEUE_URL,
   TEMPLATE_UPLOAD_BUCKET: process.env.TEMPLATE_UPLOAD_BUCKET,
+  SITE_SIGNING_SECRET: process.env.SITE_SIGNING_SECRET,
   DEFAULT_TRIAL_EDIT_LIMIT: process.env.DEFAULT_TRIAL_EDIT_LIMIT,
   SIGNED_IN_BONUS_EDITS: process.env.SIGNED_IN_BONUS_EDITS,
   ANONYMOUS_LAUNCH_LIMIT: process.env.ANONYMOUS_LAUNCH_LIMIT,
@@ -125,6 +132,8 @@ const rawEnv = envSchema.parse({
   DOMAIN_REFRESH_DAILY_LIMIT: process.env.DOMAIN_REFRESH_DAILY_LIMIT,
   ANALYTICS_DATABASE_URL: process.env.ANALYTICS_DATABASE_URL,
   ANALYTICS_QUEUE_URL: process.env.ANALYTICS_QUEUE_URL || process.env.SITE_ANALYTICS_QUEUE_URL,
+  DOMAIN_JOB_QUEUE_URL: process.env.DOMAIN_JOB_QUEUE_URL,
+  NOTIFICATION_JOB_QUEUE_URL: process.env.NOTIFICATION_JOB_QUEUE_URL,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -287,4 +296,11 @@ export const config = {
     limits: domainLimits,
   },
   analyticsQueueUrl: rawEnv.ANALYTICS_QUEUE_URL,
+  queues: {
+    domainJobs: rawEnv.DOMAIN_JOB_QUEUE_URL || rawEnv.RUNNER_QUEUE_URL || '',
+    notifications: rawEnv.NOTIFICATION_JOB_QUEUE_URL || '',
+  },
+  security: {
+    siteSigningSecret: rawEnv.SITE_SIGNING_SECRET,
+  },
 } as const;

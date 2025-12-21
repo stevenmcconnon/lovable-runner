@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { DatabaseService } from '../services/database';
 import { ensureAnySiteAccess, ensureSlugAccess, resolveSlugOrDefault, loadAllowedSlugs } from '../services/site-access';
 import { UserRole } from '../types';
+import { verifySiteToken } from '../services/site-token';
 
 const rootRequire = (relativePath: string): any => {
   try {
@@ -250,6 +251,45 @@ const respondWithHtml = (reply: FastifyReply, statusCode: number, message: strin
     .code(statusCode)
     .send(`<html><body><h1>${message}</h1><p>You can close this window.</p></body></html>`);
 
+const getHeaderValue = (value?: string | string[]) => (Array.isArray(value) ? value[0] : value);
+
+const extractSiteToken = (request: FastifyRequest, payload?: Record<string, unknown>): string | null => {
+  const headerToken =
+    getHeaderValue(request.headers['x-site-token'] as string | string[] | undefined) ||
+    getHeaderValue((request.headers as Record<string, unknown>)['X-Site-Token'] as string | undefined);
+  if (typeof headerToken === 'string' && headerToken.trim()) {
+    return headerToken.trim();
+  }
+  if (payload && typeof payload === 'object') {
+    const candidate =
+      (payload['siteToken'] as string | undefined) ??
+      (payload['token'] as string | undefined) ??
+      (payload['signature'] as string | undefined);
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  const queryToken = (request.query as Record<string, any> | undefined)?.token;
+  if (typeof queryToken === 'string' && queryToken.trim()) {
+    return queryToken.trim();
+  }
+  return null;
+};
+
+const enforceSiteToken = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  slug?: string | null,
+  payload?: Record<string, unknown>
+): boolean => {
+  const token = extractSiteToken(request, payload);
+  if (!slug || !token || !verifySiteToken(slug, token)) {
+    reply.code(403).send({ error: 'Invalid site token' });
+    return false;
+  }
+  return true;
+};
+
 const ensureRolesPreHandler = (
   app: FastifyInstance,
   roles: UserRole[]
@@ -344,38 +384,60 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
     }
   );
 
-  app.get('/updates', async (request, reply) => {
-    const projectId =
-      (request.query as Record<string, any>)?.projectId ||
-      (request.query as Record<string, any>)?.project_id;
-    const limitRaw = (request.query as Record<string, any>)?.limit;
-    const limit = limitRaw ? Number(limitRaw) : undefined;
-    const drafts = await listUpdates({ projectId, limit });
-    reply.send({ items: drafts });
-  });
+  app.get(
+    '/updates',
+    {
+      preHandler: [app.authenticateUser, ensureRolesPreHandler(app, ['admin', 'super-admin'])],
+    },
+    async (request, reply) => {
+      const projectId =
+        (request.query as Record<string, any>)?.projectId ||
+        (request.query as Record<string, any>)?.project_id;
+      const limitRaw = (request.query as Record<string, any>)?.limit;
+      const limit = limitRaw ? Number(limitRaw) : undefined;
+      const drafts = await listUpdates({ projectId, limit });
+      reply.send({ items: drafts });
+    }
+  );
 
-  app.get('/sites/history', async (request, reply) => {
-    const { slug, limit } = request.query as { slug?: string; limit?: string };
-    if (!slug) {
+  app.get(
+    '/sites/history',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      const { slug, limit } = request.query as { slug?: string; limit?: string };
+      const resolvedSlug = await ensureSlugAccess(request, reply, db, slug);
+      if (!resolvedSlug) return;
+      const result = await listHistoryEntries({
+        slug: resolvedSlug,
+        limit: limit ? Number(limit) : undefined,
+      });
+      reply.send({ slug: resolvedSlug, entries: result });
+    }
+  );
+
+  app.post(
+    '/sites/restore',
+    { preHandler: app.authenticateUser },
+    async (request, reply) => {
+      const body = request.body as { slug?: string; historyId?: string };
+      if (!body.slug || !body.historyId) {
+        reply.code(400).send({ error: 'slug and historyId are required' });
+        return;
+      }
+      const resolvedSlug = await ensureSlugAccess(request, reply, db, body.slug);
+      if (!resolvedSlug) return;
+      const restored = await restoreSiteFromHistory({ slug: resolvedSlug, historyId: body.historyId });
+      reply.send(restored);
+    }
+  );
+
+  app.post('/contact', async (request, reply) => {
+    const body = request.body as Record<string, any>;
+    if (!body.slug) {
       reply.code(400).send({ error: 'slug is required' });
       return;
     }
-    const result = await listHistoryEntries({ slug, limit: limit ? Number(limit) : undefined });
-    reply.send({ slug, entries: result });
-  });
-
-  app.post('/sites/restore', async (request, reply) => {
-    const body = request.body as { slug?: string; historyId?: string };
-    if (!body.slug || !body.historyId) {
-      reply.code(400).send({ error: 'slug and historyId are required' });
-      return;
-    }
-    const restored = await restoreSiteFromHistory({ slug: body.slug, historyId: body.historyId });
-    reply.send(restored);
-  });
-
-  app.post('/contact', async (request, reply) => {
-    const body = request.body as any;
+    if (!enforceSiteToken(request, reply, body.slug, body)) return;
     const remoteAddress = getClientIp(request);
     const userAgent = getUserAgent(request);
     try {
@@ -667,7 +729,12 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
   });
 
   app.post('/reviews', async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, any>;
+    if (!body.slug) {
+      reply.code(400).send({ error: 'slug is required' });
+      return;
+    }
+    if (!enforceSiteToken(request, reply, body.slug, body)) return;
     const record = await submitReview({
       slug: body.slug,
       authorName: body.authorName,
@@ -733,11 +800,12 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
   );
 
   app.post('/analytics/events', async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, any>;
     if (!body.slug || !body.type) {
       reply.code(400).send({ error: 'slug and type are required' });
       return;
     }
+    if (!enforceSiteToken(request, reply, body.slug, body)) return;
     const metadataPayload =
       body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
     await recordAnalyticsEvent({

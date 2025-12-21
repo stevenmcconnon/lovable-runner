@@ -1,4 +1,4 @@
-.PHONY: build-RunnerFunction clean-RunnerFunction
+.PHONY: build-% clean-%
 
 EXCLUDES = \
 	--exclude '.git/' \
@@ -11,7 +11,7 @@ EXCLUDES = \
 	--exclude 'templates/site-base/node_modules/' \
 	--exclude 'templates/site-base/dist/'
 
-build-RunnerFunction:
+build-%:
 	@echo "Packaging Lambda artifacts into $$ARTIFACTS_DIR"
 	@test -n "$$ARTIFACTS_DIR" || (echo "ARTIFACTS_DIR is not set" >&2; exit 1)
 	@mkdir -p "$$ARTIFACTS_DIR"
@@ -19,7 +19,7 @@ build-RunnerFunction:
 	@cd "$$ARTIFACTS_DIR" && node ./node_modules/typescript/bin/tsc -p tsconfig.json
 	npm prune --omit=dev --prefix "$$ARTIFACTS_DIR"
 
-clean-RunnerFunction:
+clean-%:
 	@echo "Cleaning $$ARTIFACTS_DIR"
 	@test -n "$$ARTIFACTS_DIR" || exit 0
 	rm -rf "$$ARTIFACTS_DIR"

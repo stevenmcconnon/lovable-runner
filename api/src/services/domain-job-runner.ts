@@ -53,34 +53,40 @@ export class DomainJobRunner {
           processed += 1;
           continue;
         }
-        try {
-          await this.logJobEvent(job, {
-            action: 'STARTED',
-            status: 'running',
-          });
-          // eslint-disable-next-line no-await-in-loop
-          const outcome = await this.processJob(job);
-          if (outcome === 'completed') completed += 1;
-          if (outcome === 'retry') retried += 1;
-        } catch (error) {
-          // eslint-disable-next-line no-console
-          console.error('[domain-jobs] job.failed', {
-            jobId: job.id,
-            domain: job.domain,
-            type: job.type,
-            err: (error as Error)?.message,
-          });
-          // eslint-disable-next-line no-await-in-loop
-          await this.deps.jobs
-            .markFailed(job.id, (error as Error)?.message)
-            .catch(() => undefined);
-        } finally {
-          processed += 1;
-        }
+        // eslint-disable-next-line no-await-in-loop
+        const outcome = await this.processJobSafe(job);
+        if (outcome === 'completed') completed += 1;
+        if (outcome === 'retry') retried += 1;
+        processed += 1;
       }
       return { processed, completed, retried };
     } finally {
       await releaseLock().catch(() => undefined);
+    }
+  }
+
+  async runJob(job: DomainJobRecord): Promise<'completed' | 'retry' | 'failed'> {
+    return this.processJobSafe(job);
+  }
+
+  private async processJobSafe(job: DomainJobRecord): Promise<'completed' | 'retry' | 'failed'> {
+    try {
+      await this.logJobEvent(job, {
+        action: 'STARTED',
+        status: 'running',
+      });
+      const outcome = await this.processJob(job);
+      return outcome;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[domain-jobs] job.failed', {
+        jobId: job.id,
+        domain: job.domain,
+        type: job.type,
+        err: (error as Error)?.message,
+      });
+      await this.deps.jobs.markFailed(job.id, (error as Error)?.message).catch(() => undefined);
+      return 'failed';
     }
   }
 

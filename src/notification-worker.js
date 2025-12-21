@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const { CONTACT_FROM_EMAIL } = require('./email-config');
 const {
   claimNotificationJobs,
+  claimNotificationJobById,
   markNotificationJobSent,
   markNotificationJobFailed,
 } = require('./notification-jobs');
@@ -40,21 +41,9 @@ const buildEmailParams = (job) => {
   return params;
 };
 
-const runNotificationBatch = async ({
-  limit = Number(process.env.NOTIFICATION_BATCH_LIMIT || 25),
-  dryRun = false,
-  logger = console,
-  autoClosePool = true,
-} = {}) => {
-  const ses = new AWS.SES();
-  const jobs = await claimNotificationJobs({ limit });
-  if (!jobs.length) {
-    logger.log('[notifications] No jobs ready to send.');
-    if (autoClosePool) {
-      await closePool().catch(() => undefined);
-    }
-    return { claimed: 0, sent: 0, failed: 0 };
-  }
+const processNotificationJobs = async ({ jobs, dryRun, logger }) => {
+  if (!jobs.length) return { claimed: 0, sent: 0, failed: 0 };
+  const ses = dryRun ? null : new AWS.SES();
   logger.log(`[notifications] Sending ${jobs.length} job(s)...`);
   let sent = 0;
   let failed = 0;
@@ -63,7 +52,7 @@ const runNotificationBatch = async ({
       await recordNotificationJobEvent(job, 'CLAIMED', 'sending', logger);
       if (dryRun) {
         logger.log(`[notifications] [dry-run] Would send ${job.id} to ${job.recipient}`);
-      } else {
+      } else if (ses) {
         const params = buildEmailParams(job);
         // eslint-disable-next-line no-await-in-loop
         await ses.sendEmail(params).promise();
@@ -81,15 +70,52 @@ const runNotificationBatch = async ({
         attemptCount: job.attemptCount,
         error: error.message || 'Unknown error',
       });
-      await recordNotificationJobEvent(job, 'FAILED', job.attemptCount + 1 >= MAX_ATTEMPTS ? 'failed' : 'retrying', logger, {
-        error: error.message || 'Unknown error',
-      });
+      await recordNotificationJobEvent(
+        job,
+        'FAILED',
+        job.attemptCount + 1 >= MAX_ATTEMPTS ? 'failed' : 'retrying',
+        logger,
+        {
+          error: error.message || 'Unknown error',
+        }
+      );
     }
   }
+  return { claimed: jobs.length, sent, failed };
+};
+
+const runNotificationBatch = async ({
+  limit = Number(process.env.NOTIFICATION_BATCH_LIMIT || 25),
+  dryRun = false,
+  logger = console,
+  autoClosePool = true,
+} = {}) => {
+  const jobs = await claimNotificationJobs({ limit });
+  if (!jobs.length) {
+    logger.log('[notifications] No jobs ready to send.');
+    if (autoClosePool) {
+      await closePool().catch(() => undefined);
+    }
+    return { claimed: 0, sent: 0, failed: 0 };
+  }
+  const result = await processNotificationJobs({ jobs, dryRun, logger });
   if (autoClosePool) {
     await closePool().catch(() => undefined);
   }
-  return { claimed: jobs.length, sent, failed };
+  return result;
+};
+
+const runNotificationJob = async ({ jobId, dryRun = false, logger = console } = {}) => {
+  if (!jobId) throw new Error('jobId is required for notification job processing');
+  const job = await claimNotificationJobById(jobId);
+  if (!job) {
+    logger.log(`[notifications] Job ${jobId} not ready for sending.`);
+    await closePool().catch(() => undefined);
+    return { claimed: 0, sent: 0, failed: 0 };
+  }
+  const result = await processNotificationJobs({ jobs: [job], dryRun, logger });
+  await closePool().catch(() => undefined);
+  return result;
 };
 
 const hashRecipient = (email = '') =>
@@ -120,4 +146,5 @@ const recordNotificationJobEvent = async (job, action, status, logger, metadata 
 
 module.exports = {
   runNotificationBatch,
+  runNotificationJob,
 };

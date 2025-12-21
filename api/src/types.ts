@@ -155,6 +155,11 @@ export interface UsageLimits {
    coupons: string[];
 }
 
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
 export type EditRequestStatus = 'pending' | 'in_progress' | 'completed' | 'rejected';
 export type EditJobStatus = 'queued' | 'running' | 'failed' | 'completed';
 export type SiteGenerationStatus =

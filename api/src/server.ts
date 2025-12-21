@@ -27,8 +27,11 @@ import { SiteSeoService } from './services/site-seo';
 import { NotificationService } from './services/notifications';
 import { registerAnalyticsRoutes } from './routes/analytics';
 import { DomainJobService } from './services/domain-job';
+import { DomainJobDispatcher } from './services/domain-job-dispatcher';
 import { registerCoreRoutes } from './routes/core';
 import { randomUUID } from 'node:crypto';
+import { recordApiRequestMetric } from './services/metrics';
+import { TelemetryService } from './services/telemetry';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
@@ -88,6 +91,26 @@ export const buildServer = (): FastifyInstance => {
       },
       'request completed'
     );
+    try {
+      const slugCandidate =
+        (request.params as any)?.slug ||
+        (request.query as any)?.slug ||
+        (request.body as any)?.slug ||
+        null;
+      recordApiRequestMetric({
+        route:
+          (request.routerPath as string | undefined) ||
+          (request.routeOptions as any)?.url ||
+          request.url,
+        method: request.method,
+        statusCode: reply.statusCode,
+        durationMs,
+        accountId: request.auth?.profile?.accountId ?? null,
+        slug: typeof slugCandidate === 'string' ? slugCandidate : null,
+      });
+    } catch (error) {
+      request.log.warn({ err: error }, 'failed to emit request metric');
+    }
   });
 
   app.register(multipart);
@@ -112,7 +135,13 @@ export const buildServer = (): FastifyInstance => {
     distributionId: config.domains.edge.distributionId,
   });
   const notificationService = new NotificationService({ db: database });
-  const domainJobService = new DomainJobService(database);
+  const telemetryService = new TelemetryService({ db: database });
+  const domainJobDispatcher = config.queues.domainJobs
+    ? new DomainJobDispatcher(config.queues.domainJobs, config.awsRegion)
+    : undefined;
+  const domainJobService = new DomainJobService(database, {
+    dispatcher: domainJobDispatcher,
+  });
   const domainManager = new DomainManager({
     db: database,
     edge: domainEdgeService,
@@ -128,7 +157,7 @@ export const buildServer = (): FastifyInstance => {
   app.register(buildAuthPlugin(database));
   app.register(async (instance) => {
     registerCustomerRoutes(instance, { db: database, runner });
-    registerAdminRoutes(instance, { db: database, runner });
+    registerAdminRoutes(instance, { db: database, runner, telemetry: telemetryService });
     registerBillingRoutes(instance, { db: database, stripe });
     registerDomainRoutes(instance, {
       db: database,
