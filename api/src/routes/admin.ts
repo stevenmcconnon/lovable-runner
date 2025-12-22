@@ -1,5 +1,15 @@
+import {
+  AdminCreateUserCommand,
+  AdminDeleteUserCommand,
+  AdminGetUserCommand,
+  AdminSetUserPasswordCommand,
+  AdminUpdateUserAttributesCommand,
+  AdminCreateUserCommandInput,
+  AdminUpdateUserAttributesCommandInput,
+  AttributeType,
+  CognitoIdentityProviderClient,
+} from '@aws-sdk/client-cognito-identity-provider';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import AWS from 'aws-sdk';
 import { randomUUID } from 'node:crypto';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -104,7 +114,7 @@ const decodeCursor = <TKeys extends string>(
 };
 
 const s3Client = new S3Client({ region: config.awsRegion });
-const cognitoClient = new AWS.CognitoIdentityServiceProvider({ region: config.awsRegion });
+const cognitoClient = new CognitoIdentityProviderClient({ region: config.awsRegion });
 
 export const registerAdminRoutes = (
   app: FastifyInstance,
@@ -149,15 +159,13 @@ export const registerAdminRoutes = (
   };
 
   const resolveCognitoSub = async (username: string): Promise<string> => {
-    const response = await cognitoClient
-      .adminGetUser({
+    const response = await cognitoClient.send(
+      new AdminGetUserCommand({
         UserPoolId: config.cognito.userPoolId,
         Username: username,
       })
-      .promise();
-    const attribute = response.UserAttributes?.find(
-      (attr: AWS.CognitoIdentityServiceProvider.AttributeType) => attr.Name === 'sub'
     );
+    const attribute = response.UserAttributes?.find((attr: AttributeType) => attr.Name === 'sub');
     if (!attribute?.Value) {
       throw new Error('Unable to resolve Cognito sub for user');
     }
@@ -318,7 +326,7 @@ export const registerAdminRoutes = (
     const body = createAdminUserSchema.parse(request.body);
     const roles = body.roles && body.roles.length ? body.roles : ['customer'];
     const sendInvite = body.sendInvite !== false;
-    const createParams = {
+    const createParams: AdminCreateUserCommandInput = {
       UserPoolId: config.cognito.userPoolId,
       Username: body.email,
       UserAttributes: [
@@ -326,27 +334,26 @@ export const registerAdminRoutes = (
         { Name: 'email_verified', Value: 'true' },
         body.fullName ? { Name: 'name', Value: body.fullName } : null,
       ].filter(Boolean) as { Name: string; Value: string }[],
-      MessageAction: sendInvite ? undefined : 'SUPPRESS',
+      MessageAction: sendInvite ? undefined : ('SUPPRESS' as const),
       TemporaryPassword: body.temporaryPassword,
     };
-    const createResponse = await cognitoClient.adminCreateUser(createParams).promise();
+    const createResponse = await cognitoClient.send(new AdminCreateUserCommand(createParams));
     const username = createResponse.User?.Username ?? body.email;
     let cognitoSub =
-      createResponse.User?.Attributes?.find(
-        (attr: AWS.CognitoIdentityServiceProvider.AttributeType) => attr.Name === 'sub'
-      )?.Value ?? null;
+      createResponse.User?.Attributes?.find((attr: AttributeType) => attr.Name === 'sub')?.Value ??
+      null;
     if (!cognitoSub) {
       cognitoSub = await resolveCognitoSub(username);
     }
     if (body.temporaryPassword && !sendInvite) {
-      await cognitoClient
-        .adminSetUserPassword({
+      await cognitoClient.send(
+        new AdminSetUserPasswordCommand({
           UserPoolId: config.cognito.userPoolId,
           Username: username,
           Password: body.temporaryPassword,
           Permanent: true,
         })
-        .promise();
+      );
     }
     const profile = await db.createProfileRecord({
       email: body.email,
@@ -393,27 +400,27 @@ export const registerAdminRoutes = (
           updateAttributes.push({ Name: 'name', Value: body.fullName });
         }
         if (updateAttributes.length) {
-          await cognitoClient
-            .adminUpdateUserAttributes({
+          await cognitoClient.send(
+            new AdminUpdateUserAttributesCommand({
               UserPoolId: config.cognito.userPoolId,
               Username: user.cognitoSub,
               UserAttributes: updateAttributes,
             })
-            .promise();
+          );
         }
       }
       if (body.roles) {
         await db.replaceRolesForUser(params.userId, body.roles as UserRole[]);
       }
       if (body.temporaryPassword) {
-        await cognitoClient
-          .adminSetUserPassword({
+        await cognitoClient.send(
+          new AdminSetUserPasswordCommand({
             UserPoolId: config.cognito.userPoolId,
             Username: user.cognitoSub,
             Password: body.temporaryPassword,
             Permanent: true,
           })
-          .promise();
+        );
       }
       const updated = await db.getAdminUserById(params.userId);
       return updated ?? { message: 'User updated' };
@@ -428,12 +435,12 @@ export const registerAdminRoutes = (
       const user = await db.getAdminUserById(params.userId);
       if (!user) return reply.code(404).send({ message: 'User not found' });
       try {
-        await cognitoClient
-          .adminDeleteUser({
+        await cognitoClient.send(
+          new AdminDeleteUserCommand({
             UserPoolId: config.cognito.userPoolId,
             Username: user.cognitoSub,
           })
-          .promise();
+        );
       } catch (error) {
         request.log.warn({ err: error }, 'Failed to delete Cognito user (continuing)');
       }

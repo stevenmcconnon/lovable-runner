@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk');
+const { SendEmailCommand } = require('@aws-sdk/client-ses');
+const { sesClient } = require('./aws-clients');
 const { randomUUID } = require('crypto');
 const { CONTACT_FROM_EMAIL } = require('./email-config');
 const {
@@ -10,7 +11,7 @@ const {
 } = require('./lead-store');
 const { recordAnalyticsEvent } = require('./analytics');
 
-const ses = new AWS.SES();
+const ses = sesClient;
 
 const captureLeadSubmission = async (payload) => {
   try {
@@ -64,8 +65,8 @@ const sendLeadReply = async ({ slug, leadId, message, subject, sender }) => {
       .join('\n'),
   ].join('\n');
 
-  await ses
-    .sendEmail({
+  await ses.send(
+    new SendEmailCommand({
       Source: CONTACT_FROM_EMAIL,
       Destination: {
         ToAddresses: [lead.replyTo],
@@ -82,7 +83,7 @@ const sendLeadReply = async ({ slug, leadId, message, subject, sender }) => {
         },
       },
     })
-    .promise();
+  );
 
   await appendLeadMessage({
     slug,

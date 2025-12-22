@@ -1,7 +1,7 @@
-const AWS = require('aws-sdk');
+const { EncryptCommand, DecryptCommand } = require('@aws-sdk/client-kms');
+const { kmsClient } = require('./aws-clients');
 const crypto = require('node:crypto');
 
-const kms = new AWS.KMS();
 const kmsKeyId = process.env.INTEGRATION_KMS_KEY_ARN || process.env.SECURE_KMS_KEY_ARN || '';
 const localKeyB64 = process.env.INTEGRATION_ENCRYPTION_KEY || '';
 
@@ -50,22 +50,22 @@ const encryptWithKms = async (plaintext) => {
   if (!kmsKeyId) {
     throw new Error('INTEGRATION_KMS_KEY_ARN or INTEGRATION_ENCRYPTION_KEY must be set to store integration secrets.');
   }
-  const response = await kms
-    .encrypt({
+  const response = await kmsClient.send(
+    new EncryptCommand({
       KeyId: kmsKeyId,
       Plaintext: Buffer.from(plaintext, 'utf8'),
     })
-    .promise();
+  );
   return `kms:${response.CiphertextBlob.toString('base64')}`;
 };
 
 const decryptWithKms = async (payload) => {
   const blob = Buffer.from(payload, 'base64');
-  const response = await kms
-    .decrypt({
+  const response = await kmsClient.send(
+    new DecryptCommand({
       CiphertextBlob: blob,
     })
-    .promise();
+  );
   return response.Plaintext.toString('utf8');
 };
 

@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk');
+const { PutCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { dynamoDocumentClient } = require('./aws-clients');
 const { randomUUID } = require('crypto');
 
 const TABLE_NAME =
@@ -10,10 +11,7 @@ const getClient = () => {
   if (!TABLE_NAME) {
     throw new Error('SITE_REVIEWS_TABLE environment variable is not set.');
   }
-  if (!AWS.config.region && process.env.AWS_REGION) {
-    AWS.config.update({ region: process.env.AWS_REGION });
-  }
-  return new AWS.DynamoDB.DocumentClient();
+  return dynamoDocumentClient;
 };
 
 const saveReview = async ({ slug, authorName, rating, body, source, status, contact }) => {
@@ -31,19 +29,19 @@ const saveReview = async ({ slug, authorName, rating, body, source, status, cont
     source: source || 'manual',
     contact,
   };
-  await client
-    .put({
+  await client.send(
+    new PutCommand({
       TableName: TABLE_NAME,
       Item: item,
     })
-    .promise();
+  );
   return item;
 };
 
 const listReviews = async ({ slug, status = 'approved', limit = 20 }) => {
   const client = getClient();
-  const result = await client
-    .query({
+  const result = await client.send(
+    new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: '#slug = :slug',
       ExpressionAttributeNames: { '#slug': 'slug' },
@@ -51,15 +49,15 @@ const listReviews = async ({ slug, status = 'approved', limit = 20 }) => {
       ScanIndexForward: false,
       Limit: limit,
     })
-    .promise();
+  );
   const items = result.Items || [];
   return status ? items.filter((item) => item.status === status) : items;
 };
 
 const updateReviewStatus = async ({ slug, reviewId, status }) => {
   const client = getClient();
-  await client
-    .update({
+  await client.send(
+    new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { slug, reviewId },
       UpdateExpression: 'SET #status = :status, #updatedAt = :now',
@@ -72,7 +70,7 @@ const updateReviewStatus = async ({ slug, reviewId, status }) => {
         ':now': new Date().toISOString(),
       },
     })
-    .promise();
+  );
 };
 
 module.exports = {

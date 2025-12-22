@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk');
+const { SendEmailCommand } = require('@aws-sdk/client-ses');
+const { sesClient } = require('./aws-clients');
 const crypto = require('node:crypto');
 const { CONTACT_FROM_EMAIL } = require('./email-config');
 const {
@@ -43,7 +44,7 @@ const buildEmailParams = (job) => {
 
 const processNotificationJobs = async ({ jobs, dryRun, logger }) => {
   if (!jobs.length) return { claimed: 0, sent: 0, failed: 0 };
-  const ses = dryRun ? null : new AWS.SES();
+  const ses = dryRun ? null : sesClient;
   logger.log(`[notifications] Sending ${jobs.length} job(s)...`);
   let sent = 0;
   let failed = 0;
@@ -55,7 +56,7 @@ const processNotificationJobs = async ({ jobs, dryRun, logger }) => {
       } else if (ses) {
         const params = buildEmailParams(job);
         // eslint-disable-next-line no-await-in-loop
-        await ses.sendEmail(params).promise();
+        await ses.send(new SendEmailCommand(params));
       }
       // eslint-disable-next-line no-await-in-loop
       await markNotificationJobSent(job.id);

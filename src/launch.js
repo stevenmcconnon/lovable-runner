@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const AWS = require('aws-sdk');
+const { ListObjectsV2Command, HeadObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { randomUUID } = require('node:crypto');
 const fetch = global.fetch;
 const { generateSiteWithOpenAI } = require('./openai');
@@ -10,6 +10,7 @@ const { uploadToS3 } = require('./deploy');
 const { pickUnsplashImages } = require('./unsplash');
 const { STYLE_PROFILE_IDS } = require('./style-profiles');
 const crypto = require('node:crypto');
+const { s3Client } = require('./aws-clients');
 
 const MIN_IMAGES = 4;
 const DEFAULT_STYLE_PROFILE = 'rounded-elevated';
@@ -60,7 +61,7 @@ const slugify = (input) => {
 };
 
 const ensureUniqueSlug = async ({ bucket, basePrefix, slugCandidate }) => {
-  const s3 = new AWS.S3();
+  const s3 = s3Client;
   const sanitizedBase = slugCandidate && slugCandidate.length ? slugCandidate : 'site';
   let attempt = 0;
 
@@ -74,13 +75,13 @@ const ensureUniqueSlug = async ({ bucket, basePrefix, slugCandidate }) => {
   while (attempt < 20) {
     const candidate = attempt === 0 ? sanitizedBase : `${sanitizedBase}-${attempt}`;
     const prefixPath = buildPrefixPath(candidate);
-    const existing = await s3
-      .listObjectsV2({
+    const existing = await s3.send(
+      new ListObjectsV2Command({
         Bucket: bucket,
         Prefix: `${prefixPath}/`,
         MaxKeys: 1,
       })
-      .promise();
+    );
     if (!existing.Contents || existing.Contents.length === 0) {
       return { slug: candidate, prefixPath };
     }
@@ -744,7 +745,7 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
     process.env.LOVABLE_DEPLOY_BUCKET ||
     process.env.DEPLOY_BUCKET ||
     process.env.TEMPLATE_UPLOAD_BUCKET;
-  const s3 = bucket ? new AWS.S3() : null;
+  const s3 = bucket ? s3Client : null;
 
   const downloadAndCache = async (src) => {
     if (!s3 || !bucket) return src;
@@ -765,15 +766,21 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
       const key = `${BASE_BUNDLE_CANONICAL_PREFIX}/assets/stock/${hash}.${ext}`;
 
       try {
-        await s3
-          .headObject({
+        await s3.send(
+          new HeadObjectCommand({
             Bucket: bucket,
             Key: key,
           })
-          .promise();
+        );
         return `/assets/stock/${hash}.${ext}`;
       } catch (err) {
-        if (err.code && !['NotFound', 'NoSuchKey'].includes(err.code)) throw err;
+        if (
+          err?.code &&
+          !['NotFound', 'NoSuchKey'].includes(err.code) &&
+          err?.$metadata?.httpStatusCode !== 404
+        ) {
+          throw err;
+        }
       }
 
       const resp = await fetch(url);
@@ -788,15 +795,15 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
           ? 'image/webp'
           : 'image/jpeg');
 
-      await s3
-        .putObject({
+      await s3.send(
+        new PutObjectCommand({
           Bucket: bucket,
           Key: key,
           Body: buffer,
           ContentType: contentType,
           CacheControl: 'public, max-age=31536000, immutable',
         })
-        .promise();
+      );
 
       return `/assets/stock/${hash}.${ext}`;
     } catch (error) {
@@ -1367,21 +1374,26 @@ const deriveTemplateSummary = (site = {}) => {
 
 const ensureBaseBundleUploaded = async ({ bucket, prefix }) => {
   // No per-slug bundle uploads; rely on canonical bundle being present at BASE_BUNDLE_CANONICAL_PREFIX
-  const s3 = new AWS.S3();
+  const s3 = s3Client;
   const canonicalPrefix = BASE_BUNDLE_CANONICAL_PREFIX ? `${BASE_BUNDLE_CANONICAL_PREFIX}/` : '';
   const canonicalIndex = `${canonicalPrefix}index.html`;
 
   const canonicalExists = async () => {
     try {
-      await s3
-        .headObject({
+      await s3.send(
+        new HeadObjectCommand({
           Bucket: bucket,
           Key: canonicalIndex,
         })
-        .promise();
+      );
       return true;
     } catch (error) {
-      if (error.code && ['NotFound', 'NoSuchKey'].includes(error.code)) return false;
+      if (
+        (error.code && ['NotFound', 'NoSuchKey'].includes(error.code)) ||
+        error?.$metadata?.httpStatusCode === 404
+      ) {
+        return false;
+      }
       throw error;
     }
   };

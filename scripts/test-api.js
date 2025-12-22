@@ -3,7 +3,22 @@
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
-const AWS = require('aws-sdk');
+const {
+  CloudFormationClient,
+  DescribeStacksCommand,
+} = require('@aws-sdk/client-cloudformation');
+const {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} = require('@aws-sdk/client-secrets-manager');
+const {
+  CognitoIdentityProviderClient,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand,
+  AdminGetUserCommand,
+  InitiateAuthCommand,
+  AdminDeleteUserCommand,
+} = require('@aws-sdk/client-cognito-identity-provider');
 const { Client: PgClient } = require('pg');
 
 const loadEnvFile = () => {
@@ -89,11 +104,9 @@ const createDbClient = (connectionString) =>
     ssl: shouldUseDbSSL(connectionString) ? { rejectUnauthorized: false } : undefined,
   });
 
-const ensureAwsRegion = () => {
-  if (!AWS.config.region) {
-    AWS.config.update({ region: bootstrapConfig.region });
-  }
-};
+const ensureAwsRegion = () => bootstrapConfig.region;
+
+const getAwsClientConfig = () => ({ region: ensureAwsRegion() });
 
 const mapOutputs = (outputs = []) =>
   outputs.reduce((acc, curr) => ({ ...acc, [curr.OutputKey]: curr.OutputValue }), {});
@@ -104,8 +117,8 @@ const ensureStackOutputs = async () => {
   const stackName = bootstrapConfig.stackName;
   if (!stackName) return null;
   ensureAwsRegion();
-  const cfn = new AWS.CloudFormation();
-  const { Stacks } = await cfn.describeStacks({ StackName: stackName }).promise();
+  const cfn = new CloudFormationClient(getAwsClientConfig());
+  const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: stackName }));
   const stack = Stacks?.[0];
   cachedStackOutputs = stack ? mapOutputs(stack.Outputs || []) : null;
   return cachedStackOutputs;
@@ -119,8 +132,8 @@ const ensureDatabaseUrl = async () => {
   const secretArn = outputs.DatabaseCredentialsSecretArn;
   const dbName = outputs.DatabaseName;
   if (!endpoint || !secretArn) return null;
-  const secrets = new AWS.SecretsManager();
-  const secretValue = await secrets.getSecretValue({ SecretId: secretArn }).promise();
+  const secrets = new SecretsManagerClient(getAwsClientConfig());
+  const secretValue = await secrets.send(new GetSecretValueCommand({ SecretId: secretArn }));
   const secret = secretValue.SecretString ? JSON.parse(secretValue.SecretString) : {};
   if (!secret.username || !secret.password) return null;
   const connectionString = `postgresql://${encodeURIComponent(secret.username)}:${encodeURIComponent(
@@ -276,44 +289,45 @@ const bootstrapTestUser = async () => {
   if (!bootstrapConfig.databaseUrl) {
     throw new Error('Bootstrap configuration is incomplete (missing database URL).');
   }
-  const cognito = new AWS.CognitoIdentityServiceProvider();
+  const cognito = new CognitoIdentityProviderClient(getAwsClientConfig());
   const emailDomain = process.env.TEST_USER_EMAIL_DOMAIN || 'example.com';
   const username = `api-test+${Date.now()}@${emailDomain}`;
   const password = `Test!${randomUUID().slice(0, 8)}`;
   const fullName = process.env.TEST_USER_FULL_NAME || 'API Test User';
 
   await cognito
-    .adminCreateUser({
-      UserPoolId: bootstrapConfig.userPoolId,
-      Username: username,
-      TemporaryPassword: password,
-      MessageAction: 'SUPPRESS',
-      UserAttributes: [
-        { Name: 'email', Value: username },
-        { Name: 'email_verified', Value: 'true' },
-        { Name: 'name', Value: fullName },
-      ],
-    })
-    .promise()
+    .send(
+      new AdminCreateUserCommand({
+        UserPoolId: bootstrapConfig.userPoolId,
+        Username: username,
+        TemporaryPassword: password,
+        MessageAction: 'SUPPRESS',
+        UserAttributes: [
+          { Name: 'email', Value: username },
+          { Name: 'email_verified', Value: 'true' },
+          { Name: 'name', Value: fullName },
+        ],
+      })
+    )
     .catch((error) => {
-      if (error.code !== 'UsernameExistsException') throw error;
+      if (error.name !== 'UsernameExistsException') throw error;
     });
 
-  await cognito
-    .adminSetUserPassword({
+  await cognito.send(
+    new AdminSetUserPasswordCommand({
       UserPoolId: bootstrapConfig.userPoolId,
       Username: username,
       Password: password,
       Permanent: true,
     })
-    .promise();
+  );
 
-  const user = await cognito
-    .adminGetUser({
+  const user = await cognito.send(
+    new AdminGetUserCommand({
       UserPoolId: bootstrapConfig.userPoolId,
       Username: username,
     })
-    .promise();
+  );
   const sub =
     user.UserAttributes?.find((attr) => attr.Name === 'sub')?.Value ||
     (() => {
@@ -346,8 +360,8 @@ const bootstrapTestUser = async () => {
 
   console.log(`Inserted test profile ${profileId} for ${username}`);
 
-  const auth = await cognito
-    .initiateAuth({
+  const auth = await cognito.send(
+    new InitiateAuthCommand({
       AuthFlow: 'USER_PASSWORD_AUTH',
       ClientId: bootstrapConfig.appClientId,
       AuthParameters: {
@@ -355,7 +369,7 @@ const bootstrapTestUser = async () => {
         PASSWORD: password,
       },
     })
-    .promise();
+  );
 
   const accessToken = auth.AuthenticationResult?.AccessToken;
   if (!accessToken) throw new Error('Unable to retrieve access token for test user.');
@@ -373,12 +387,12 @@ const cleanupBootstrapUser = async (context) => {
   const errors = [];
   if (context?.cognito) {
     try {
-      await context.cognito
-        .adminDeleteUser({
+      await context.cognito.send(
+        new AdminDeleteUserCommand({
           UserPoolId: bootstrapConfig.userPoolId,
           Username: context.username,
         })
-        .promise();
+      );
     } catch (error) {
       errors.push(`Failed to delete Cognito user: ${error.message}`);
     }

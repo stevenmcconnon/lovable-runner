@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
+const { s3Client } = require('./aws-clients');
 
 const resolveStatusBucket = () =>
   process.env.LAUNCH_STATUS_BUCKET ||
@@ -6,9 +7,6 @@ const resolveStatusBucket = () =>
   process.env.DEPLOY_BUCKET ||
   process.env.TEMPLATE_UPLOAD_BUCKET ||
   null;
-
-const s3 = new AWS.S3();
-
 const recordLaunchStatus = async ({ requestId, status, result, error }) => {
   if (!requestId) return;
   const bucket = resolveStatusBucket();
@@ -22,14 +20,14 @@ const recordLaunchStatus = async ({ requestId, status, result, error }) => {
     error: status === 'failed' ? error?.message || String(error) : undefined,
   };
   try {
-    await s3
-      .putObject({
+    await s3Client.send(
+      new PutObjectCommand({
         Bucket: bucket,
         Key: key,
         Body: JSON.stringify(payload, null, 2),
         ContentType: 'application/json',
       })
-      .promise();
+    );
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('Failed to record launch status', err.message);

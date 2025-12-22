@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
-const AWS = require('aws-sdk');
+const { SendMessageCommand } = require('@aws-sdk/client-sqs');
+const { sqsClient } = require('./aws-clients');
 const { analyticsQuery } = require('./pg-client');
 
 const EVENT_COLUMNS = {
@@ -85,24 +86,19 @@ const recordReferrer = async ({ slug, eventDate, referrer }) => {
 
 const ANALYTICS_QUEUE_URL = process.env.ANALYTICS_QUEUE_URL || process.env.SITE_ANALYTICS_QUEUE_URL || '';
 
-const analyticsQueue =
-  ANALYTICS_QUEUE_URL && AWS.SQS
-    ? new AWS.SQS({
-        region: process.env.AWS_REGION,
-      })
-    : null;
+const analyticsQueue = ANALYTICS_QUEUE_URL ? sqsClient : null;
 
 const enqueueAnalyticsEvent = async (payload) => {
   if (!analyticsQueue || !ANALYTICS_QUEUE_URL) return false;
-  await analyticsQueue
-    .sendMessage({
+  await analyticsQueue.send(
+    new SendMessageCommand({
       QueueUrl: ANALYTICS_QUEUE_URL,
       MessageBody: JSON.stringify({
         action: 'PROCESS_ANALYTICS_EVENT',
         payload,
       }),
     })
-    .promise();
+  );
   return true;
 };
 

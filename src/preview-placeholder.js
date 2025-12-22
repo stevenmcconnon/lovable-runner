@@ -1,6 +1,5 @@
-const AWS = require('aws-sdk');
-
-const s3 = new AWS.S3();
+const { ListObjectsV2Command, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { s3Client } = require('./aws-clients');
 
 const toTitleCase = (value = '') => value.replace(/\s+/g, ' ').trim();
 
@@ -48,13 +47,13 @@ const normalizePrefix = (prefix = '') => prefix.replace(/\/+$/, '');
 const listPrefixHasObjects = async ({ bucket, prefix }) => {
   const normalizedPrefix = normalizePrefix(prefix);
   if (!normalizedPrefix) return true;
-  const result = await s3
-    .listObjectsV2({
+  const result = await s3Client.send(
+    new ListObjectsV2Command({
       Bucket: bucket,
       Prefix: normalizedPrefix ? `${normalizedPrefix}/` : '',
       MaxKeys: 1,
     })
-    .promise();
+  );
   return Boolean(result.Contents && result.Contents.length);
 };
 
@@ -65,15 +64,15 @@ const ensurePreviewPlaceholder = async ({ bucket, prefix, brandName, requestId }
     const hasExisting = await listPrefixHasObjects({ bucket, prefix: normalizedPrefix });
     if (hasExisting) return false;
     const html = buildPlaceholderHtml({ brandName: toTitleCase(brandName || '') });
-    await s3
-      .putObject({
+    await s3Client.send(
+      new PutObjectCommand({
         Bucket: bucket,
         Key: normalizedPrefix ? `${normalizedPrefix}/index.html` : 'index.html',
         Body: html,
         CacheControl: 'no-cache, no-store, must-revalidate',
         ContentType: 'text/html; charset=utf-8',
       })
-      .promise();
+    );
     return true;
   } catch (error) {
     console.warn('[preview-placeholder] Failed to upload placeholder', {

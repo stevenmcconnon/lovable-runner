@@ -21,7 +21,21 @@
 
 const fs = require('fs');
 const path = require('path');
-const AWS = require('aws-sdk');
+const {
+  CloudFormationClient,
+  DescribeStacksCommand,
+} = require('@aws-sdk/client-cloudformation');
+const {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} = require('@aws-sdk/client-secrets-manager');
+const {
+  CognitoIdentityProviderClient,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand,
+  AdminGetUserCommand,
+  InitiateAuthCommand,
+} = require('@aws-sdk/client-cognito-identity-provider');
 const { Client: PgClient } = require('pg');
 const { randomUUID } = require('node:crypto');
 
@@ -120,25 +134,21 @@ const stackName =
   process.env.TEST_STACK_NAME || process.env.AWS_STACK_NAME || 'lovable-runner-api';
 let bootstrapContext = null;
 
-const ensureAwsRegion = () => {
-  if (!AWS.config.region) {
-    AWS.config.update({
-      region:
-        process.env.TEST_AWS_REGION ||
-        process.env.COGNITO_USER_POOL_REGION ||
-        process.env.AWS_REGION ||
-        'us-east-1',
-    });
-  }
-};
+const ensureAwsRegion = () =>
+  process.env.TEST_AWS_REGION ||
+  process.env.COGNITO_USER_POOL_REGION ||
+  process.env.AWS_REGION ||
+  'us-east-1';
+
+const getAwsClientConfig = () => ({ region: ensureAwsRegion() });
 
 const mapOutputs = (outputs = []) =>
   outputs.reduce((acc, curr) => ({ ...acc, [curr.OutputKey]: curr.OutputValue }), {});
 
 const fetchStackOutputs = async () => {
   ensureAwsRegion();
-  const cfn = new AWS.CloudFormation();
-  const { Stacks } = await cfn.describeStacks({ StackName: stackName }).promise();
+  const cfn = new CloudFormationClient(getAwsClientConfig());
+  const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: stackName }));
   return mapOutputs(Stacks?.[0]?.Outputs || []);
 };
 
@@ -147,8 +157,8 @@ const resolveDatabaseUrl = async (outputs) => {
   const secretArn = outputs.DatabaseCredentialsSecretArn;
   const dbName = outputs.DatabaseName;
   if (!endpoint || !secretArn) return null;
-  const secrets = new AWS.SecretsManager();
-  const secretValue = await secrets.getSecretValue({ SecretId: secretArn }).promise();
+  const secrets = new SecretsManagerClient(getAwsClientConfig());
+  const secretValue = await secrets.send(new GetSecretValueCommand({ SecretId: secretArn }));
   const secret = secretValue.SecretString ? JSON.parse(secretValue.SecretString) : {};
   if (!secret.username || !secret.password) return null;
   return `postgresql://${encodeURIComponent(secret.username)}:${encodeURIComponent(
@@ -164,41 +174,42 @@ const bootstrapViaCognito = async () => {
       console.warn('Stack outputs incomplete; skipping Cognito bootstrap.');
       return;
     }
-    const cognito = new AWS.CognitoIdentityServiceProvider();
+    const cognito = new CognitoIdentityProviderClient(getAwsClientConfig());
     const email = randomEmail();
     const password = 'Test!12345';
     await cognito
-      .adminCreateUser({
-        UserPoolId: outputs.UserPoolId,
-        Username: email,
-        TemporaryPassword: password,
-        MessageAction: 'SUPPRESS',
-        UserAttributes: [
-          { Name: 'email', Value: email },
-          { Name: 'email_verified', Value: 'true' },
-          { Name: 'name', Value: 'OpenAPI Full Test' },
-        ],
-      })
-      .promise()
+      .send(
+        new AdminCreateUserCommand({
+          UserPoolId: outputs.UserPoolId,
+          Username: email,
+          TemporaryPassword: password,
+          MessageAction: 'SUPPRESS',
+          UserAttributes: [
+            { Name: 'email', Value: email },
+            { Name: 'email_verified', Value: 'true' },
+            { Name: 'name', Value: 'OpenAPI Full Test' },
+          ],
+        })
+      )
       .catch((err) => {
-        if (err.code !== 'UsernameExistsException') throw err;
+        if (err.name !== 'UsernameExistsException') throw err;
       });
 
-    await cognito
-      .adminSetUserPassword({
+    await cognito.send(
+      new AdminSetUserPasswordCommand({
         UserPoolId: outputs.UserPoolId,
         Username: email,
         Password: password,
         Permanent: true,
       })
-      .promise();
+    );
 
-    const user = await cognito
-      .adminGetUser({
+    const user = await cognito.send(
+      new AdminGetUserCommand({
         UserPoolId: outputs.UserPoolId,
         Username: email,
       })
-      .promise();
+    );
     const sub =
       user.UserAttributes?.find((attr) => attr.Name === 'sub')?.Value ||
       (() => {
@@ -227,8 +238,8 @@ const bootstrapViaCognito = async () => {
     }
     await db.end();
 
-    const auth = await cognito
-      .initiateAuth({
+    const auth = await cognito.send(
+      new InitiateAuthCommand({
         AuthFlow: 'USER_PASSWORD_AUTH',
         ClientId: outputs.UserPoolClientId,
         AuthParameters: {
@@ -236,7 +247,7 @@ const bootstrapViaCognito = async () => {
           PASSWORD: password,
         },
       })
-      .promise();
+    );
     const accessToken = auth.AuthenticationResult?.AccessToken;
     if (accessToken) {
       tokens.customer = accessToken;

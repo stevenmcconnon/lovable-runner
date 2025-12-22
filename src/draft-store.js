@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk');
+const { PutCommand, UpdateCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { dynamoDocumentClient } = require('./aws-clients');
 
 const TABLE_NAME =
   process.env.LOVABLE_DRAFTS_TABLE ||
@@ -9,20 +10,17 @@ const getDocumentClient = () => {
   if (!TABLE_NAME) {
     throw new Error('LOVABLE_DRAFTS_TABLE environment variable is not set.');
   }
-  if (!AWS.config.region && process.env.AWS_REGION) {
-    AWS.config.update({ region: process.env.AWS_REGION });
-  }
-  return new AWS.DynamoDB.DocumentClient();
+  return dynamoDocumentClient;
 };
 
 const putDraftRecord = async (item) => {
   const docClient = getDocumentClient();
-  await docClient
-    .put({
+  await docClient.send(
+    new PutCommand({
       TableName: TABLE_NAME,
       Item: item,
     })
-    .promise();
+  );
   return item;
 };
 
@@ -52,32 +50,32 @@ const updateDraftStatus = async ({ projectId, draftId, status, message, metadata
 
   if (!updateExpressions.length) return;
 
-  await docClient
-    .update({
+  await docClient.send(
+    new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { projectId, draftId },
       UpdateExpression: `SET ${updateExpressions.join(', ')}`,
       ExpressionAttributeNames: expressionAttributeNames,
       ExpressionAttributeValues: expressionAttributeValues,
     })
-    .promise();
+  );
 };
 
 const getDraftRecord = async ({ projectId, draftId }) => {
   const docClient = getDocumentClient();
-  const result = await docClient
-    .get({
+  const result = await docClient.send(
+    new GetCommand({
       TableName: TABLE_NAME,
       Key: { projectId, draftId },
     })
-    .promise();
+  );
   return result.Item || null;
 };
 
 const listDraftsForProject = async ({ projectId, limit = 20 }) => {
   const docClient = getDocumentClient();
-  const result = await docClient
-    .query({
+  const result = await docClient.send(
+    new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: 'projectId = :projectId',
       ExpressionAttributeValues: {
@@ -86,7 +84,7 @@ const listDraftsForProject = async ({ projectId, limit = 20 }) => {
       ScanIndexForward: false,
       Limit: limit,
     })
-    .promise();
+  );
   return result.Items || [];
 };
 

@@ -1,7 +1,12 @@
 const path = require('node:path');
-const AWS = require('aws-sdk');
-
-const s3 = new AWS.S3();
+const {
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+  PutObjectCommand,
+} = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { s3Client } = require('./aws-clients');
 
 const resolveBucket = () =>
   process.env.ASSET_UPLOAD_BUCKET ||
@@ -50,15 +55,15 @@ const resolveKeyForSlug = (slug, keyInput = '') => {
 
 const ensureAssetExists = async ({ bucket, key }) => {
   try {
-    await s3
-      .headObject({
+    await s3Client.send(
+      new HeadObjectCommand({
         Bucket: bucket,
         Key: key,
       })
-      .promise();
+    );
     return true;
   } catch (error) {
-    if (error.code === 'NotFound') return false;
+    if (error?.name === 'NotFound' || error?.$metadata?.httpStatusCode === 404) return false;
     throw error;
   }
 };
@@ -70,12 +75,15 @@ const createSiteAssetUpload = async ({ slug, filename, contentType, expiresIn = 
   const uniqueName = `${Date.now()}-${safeName}`;
   const key = buildAssetKey(slug, uniqueName);
   const type = contentType || 'application/octet-stream';
-  const uploadUrl = await s3.getSignedUrlPromise('putObject', {
-    Bucket: bucket,
-    Key: key,
-    ContentType: type,
-    Expires: Math.min(Math.max(expiresIn, 60), 3600),
-  });
+  const uploadUrl = await getSignedUrl(
+    s3Client,
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: type,
+    }),
+    { expiresIn: Math.min(Math.max(expiresIn, 60), 3600) }
+  );
   return {
     key,
     uploadUrl,
@@ -89,13 +97,13 @@ const listSiteAssets = async ({ slug, limit = 100 } = {}) => {
   if (!slug) throw new Error('slug is required');
   const bucket = ensureBucket();
   const prefix = buildAssetKey(slug, '');
-  const response = await s3
-    .listObjectsV2({
+  const response = await s3Client.send(
+    new ListObjectsV2Command({
       Bucket: bucket,
       Prefix: prefix,
       MaxKeys: Math.min(Math.max(limit, 10), 500),
     })
-    .promise();
+  );
   const items =
     response.Contents?.map((item) => ({
       key: item.Key,
@@ -111,12 +119,12 @@ const deleteSiteAsset = async ({ slug, key }) => {
   if (!slug) throw new Error('slug is required');
   const bucket = ensureBucket();
   const resolvedKey = resolveKeyForSlug(slug, key);
-  await s3
-    .deleteObject({
+  await s3Client.send(
+    new DeleteObjectCommand({
       Bucket: bucket,
       Key: resolvedKey,
     })
-    .promise();
+  );
   return { deleted: true };
 };
 

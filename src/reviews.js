@@ -1,8 +1,9 @@
+const { SendEmailCommand } = require('@aws-sdk/client-ses');
 const { CONTACT_FROM_EMAIL } = require('./email-config');
-const AWS = require('aws-sdk');
+const { sesClient } = require('./aws-clients');
 const { saveReview, listReviews, updateReviewStatus } = require('./review-store');
 
-const ses = new AWS.SES();
+const ses = sesClient;
 
 const submitReview = async ({ slug, authorName, rating, body, contactEmail, source }) => {
   if (!slug) {
@@ -26,20 +27,21 @@ const submitReview = async ({ slug, authorName, rating, body, contactEmail, sour
   });
   if (contactEmail) {
     await ses
-      .sendEmail({
-        Source: CONTACT_FROM_EMAIL,
-        Destination: { ToAddresses: [contactEmail] },
-        Message: {
-          Subject: { Data: 'Thanks for sharing your feedback!', Charset: 'UTF-8' },
-          Body: {
-            Text: {
-              Data: 'Thanks for leaving a review. We will be in touch if we have any follow-up questions.',
-              Charset: 'UTF-8',
+      .send(
+        new SendEmailCommand({
+          Source: CONTACT_FROM_EMAIL,
+          Destination: { ToAddresses: [contactEmail] },
+          Message: {
+            Subject: { Data: 'Thanks for sharing your feedback!', Charset: 'UTF-8' },
+            Body: {
+              Text: {
+                Data: 'Thanks for leaving a review. We will be in touch if we have any follow-up questions.',
+                Charset: 'UTF-8',
+              },
             },
           },
-        },
-      })
-      .promise()
+        })
+      )
       .catch((err) => console.warn('[reviews] failed to send acknowledgment', err.message));
   }
   return record;

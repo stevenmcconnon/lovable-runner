@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk');
+const { GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { dynamoDocumentClient } = require('./aws-clients');
 
 const TABLE_NAME =
   process.env.NOTIFICATION_PREFS_TABLE ||
@@ -9,10 +10,7 @@ const getClient = () => {
   if (!TABLE_NAME) {
     throw new Error('NOTIFICATION_PREFS_TABLE environment variable is not set.');
   }
-  if (!AWS.config.region && process.env.AWS_REGION) {
-    AWS.config.update({ region: process.env.AWS_REGION });
-  }
-  return new AWS.DynamoDB.DocumentClient();
+  return dynamoDocumentClient;
 };
 
 const defaultPreferences = () => ({
@@ -36,12 +34,12 @@ const getPreferences = async ({ slug, recipient }) => {
     throw new Error('slug and recipient are required');
   }
   const docClient = getClient();
-  const result = await docClient
-    .get({
+  const result = await docClient.send(
+    new GetCommand({
       TableName: TABLE_NAME,
       Key: { slug, recipient },
     })
-    .promise();
+  );
   if (!result.Item) {
     return {
       slug,
@@ -69,8 +67,8 @@ const savePreferences = async ({ slug, recipient, preferences, unsubscribeAll })
       }, {})
     : normalizePrefs(preferences);
   const timestamp = new Date().toISOString();
-  await docClient
-    .put({
+  await docClient.send(
+    new PutCommand({
       TableName: TABLE_NAME,
       Item: {
         slug,
@@ -79,7 +77,7 @@ const savePreferences = async ({ slug, recipient, preferences, unsubscribeAll })
         updatedAt: timestamp,
       },
     })
-    .promise();
+  );
   return { slug, recipient, preferences: normalized, updatedAt: timestamp };
 };
 

@@ -84,10 +84,18 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Stripe secret API key
+  StripeSecretKeySecretArn:
+    Type: String
+    Default: ''
+    Description: Optional Secrets Manager ARN containing the Stripe secret key (SecretString)
   StripeWebhookSecret:
     Type: String
     NoEcho: true
     Description: Stripe webhook signing secret
+  StripeWebhookSecretArn:
+    Type: String
+    Default: ''
+    Description: Optional Secrets Manager ARN containing the Stripe webhook secret (SecretString)
   TemplateUploadBucket:
     Type: String
     Description: S3 bucket used to store uploaded templates
@@ -294,6 +302,10 @@ Parameters:
     NoEcho: true
     Default: ''
     Description: Optional shared secret required to view /openapi.json and /docs.
+  SiteDocsTokenSecretArn:
+    Type: String
+    Default: ''
+    Description: Optional Secrets Manager ARN containing the site docs token (SecretString)
   ThumbnailServiceBase:
     Type: String
     Default: 'https://image.thum.io/get/png/width/1200/noanimate'
@@ -303,6 +315,10 @@ Parameters:
     NoEcho: true
     Default: ''
     Description: Access key for the Unsplash API (used for stock imagery).
+  UnsplashAccessKeySecretArn:
+    Type: String
+    Default: ''
+    Description: Optional Secrets Manager ARN containing the Unsplash access key (SecretString)
   NamecheapApiUser:
     Type: String
     Default: ''
@@ -311,7 +327,11 @@ Parameters:
     Type: String
     NoEcho: true
     Default: ''
-    Description: Namecheap API key paired with the user
+    Description: Namecheap API key paired with the user (used when no secret ARN is provided)
+  NamecheapApiKeySecretArn:
+    Type: String
+    Default: ''
+    Description: Optional Secrets Manager ARN containing the Namecheap API key (SecretString)
   NamecheapUsername:
     Type: String
     Default: ''
@@ -366,6 +386,11 @@ Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAIApiKeySecretArn, '']]
   HasPreviewDomain: !Not [!Equals [!Ref PreviewDomainName, '']]
   HasIntegrationKmsKey: !Not [!Equals [!Ref IntegrationKmsKeyArn, '']]
+  HasNamecheapApiKeySecret: !Not [!Equals [!Ref NamecheapApiKeySecretArn, '']]
+  HasStripeSecretKeySecret: !Not [!Equals [!Ref StripeSecretKeySecretArn, '']]
+  HasStripeWebhookSecret: !Not [!Equals [!Ref StripeWebhookSecretArn, '']]
+  HasSiteDocsTokenSecret: !Not [!Equals [!Ref SiteDocsTokenSecretArn, '']]
+  HasUnsplashAccessKeySecret: !Not [!Equals [!Ref UnsplashAccessKeySecretArn, '']]
   HasReservedConcurrency: !Not [!Equals [!Ref RunnerReservedConcurrency, 0]]
   HasRunnerJobReservedConcurrency: !Not [!Equals [!Ref RunnerJobWorkerReservedConcurrency, 0]]
   HasAnalyticsWorkerReservedConcurrency: !Not [!Equals [!Ref AnalyticsWorkerReservedConcurrency, 0]]
@@ -843,8 +868,14 @@ Resources:
             DB_NAME: !Ref DBName
             DB_USERNAME: !Ref DBUsername
             DB_PASSWORD: !Ref DBPassword
-            STRIPE_SECRET_KEY: !Ref StripeSecretKey
-            STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+            STRIPE_SECRET_KEY: !If
+              - HasStripeSecretKeySecret
+              - !Sub "{{resolve:secretsmanager:${StripeSecretKeySecretArn}:SecretString}}"
+              - !Ref StripeSecretKey
+            STRIPE_WEBHOOK_SECRET: !If
+              - HasStripeWebhookSecret
+              - !Sub "{{resolve:secretsmanager:${StripeWebhookSecretArn}:SecretString}}"
+              - !Ref StripeWebhookSecret
             COGNITO_USER_POOL_ID: !Ref UserPool
             COGNITO_USER_POOL_REGION: !Ref AWS::Region
             COGNITO_APP_CLIENT_ID: !Ref UserPoolClient
@@ -880,11 +911,17 @@ Resources:
             RUNNER_API_BASE: !Ref RunnerApiBase
             COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
             SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
-            SITE_DOCS_TOKEN: !Ref SiteDocsToken
+            SITE_DOCS_TOKEN: !If
+              - HasSiteDocsTokenSecret
+              - !Sub "{{resolve:secretsmanager:${SiteDocsTokenSecretArn}:SecretString}}"
+              - !Ref SiteDocsToken
             TEMPLATE_LIBRARY_BASE_URL: !Ref TemplateLibraryBaseUrl
             SITE_SIGNING_SECRET: !Ref SiteSigningSecret
             NAMECHEAP_API_USER: !Ref NamecheapApiUser
-            NAMECHEAP_API_KEY: !Ref NamecheapApiKey
+            NAMECHEAP_API_KEY: !If
+              - HasNamecheapApiKeySecret
+              - !Sub "{{resolve:secretsmanager:${NamecheapApiKeySecretArn}:SecretString}}"
+              - !Ref NamecheapApiKey
             NAMECHEAP_USERNAME: !Ref NamecheapUsername
             NAMECHEAP_API_BASE: !Ref NamecheapApiBase
             NAMECHEAP_CLIENT_IP: !Ref RunnerStaticEgressEip

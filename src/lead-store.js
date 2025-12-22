@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk');
+const { PutCommand, QueryCommand, GetCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { dynamoDocumentClient } = require('./aws-clients');
 const { randomUUID } = require('crypto');
 
 const TABLE_NAME =
@@ -11,10 +12,7 @@ const getClient = () => {
   if (!TABLE_NAME) {
     throw new Error('LEAD_INBOX_TABLE environment variable is not set.');
   }
-  if (!AWS.config.region && process.env.AWS_REGION) {
-    AWS.config.update({ region: process.env.AWS_REGION });
-  }
-  return new AWS.DynamoDB.DocumentClient();
+  return dynamoDocumentClient;
 };
 
 const buildLeadItem = ({
@@ -60,12 +58,12 @@ const buildLeadItem = ({
 const saveLeadSubmission = async (params) => {
   const client = getClient();
   const item = buildLeadItem(params);
-  await client
-    .put({
+  await client.send(
+    new PutCommand({
       TableName: TABLE_NAME,
       Item: item,
     })
-    .promise();
+  );
   return item;
 };
 
@@ -91,7 +89,7 @@ const listLeadsBySlug = async ({ slug, limit = 25, lastKey, status }) => {
   if (lastKey) {
     query.ExclusiveStartKey = lastKey;
   }
-  const result = await client.query(query).promise();
+  const result = await client.send(new QueryCommand(query));
   return {
     items: result.Items || [],
     nextToken: result.LastEvaluatedKey || null,
@@ -100,12 +98,12 @@ const listLeadsBySlug = async ({ slug, limit = 25, lastKey, status }) => {
 
 const getLeadRecord = async ({ slug, leadId }) => {
   const client = getClient();
-  const result = await client
-    .get({
+  const result = await client.send(
+    new GetCommand({
       TableName: TABLE_NAME,
       Key: { slug, leadId },
     })
-    .promise();
+  );
   return result.Item || null;
 };
 
@@ -117,8 +115,8 @@ const appendLeadMessage = async ({ slug, leadId, message }) => {
     createdAt: timestamp,
     ...message,
   };
-  await client
-    .update({
+  await client.send(
+    new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { slug, leadId },
       UpdateExpression:
@@ -135,7 +133,7 @@ const appendLeadMessage = async ({ slug, leadId, message }) => {
         ':status': message.status || 'open',
       },
     })
-    .promise();
+  );
   return messageEntry;
 };
 
@@ -154,15 +152,15 @@ const updateLeadStatus = async ({ slug, leadId, status, followUpAt }) => {
     names['#followUpAt'] = 'followUpAt';
     values[':followUpAt'] = followUpAt || null;
   }
-  await client
-    .update({
+  await client.send(
+    new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { slug, leadId },
       UpdateExpression: `SET ${expressions.join(', ')}`,
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
     })
-    .promise();
+  );
 };
 
 module.exports = {

@@ -1,11 +1,20 @@
 const path = require('node:path');
 const fsp = require('node:fs/promises');
-const AWS = require('aws-sdk');
-
-const s3 = new AWS.S3();
+const { PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { s3Client } = require('./aws-clients');
 
 const ensureDir = async (dir) => {
   await fsp.mkdir(dir, { recursive: true });
+};
+
+const streamToBuffer = async (body) => {
+  if (!body) return Buffer.alloc(0);
+  if (Buffer.isBuffer(body)) return body;
+  const chunks = [];
+  for await (const chunk of body) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
 };
 
 const normalizeGeneratedPath = (value) => {
@@ -86,14 +95,14 @@ const uploadGeneratedAssets = async ({ site, projectDir, bucket, prefix, assets 
         console.warn('[images] Missing generated asset source', { asset: relativePath });
         continue;
       }
-      await s3
-        .putObject({
+      await s3Client.send(
+        new PutObjectCommand({
           Bucket: bucket,
           Key: targetKey,
           Body: body,
           ContentType: entry.contentType || contentTypeFor(relativePath),
         })
-        .promise();
+      );
       uploaded += 1;
     } catch (error) {
       console.warn('[images] Failed to upload generated asset', {
@@ -119,14 +128,14 @@ const hydrateExistingGeneratedAssets = async ({ site, bucket, prefix, projectDir
     const key = sanitizedPrefix ? `${sanitizedPrefix}/${relativePath}` : relativePath;
     const targetPath = path.join(baseDir, relativePath);
     try {
-      const response = await s3
-        .getObject({
+      const response = await s3Client.send(
+        new GetObjectCommand({
           Bucket: bucket,
           Key: key,
         })
-        .promise();
+      );
       await ensureDir(path.dirname(targetPath));
-      await fsp.writeFile(targetPath, response.Body);
+      await fsp.writeFile(targetPath, await streamToBuffer(response.Body));
       copied += 1;
     } catch (error) {
       console.warn('[images] Failed to hydrate asset from S3', {

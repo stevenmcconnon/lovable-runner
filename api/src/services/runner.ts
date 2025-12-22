@@ -1,5 +1,5 @@
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
-import AWS from 'aws-sdk';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { config } from '../env';
 import { BusinessDetailsInput } from '../types';
 
@@ -8,16 +8,16 @@ export class RunnerService {
 
   private readonly queueUrl = config.runner.queueUrl;
 
-  private readonly sqs = this.queueUrl ? new AWS.SQS({ region: config.awsRegion }) : null;
+  private readonly sqs = this.queueUrl ? new SQSClient({ region: config.awsRegion }) : null;
 
   private async dispatchAction(payload: Record<string, unknown>) {
     if (this.queueUrl && this.sqs) {
-      await this.sqs
-        .sendMessage({
+      await this.sqs.send(
+        new SendMessageCommand({
           QueueUrl: this.queueUrl,
           MessageBody: JSON.stringify(payload),
         })
-        .promise();
+      );
       return { status: 'queued' };
     }
     const functionName = config.runner.functionName || process.env.AWS_LAMBDA_FUNCTION_NAME || '';

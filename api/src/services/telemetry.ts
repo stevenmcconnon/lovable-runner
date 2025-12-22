@@ -1,4 +1,4 @@
-import AWS from 'aws-sdk';
+import { GetQueueAttributesCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { DatabaseService } from './database';
 import { config } from '../env';
 import { recordQueueDepthMetric } from './metrics';
@@ -21,17 +21,17 @@ export type TelemetrySnapshot = {
 };
 
 export class TelemetryService {
-  private readonly sqs: AWS.SQS | null;
+  private readonly sqs: SQSClient | null;
 
   constructor(private readonly deps: { db: DatabaseService }) {
-    this.sqs = config.awsRegion ? new AWS.SQS({ region: config.awsRegion }) : null;
+    this.sqs = config.awsRegion ? new SQSClient({ region: config.awsRegion }) : null;
   }
 
   private async fetchQueueStat(queueUrl?: string | null, label?: string): Promise<QueueStat | null> {
     if (!queueUrl || !this.sqs) return null;
     try {
-      const { Attributes } = await this.sqs
-        .getQueueAttributes({
+      const { Attributes } = await this.sqs.send(
+        new GetQueueAttributesCommand({
           QueueUrl: queueUrl,
           AttributeNames: [
             'ApproximateNumberOfMessages',
@@ -39,7 +39,7 @@ export class TelemetryService {
             'ApproximateNumberOfMessagesDelayed',
           ],
         })
-        .promise();
+      );
       const visible = Number(Attributes?.ApproximateNumberOfMessages ?? 0);
       const inFlight = Number(Attributes?.ApproximateNumberOfMessagesNotVisible ?? 0);
       const delayed = Number(Attributes?.ApproximateNumberOfMessagesDelayed ?? 0);

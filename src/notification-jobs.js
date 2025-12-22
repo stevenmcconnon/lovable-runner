@@ -1,15 +1,11 @@
-const AWS = require('aws-sdk');
+const { SendMessageCommand } = require('@aws-sdk/client-sqs');
+const { sqsClient } = require('./aws-clients');
 const { query } = require('./pg-client');
 
 const MAX_ATTEMPTS = Number(process.env.NOTIFICATION_MAX_ATTEMPTS || 5);
 const NOTIFICATION_QUEUE_URL =
   process.env.NOTIFICATION_JOB_QUEUE_URL || process.env.RUNNER_QUEUE_URL || '';
-const notificationQueue =
-  NOTIFICATION_QUEUE_URL && AWS.SQS
-    ? new AWS.SQS({
-        region: process.env.AWS_REGION,
-      })
-    : null;
+const notificationQueue = NOTIFICATION_QUEUE_URL ? sqsClient : null;
 
 const parseJsonValue = (value) => {
   if (!value) return null;
@@ -58,8 +54,8 @@ const ensureArray = (value) => {
 const dispatchNotificationJob = async (jobId, delayMs = 0) => {
   if (!jobId || !notificationQueue || !NOTIFICATION_QUEUE_URL) return;
   const delaySeconds = delayMs > 0 ? Math.min(900, Math.max(0, Math.round(delayMs / 1000))) : 0;
-  await notificationQueue
-    .sendMessage({
+  await notificationQueue.send(
+    new SendMessageCommand({
       QueueUrl: NOTIFICATION_QUEUE_URL,
       MessageBody: JSON.stringify({
         action: 'RUN_NOTIFICATION_JOB',
@@ -67,7 +63,7 @@ const dispatchNotificationJob = async (jobId, delayMs = 0) => {
       }),
       DelaySeconds: delaySeconds,
     })
-    .promise();
+  );
 };
 
 const enqueueNotificationJob = async ({

@@ -1,5 +1,13 @@
 import crypto from 'node:crypto';
-import AWS from 'aws-sdk';
+import {
+  AttributeType,
+  CognitoIdentityProviderClient,
+  ForgotPasswordCommand,
+  ForgotPasswordCommandInput,
+  InitiateAuthCommand,
+  SignUpCommand,
+  SignUpCommandInput,
+} from '@aws-sdk/client-cognito-identity-provider';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { config } from '../env';
@@ -168,7 +176,7 @@ export const registerAuthRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
     const body = signupSchema.parse(request.body);
     try {
       requireCognitoClientConfig();
-      const params: AWS.CognitoIdentityServiceProvider.SignUpRequest = {
+      const params: SignUpCommandInput = {
         ClientId: config.cognito.appClientId as string,
         Username: body.email,
         Password: body.password,
@@ -176,11 +184,11 @@ export const registerAuthRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
           { Name: 'email', Value: body.email },
           { Name: 'email_verified', Value: 'true' },
           body.fullName ? { Name: 'name', Value: body.fullName } : null,
-        ].filter(Boolean) as AWS.CognitoIdentityServiceProvider.AttributeType[],
+        ].filter(Boolean) as AttributeType[],
       };
       const secretHash = buildSecretHash(body.email);
       if (secretHash) params.SecretHash = secretHash;
-      const response = await cognitoClient.signUp(params).promise();
+      const response = await cognitoClient.send(new SignUpCommand(params));
       if (response.UserSub) {
         try {
           const profile = await db.createProfileRecord({
@@ -215,13 +223,13 @@ export const registerAuthRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
       };
       const secretHash = buildSecretHash(body.email);
       if (secretHash) authParams.SECRET_HASH = secretHash;
-      const response = await cognitoClient
-        .initiateAuth({
+      const response = await cognitoClient.send(
+        new InitiateAuthCommand({
           AuthFlow: 'USER_PASSWORD_AUTH',
           ClientId: config.cognito.appClientId as string,
           AuthParameters: authParams,
         })
-        .promise();
+      );
       if (!response.AuthenticationResult) {
         return reply.code(401).send({ message: 'Invalid email or password' });
       }
@@ -247,13 +255,13 @@ export const registerAuthRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
     const body = forgotPasswordSchema.parse(request.body);
     try {
       requireCognitoClientConfig();
-      const params: AWS.CognitoIdentityServiceProvider.ForgotPasswordRequest = {
+      const params: ForgotPasswordCommandInput = {
         ClientId: config.cognito.appClientId as string,
         Username: body.email,
       };
       const secretHash = buildSecretHash(body.email);
       if (secretHash) params.SecretHash = secretHash;
-      await cognitoClient.forgotPassword(params).promise();
+      await cognitoClient.send(new ForgotPasswordCommand(params));
       reply.send({ message: 'Password reset instructions sent if the email exists.' });
     } catch (error: any) {
       request.log.error({ err: error }, 'Forgot password failed');
@@ -340,7 +348,7 @@ export const registerAuthRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
     await handleCallbackRequest(request, reply, request.body);
   });
 };
-const cognitoClient = new AWS.CognitoIdentityServiceProvider({ region: config.awsRegion });
+const cognitoClient = new CognitoIdentityProviderClient({ region: config.awsRegion });
 
 const buildSecretHash = (username: string) => {
   if (!config.cognito.appClientSecret || !config.cognito.appClientId) return undefined;

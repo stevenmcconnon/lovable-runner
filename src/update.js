@@ -3,7 +3,13 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const fsp = require('node:fs/promises');
 const fs = require('node:fs');
-const AWS = require('aws-sdk');
+const {
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  CopyObjectCommand,
+  PutObjectCommand,
+} = require('@aws-sdk/client-s3');
+const { s3Client } = require('./aws-clients');
 const { uploadToS3 } = require('./deploy');
 const { LovableClient } = require('./client');
 const { downloadProjectFiles } = require('./downloader');
@@ -23,13 +29,6 @@ const slugify = (input) => {
     .replace(/[^a-z0-9-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .replace(/-+/g, '-');
-};
-
-const ensureS3 = () => {
-  if (!AWS.config.region && process.env.AWS_REGION) {
-    AWS.config.update({ region: process.env.AWS_REGION });
-  }
-  return new AWS.S3();
 };
 
 const sanitizePrefix = (prefix) => {
@@ -52,14 +51,15 @@ const buildPublicUrlFromKey = ({ bucket, key }) => {
 };
 
 const writeJson = async ({ s3, bucket, key, payload }) => {
-  await s3
-    .putObject({
+  const client = s3 || s3Client;
+  await client.send(
+    new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       Body: JSON.stringify(payload, null, 2),
       ContentType: 'application/json',
     })
-    .promise();
+  );
 };
 
 const readSiteContent = async (downloadDir) => {
@@ -96,20 +96,20 @@ const ensureBaseBundleUploaded = async ({ bucket, prefix, s3 }) => {
   if (!fs.existsSync(BASE_BUNDLE_DIR)) {
     throw new Error(`Base bundle not found at ${BASE_BUNDLE_DIR}. Run the build or set BASE_BUNDLE_DIR.`);
   }
-  const client = s3 || ensureS3();
+  const client = s3 || s3Client;
   const normalizedPrefix = prefix ? `${prefix.replace(/\/+$/, '')}/` : '';
   const indexKey = `${normalizedPrefix}index.html`;
 
   try {
-    await client
-      .headObject({
+    await client.send(
+      new HeadObjectCommand({
         Bucket: bucket,
         Key: indexKey,
       })
-      .promise();
+    );
     return false;
   } catch (error) {
-    if (error.code && !['NotFound', 'NoSuchKey'].includes(error.code)) {
+    if (error.code && !['NotFound', 'NoSuchKey'].includes(error.code) && error?.$metadata?.httpStatusCode !== 404) {
       throw error;
     }
   }
@@ -244,7 +244,7 @@ const runUpdate = async ({
 
     const siteContent = await readSiteContent(downloadDir);
     const templateSummary = buildTemplateSummary(siteContent);
-    const s3 = ensureS3();
+    const s3 = s3Client;
     const contentKey = `${tempPrefix}/content.json`;
     const templateKey = `${tempPrefix}/template.json`;
     const metadata = {
@@ -309,32 +309,31 @@ const runUpdate = async ({
 };
 
 const copyDraftToLive = async ({ bucket, draftPrefix, livePrefix }) => {
-  const s3 = ensureS3();
   const sourcePrefix = sanitizePrefix(draftPrefix);
   const destinationPrefix = sanitizePrefix(livePrefix);
   let continuationToken = undefined;
 
   do {
-    const listing = await s3
-      .listObjectsV2({
+    const listing = await s3Client.send(
+      new ListObjectsV2Command({
         Bucket: bucket,
         Prefix: sourcePrefix,
         ContinuationToken: continuationToken,
       })
-      .promise();
+    );
 
     const copyOps = (listing.Contents || []).map((object) => {
       const destinationKey = destinationPrefix
         ? `${destinationPrefix}/${object.Key.slice(sourcePrefix.length).replace(/^\/+/, '')}`
         : object.Key.slice(sourcePrefix.length).replace(/^\/+/, '');
-      return s3
-        .copyObject({
+      return s3Client.send(
+        new CopyObjectCommand({
           Bucket: bucket,
           CopySource: `${bucket}/${object.Key}`,
           Key: destinationKey || object.Key,
           MetadataDirective: 'COPY',
         })
-        .promise();
+      );
     });
 
     await Promise.all(copyOps);

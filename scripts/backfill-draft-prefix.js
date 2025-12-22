@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-
 const path = require('node:path');
-const AWS = require('aws-sdk');
+const { HeadObjectCommand, CopyObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { s3Client } = require('../src/aws-clients');
 
 const rootRequire = (relativePath) =>
   // eslint-disable-next-line global-require, import/no-dynamic-require
@@ -9,7 +9,7 @@ const rootRequire = (relativePath) =>
 
 const { buildDraftStoragePrefix } = rootRequire('src/site-store.js');
 
-const s3 = new AWS.S3();
+const s3 = s3Client;
 
 const resolveBucket = () =>
   process.env.SITE_STORE_BUCKET ||
@@ -35,15 +35,19 @@ const encodeCopySource = (key) =>
 
 const headObjectExists = async (key) => {
   try {
-    await s3
-      .headObject({
+    await s3.send(
+      new HeadObjectCommand({
         Bucket: bucket,
         Key: key,
       })
-      .promise();
+    );
     return true;
   } catch (error) {
-    if (error.code === 'NotFound' || error.code === 'NoSuchKey') {
+    if (
+      error.code === 'NotFound' ||
+      error.code === 'NoSuchKey' ||
+      error?.$metadata?.httpStatusCode === 404
+    ) {
       return false;
     }
     throw error;
@@ -62,14 +66,14 @@ const copyIfNeeded = async ({ slug, sourceKey, destinationKey }) => {
       return { copied: false, skipped: true };
     }
   }
-  await s3
-    .copyObject({
+  await s3.send(
+    new CopyObjectCommand({
       Bucket: bucket,
       Key: destinationKey,
       CopySource: encodeCopySource(sourceKey),
       MetadataDirective: 'COPY',
     })
-    .promise();
+  );
   return { copied: true, skipped: false };
 };
 
@@ -78,13 +82,13 @@ const listAvailableSlugs = async () => {
   const slugs = new Set();
   let continuationToken;
   do {
-    const page = await s3
-      .listObjectsV2({
+    const page = await s3.send(
+      new ListObjectsV2Command({
         Bucket: bucket,
         Prefix: prefix,
         ContinuationToken: continuationToken,
       })
-      .promise();
+    );
     (page.Contents || []).forEach((object) => {
       const key = object.Key || '';
       const match = key.match(/^site-builds\/sites\/([^/]+)\/content\.json$/);

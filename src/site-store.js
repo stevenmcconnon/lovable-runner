@@ -1,4 +1,10 @@
-const AWS = require('aws-sdk');
+const {
+  ListObjectsV2Command,
+  GetObjectCommand,
+  CopyObjectCommand,
+  PutObjectCommand,
+} = require('@aws-sdk/client-s3');
+const { s3Client } = require('./aws-clients');
 
 const resolveBucket = () =>
   process.env.SITE_STORE_BUCKET ||
@@ -23,7 +29,29 @@ const withTrailingSlash = (prefix = '') => {
 const encodeCopySource = (bucket, key) =>
   `/${bucket}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
 
-const s3 = new AWS.S3();
+const s3 = s3Client;
+
+const streamToString = async (body) => {
+  if (!body) return '';
+  if (typeof body.transformToString === 'function') {
+    return body.transformToString('utf-8');
+  }
+  const chunks = [];
+  for await (const chunk of body) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+};
+
+const streamToBuffer = async (body) => {
+  if (!body) return Buffer.alloc(0);
+  if (Buffer.isBuffer(body)) return body;
+  const chunks = [];
+  for await (const chunk of body) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
+};
 
 const parseAccountSiteMap = () => {
   const raw = process.env.ACCOUNT_SITE_MAP;
@@ -61,27 +89,27 @@ const resolveSlugsForUser = (user) => {
 };
 
 const writeJson = async ({ bucket, key, payload }) => {
-  await s3
-    .putObject({
+  await s3.send(
+    new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       Body: JSON.stringify(payload, null, 2),
       ContentType: 'application/json',
     })
-    .promise();
+  );
 };
 
 const listHistoryEntries = async ({ slug, limit = 50 }) => {
   const bucket = resolveBucket();
   if (!bucket || !slug) return [];
   const prefix = `site-builds/sites/${slug}/history/`;
-  const listing = await s3
-    .listObjectsV2({
+  const listing = await s3.send(
+    new ListObjectsV2Command({
       Bucket: bucket,
       Prefix: prefix,
       Delimiter: '/',
     })
-    .promise();
+  );
   const entries =
     listing.CommonPrefixes?.map((entry) => entry.Prefix.replace(prefix, '').replace(/\/$/, '')) || [];
   const sorted = entries
@@ -100,26 +128,27 @@ const loadHistoryEntry = async ({ slug, historyId }) => {
   const base = `site-builds/sites/${slug}/history/${historyId}`;
   try {
     const [contentRaw, templateRaw] = await Promise.all([
-      s3
-        .getObject({
+      s3.send(
+        new GetObjectCommand({
           Bucket: bucket,
           Key: `${base}/content.json`,
         })
-        .promise(),
+      ),
       s3
-        .getObject({
-          Bucket: bucket,
-          Key: `${base}/template.json`,
-        })
-        .promise()
+        .send(
+          new GetObjectCommand({
+            Bucket: bucket,
+            Key: `${base}/template.json`,
+          })
+        )
         .catch((err) => {
-          if (err.code !== 'NoSuchKey') throw err;
+          if (err.code !== 'NoSuchKey' && err?.$metadata?.httpStatusCode !== 404) throw err;
           return null;
         }),
     ]);
     return {
-      content: JSON.parse(contentRaw.Body.toString('utf8')),
-      template: templateRaw ? JSON.parse(templateRaw.Body.toString('utf8')) : null,
+      content: JSON.parse(await streamToString(contentRaw.Body)),
+      template: templateRaw ? JSON.parse(await streamToString(templateRaw.Body)) : null,
       bucket,
       base,
     };
@@ -252,23 +281,25 @@ const snapshotExistingArtifacts = async ({ bucket, slug }) => {
   try {
     const [existingContent, existingTemplate] = await Promise.all([
       s3
-        .getObject({
-          Bucket: bucket,
-          Key: buildContentKey(slug),
-        })
-        .promise()
+        .send(
+          new GetObjectCommand({
+            Bucket: bucket,
+            Key: buildContentKey(slug),
+          })
+        )
         .catch((err) => {
-          if (err.code !== 'NoSuchKey') throw err;
+          if (err.code !== 'NoSuchKey' && err?.$metadata?.httpStatusCode !== 404) throw err;
           return null;
         }),
       s3
-        .getObject({
-          Bucket: bucket,
-          Key: buildTemplateKey(slug),
-        })
-        .promise()
+        .send(
+          new GetObjectCommand({
+            Bucket: bucket,
+            Key: buildTemplateKey(slug),
+          })
+        )
         .catch((err) => {
-          if (err.code !== 'NoSuchKey') throw err;
+          if (err.code !== 'NoSuchKey' && err?.$metadata?.httpStatusCode !== 404) throw err;
           return null;
         }),
     ]);
@@ -277,27 +308,29 @@ const snapshotExistingArtifacts = async ({ bucket, slug }) => {
     const historyBase = buildHistoryBase(slug, timestamp);
     const uploads = [];
     if (existingContent) {
+      const body = await streamToBuffer(existingContent.Body);
       uploads.push(
-        s3
-          .putObject({
+        s3.send(
+          new PutObjectCommand({
             Bucket: bucket,
             Key: `${historyBase}/content.json`,
-            Body: existingContent.Body,
+            Body: body,
             ContentType: 'application/json',
           })
-          .promise()
+        )
       );
     }
     if (existingTemplate) {
+      const body = await streamToBuffer(existingTemplate.Body);
       uploads.push(
-        s3
-          .putObject({
+        s3.send(
+          new PutObjectCommand({
             Bucket: bucket,
             Key: `${historyBase}/template.json`,
-            Body: existingTemplate.Body,
+            Body: body,
             ContentType: 'application/json',
           })
-          .promise()
+        )
       );
     }
     await Promise.all(uploads);
@@ -370,13 +403,13 @@ const copyPrefixObjects = async ({ bucket, sourcePrefix, destinationPrefix }) =>
   let continuationToken;
   let copied = 0;
   do {
-    const page = await s3
-      .listObjectsV2({
+    const page = await s3.send(
+      new ListObjectsV2Command({
         Bucket: bucket,
         Prefix: sourceBase,
         ContinuationToken: continuationToken,
       })
-      .promise();
+    );
     const objects = page.Contents || [];
     for (const object of objects) {
       const key = object.Key;
@@ -384,14 +417,14 @@ const copyPrefixObjects = async ({ bucket, sourcePrefix, destinationPrefix }) =>
       const relative = key.slice(sourceBase.length);
       if (!relative) continue;
       const destinationKey = `${targetBase}${relative}`;
-      await s3
-        .copyObject({
+      await s3.send(
+        new CopyObjectCommand({
           Bucket: bucket,
           Key: destinationKey,
           CopySource: encodeCopySource(bucket, key),
           MetadataDirective: 'COPY',
         })
-        .promise();
+      );
       copied += 1;
     }
     continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
@@ -453,14 +486,14 @@ const listSiteConfigs = async ({ limit = 50, slugs } = {}) => {
   const keys = [];
 
   do {
-    const listing = await s3
-      .listObjectsV2({
+    const listing = await s3.send(
+      new ListObjectsV2Command({
         Bucket: bucket,
         Prefix: prefix,
         ContinuationToken: continuationToken,
         MaxKeys: maxResults,
       })
-      .promise();
+    );
     const foundKeys =
       listing.Contents?.map((item) => item.Key).filter((key) => key.endsWith('/content.json')) ||
       [];
@@ -480,29 +513,31 @@ const listSiteConfigs = async ({ limit = 50, slugs } = {}) => {
       try {
         const [contentRaw, templateRaw] = await Promise.all([
           s3
-            .getObject({
-              Bucket: bucket,
-              Key: key,
-            })
-            .promise()
+            .send(
+              new GetObjectCommand({
+                Bucket: bucket,
+                Key: key,
+              })
+            )
             .catch((err) => {
-              if (err.code !== 'NoSuchKey') throw err;
+              if (err.code !== 'NoSuchKey' && err?.$metadata?.httpStatusCode !== 404) throw err;
               return null;
             }),
           s3
-            .getObject({
-              Bucket: bucket,
-              Key: buildTemplateKey(slug),
-            })
-            .promise()
+            .send(
+              new GetObjectCommand({
+                Bucket: bucket,
+                Key: buildTemplateKey(slug),
+              })
+            )
             .catch((err) => {
-              if (err.code !== 'NoSuchKey') throw err;
+              if (err.code !== 'NoSuchKey' && err?.$metadata?.httpStatusCode !== 404) throw err;
               return null;
             }),
         ]);
 
-        const content = contentRaw ? JSON.parse(contentRaw.Body.toString('utf8')) : null;
-        const template = templateRaw ? JSON.parse(templateRaw.Body.toString('utf8')) : null;
+        const content = contentRaw ? JSON.parse(await streamToString(contentRaw.Body)) : null;
+        const template = templateRaw ? JSON.parse(await streamToString(templateRaw.Body)) : null;
 
         if (!content?.site) return null;
         return {
@@ -550,26 +585,27 @@ const loadSiteConfig = async (slug) => {
   if (!bucket) return null;
   try {
     const [contentRaw, templateRaw] = await Promise.all([
-      s3
-        .getObject({
+      s3.send(
+        new GetObjectCommand({
           Bucket: bucket,
           Key: buildContentKey(slug),
         })
-        .promise(),
+      ),
       s3
-        .getObject({
-          Bucket: bucket,
-          Key: buildTemplateKey(slug),
-        })
-        .promise()
+        .send(
+          new GetObjectCommand({
+            Bucket: bucket,
+            Key: buildTemplateKey(slug),
+          })
+        )
         .catch((err) => {
-          if (err.code !== 'NoSuchKey') throw err;
+          if (err.code !== 'NoSuchKey' && err?.$metadata?.httpStatusCode !== 404) throw err;
           return null;
         }),
     ]);
 
-    const content = JSON.parse(contentRaw.Body.toString('utf8'));
-    const template = templateRaw ? JSON.parse(templateRaw.Body.toString('utf8')) : null;
+    const content = JSON.parse(await streamToString(contentRaw.Body));
+    const template = templateRaw ? JSON.parse(await streamToString(templateRaw.Body)) : null;
     return {
       slug: content.slug || slug,
       site: content.site,

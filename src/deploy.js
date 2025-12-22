@@ -2,7 +2,8 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const AWS = require('aws-sdk');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
+const { s3Client } = require('./aws-clients');
 
 const run = (cmd, args, cwd, opts = {}) =>
   new Promise((resolve, reject) => {
@@ -109,21 +110,21 @@ const getContentType = (filePath = '') => {
 
 const uploadToS3 = async (distPath, { bucket, prefix }) => {
   if (!bucket) throw new Error('S3 bucket is required.');
-  const s3 = new AWS.S3();
+  const s3 = s3Client;
   const files = await listFilesRecursive(distPath, distPath);
   const targetPrefix = prefix ? prefix.replace(/\/$/, '') : '';
 
   for (const file of files) {
     const key = targetPrefix ? `${targetPrefix}/${file.relativePath}` : file.relativePath;
     const body = await fsp.readFile(file.fullPath);
-    await s3
-      .putObject({
+    await s3.send(
+      new PutObjectCommand({
         Bucket: bucket,
         Key: key,
         Body: body,
         ContentType: getContentType(file.relativePath),
       })
-      .promise();
+    );
   }
 
   const target = targetPrefix ? `s3://${bucket}/${targetPrefix}` : `s3://${bucket}`;

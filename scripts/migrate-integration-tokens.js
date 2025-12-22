@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
-const AWS = require('aws-sdk');
+const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { dynamoDocumentClient } = require('../src/aws-clients');
 
 const rootRequire = (relativePath) =>
   // eslint-disable-next-line global-require, import/no-dynamic-require
@@ -63,22 +64,18 @@ const parseArgs = () => {
   };
 };
 
-if (!AWS.config.region && process.env.AWS_REGION) {
-  AWS.config.update({ region: process.env.AWS_REGION });
-}
-
-const docClient = new AWS.DynamoDB.DocumentClient();
+const docClient = dynamoDocumentClient;
 
 const scanSettings = async ({ slugs, limit }) => {
   let exclusiveStartKey;
   const results = [];
   do {
-    const page = await docClient
-      .scan({
+    const page = await docClient.send(
+      new ScanCommand({
         TableName: tableName,
         ExclusiveStartKey: exclusiveStartKey,
       })
-      .promise();
+    );
     const items = page.Items || [];
     items.forEach((item) => {
       if (!item || !item.slug) return;

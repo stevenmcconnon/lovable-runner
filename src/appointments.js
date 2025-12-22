@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk');
+const { PutCommand, UpdateCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { dynamoDocumentClient } = require('./aws-clients');
 const { randomUUID } = require('crypto');
 
 const TABLE_NAME =
@@ -10,12 +11,7 @@ const SETTINGS_TABLE =
   process.env.SITE_APPOINTMENT_SETTINGS_TABLE ||
   process.env.LOVABLE_APPOINTMENT_SETTINGS_TABLE;
 
-const getClient = () => {
-  if (!AWS.config.region && process.env.AWS_REGION) {
-    AWS.config.update({ region: process.env.AWS_REGION });
-  }
-  return new AWS.DynamoDB.DocumentClient();
-};
+const getClient = () => dynamoDocumentClient;
 
 const ensureTable = (name, message) => {
   if (!name) {
@@ -43,8 +39,8 @@ const patchAppointmentSettings = async ({ slug, updates }) => {
     values[valueKey] = value;
     expressions.push(`${nameKey} = ${valueKey}`);
   });
-  const result = await docClient
-    .update({
+  const result = await docClient.send(
+    new UpdateCommand({
       TableName: SETTINGS_TABLE,
       Key: { slug },
       UpdateExpression: `SET ${expressions.join(', ')}`,
@@ -52,7 +48,7 @@ const patchAppointmentSettings = async ({ slug, updates }) => {
       ExpressionAttributeValues: values,
       ReturnValues: 'ALL_NEW',
     })
-    .promise();
+  );
   return result.Attributes;
 };
 
@@ -106,12 +102,12 @@ const createAppointment = async ({
     sourceUrl: sourceUrl || null,
     fields: fields || [],
   };
-  await docClient
-    .put({
+  await docClient.send(
+    new PutCommand({
       TableName: TABLE_NAME,
       Item: record,
     })
-    .promise();
+  );
   return record;
 };
 
@@ -134,7 +130,7 @@ const listAppointments = async ({ slug, limit = 50, status, cursor }) => {
   if (cursor) {
     params.ExclusiveStartKey = cursor;
   }
-  const result = await docClient.query(params).promise();
+  const result = await docClient.send(new QueryCommand(params));
   return {
     items: result.Items || [],
     nextCursor: result.LastEvaluatedKey || null,
@@ -174,15 +170,15 @@ const updateAppointmentStatus = async ({
     names['#metadata'] = 'metadata';
     values[':metadata'] = metadata;
   }
-  await docClient
-    .update({
+  await docClient.send(
+    new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { slug, appointmentId },
       UpdateExpression: `SET ${expressions.join(', ')}`,
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
     })
-    .promise();
+  );
   return { slug, appointmentId, status, confirmedStart, confirmedEnd };
 };
 
@@ -228,12 +224,12 @@ const getAppointmentSettings = async ({ slug }) => {
     'APPOINTMENT_SETTINGS_TABLE environment variable is not set.'
   );
   const docClient = getClient();
-  const result = await docClient
-    .get({
+  const result = await docClient.send(
+    new GetCommand({
       TableName: SETTINGS_TABLE,
       Key: { slug },
     })
-    .promise();
+  );
   if (result.Item) return result.Item;
   return {
     slug,
@@ -274,12 +270,12 @@ const clearOAuthState = async ({ slug }) =>
 const getAppointment = async ({ slug, appointmentId }) => {
   ensureTable(TABLE_NAME, 'SITE_APPOINTMENTS_TABLE environment variable is not set.');
   const docClient = getClient();
-  const result = await docClient
-    .get({
+  const result = await docClient.send(
+    new GetCommand({
       TableName: TABLE_NAME,
       Key: { slug, appointmentId },
     })
-    .promise();
+  );
   return result.Item || null;
 };
 
@@ -292,8 +288,8 @@ const setAppointmentCalendarEvent = async ({
 }) => {
   ensureTable(TABLE_NAME, 'SITE_APPOINTMENTS_TABLE environment variable is not set.');
   const docClient = getClient();
-  await docClient
-    .update({
+  await docClient.send(
+    new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { slug, appointmentId },
       UpdateExpression:
@@ -311,7 +307,7 @@ const setAppointmentCalendarEvent = async ({
         ':updatedAt': new Date().toISOString(),
       },
     })
-    .promise();
+  );
 };
 
 const buildICS = ({ slug, appointments = [], siteName }) => {

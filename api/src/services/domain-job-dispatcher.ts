@@ -1,4 +1,5 @@
-import AWS from 'aws-sdk';
+import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 
 type DispatchOptions = {
   delayMs?: number;
@@ -13,9 +14,9 @@ type DispatcherConfig =
     };
 
 export class DomainJobDispatcher {
-  private readonly sqs?: AWS.SQS;
+  private readonly sqs?: SQSClient;
 
-  private readonly sns?: AWS.SNS;
+  private readonly sns?: SNSClient;
 
   private readonly queueUrl?: string;
 
@@ -24,17 +25,17 @@ export class DomainJobDispatcher {
   constructor(target: DispatcherConfig, fallbackRegion?: string) {
     if (typeof target === 'string') {
       this.queueUrl = target;
-      this.sqs = new AWS.SQS({ region: fallbackRegion });
+      this.sqs = new SQSClient({ region: fallbackRegion });
       return;
     }
     this.queueUrl = target.queueUrl;
     this.topicArn = target.topicArn;
     const region = target.region || fallbackRegion;
     if (this.queueUrl) {
-      this.sqs = new AWS.SQS({ region });
+      this.sqs = new SQSClient({ region });
     }
     if (this.topicArn) {
-      this.sns = new AWS.SNS({ region });
+      this.sns = new SNSClient({ region });
     }
   }
 
@@ -50,33 +51,33 @@ export class DomainJobDispatcher {
       if (!this.sqs || !this.queueUrl) {
         throw new Error('Delayed domain job dispatch requires an SQS queue.');
       }
-      await this.sqs
-        .sendMessage({
+      await this.sqs.send(
+        new SendMessageCommand({
           QueueUrl: this.queueUrl,
           MessageBody: payload,
           DelaySeconds: delaySeconds,
         })
-        .promise();
+      );
       return;
     }
 
     if (this.sns && this.topicArn) {
-      await this.sns
-        .publish({
+      await this.sns.send(
+        new PublishCommand({
           TopicArn: this.topicArn,
           Message: payload,
         })
-        .promise();
+      );
       return;
     }
 
     if (this.sqs && this.queueUrl) {
-      await this.sqs
-        .sendMessage({
+      await this.sqs.send(
+        new SendMessageCommand({
           QueueUrl: this.queueUrl,
           MessageBody: payload,
         })
-        .promise();
+      );
     }
   }
 }
