@@ -1,6 +1,7 @@
 const { Pool } = require('pg');
 
-let pool = null;
+let primaryPool = null;
+let analyticsPool = null;
 
 const buildConnectionOptions = () => {
   if (process.env.DATABASE_URL) {
@@ -12,7 +13,9 @@ const buildConnectionOptions = () => {
   const user = process.env.DB_USERNAME;
   const password = process.env.DB_PASSWORD;
   if (!host || !database || !user || !password) {
-    throw new Error('DATABASE_URL or DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD must be set for Postgres access.');
+    throw new Error(
+      'DATABASE_URL or DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD must be set for Postgres access.'
+    );
   }
   return {
     host,
@@ -23,10 +26,15 @@ const buildConnectionOptions = () => {
   };
 };
 
-const getPool = () => {
-  if (pool) return pool;
-  const options = buildConnectionOptions();
-  pool = new Pool({
+const buildAnalyticsConnectionOptions = () => {
+  if (process.env.ANALYTICS_DATABASE_URL) {
+    return { connectionString: process.env.ANALYTICS_DATABASE_URL };
+  }
+  return buildConnectionOptions();
+};
+
+const createPool = (options) => {
+  const pool = new Pool({
     ...options,
     max: Number(process.env.PG_POOL_MAX || 5),
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
@@ -37,12 +45,41 @@ const getPool = () => {
   return pool;
 };
 
-const query = (text, params) => getPool().query(text, params);
-
-const closePool = async () => {
-  if (!pool) return;
-  await pool.end();
-  pool = null;
+const getPool = () => {
+  if (primaryPool) return primaryPool;
+  const options = buildConnectionOptions();
+  primaryPool = createPool(options);
+  return primaryPool;
 };
 
-module.exports = { getPool, query, closePool };
+const getAnalyticsPool = () => {
+  const shouldFork =
+    process.env.ANALYTICS_DATABASE_URL &&
+    process.env.ANALYTICS_DATABASE_URL !== process.env.DATABASE_URL;
+  if (!shouldFork) {
+    return getPool();
+  }
+  if (analyticsPool) return analyticsPool;
+  analyticsPool = createPool(buildAnalyticsConnectionOptions());
+  return analyticsPool;
+};
+
+const query = (text, params) => getPool().query(text, params);
+const analyticsQuery = (text, params) => getAnalyticsPool().query(text, params);
+
+const closePool = async () => {
+  const pools = [primaryPool, analyticsPool];
+  primaryPool = null;
+  analyticsPool = null;
+  await Promise.all(
+    pools
+      .filter(Boolean)
+      .map((pool) =>
+        pool
+          .end()
+          .catch((error) => console.error('[pg-client] Failed to close pool', error))
+      )
+  );
+};
+
+module.exports = { getPool, query, closePool, analyticsQuery };

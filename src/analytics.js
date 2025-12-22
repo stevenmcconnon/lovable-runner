@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const AWS = require('aws-sdk');
-const { query } = require('./pg-client');
+const { analyticsQuery } = require('./pg-client');
 
 const EVENT_COLUMNS = {
   view: 'views',
@@ -45,12 +45,12 @@ const incrementMetric = async ({ slug, eventDate, column }) => {
     ON CONFLICT (slug, event_date)
     DO UPDATE SET ${column} = site_metrics.${column} + 1, updated_at = NOW()
   `;
-  await query(sql, [slug, eventDate]);
+  await analyticsQuery(sql, [slug, eventDate]);
 };
 
 const tryIncrementUniqueVisitor = async ({ slug, eventDate, visitorHash }) => {
   if (!visitorHash) return;
-  const inserted = await query(
+  const inserted = await analyticsQuery(
     `
     INSERT INTO site_metric_visitors (slug, event_date, visitor_hash)
     VALUES ($1,$2::date,$3)
@@ -59,7 +59,7 @@ const tryIncrementUniqueVisitor = async ({ slug, eventDate, visitorHash }) => {
     [slug, eventDate, visitorHash]
   );
   if (inserted.rowCount) {
-    await query(
+    await analyticsQuery(
       `
       UPDATE site_metrics
       SET unique_visitors = unique_visitors + 1, updated_at = NOW()
@@ -72,7 +72,7 @@ const tryIncrementUniqueVisitor = async ({ slug, eventDate, visitorHash }) => {
 
 const recordReferrer = async ({ slug, eventDate, referrer }) => {
   if (!referrer) return;
-  await query(
+  await analyticsQuery(
     `
     INSERT INTO site_metric_referrers (slug, event_date, referrer, count, last_seen)
     VALUES ($1,$2::date,$3,1,NOW())
@@ -139,7 +139,7 @@ const recordAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
 };
 
 const fetchDailyMetrics = async ({ slug, days }) =>
-  query(
+  analyticsQuery(
     `
     SELECT
       stat_date,
@@ -158,7 +158,7 @@ const fetchDailyMetrics = async ({ slug, days }) =>
   );
 
 const fetchFallbackMetrics = async ({ slug, days }) =>
-  query(
+  analyticsQuery(
     `
     SELECT
       event_date,
@@ -187,7 +187,7 @@ const listAnalytics = async ({ slug, days = 30 }) => {
       ...row,
     }));
   }
-  const referrersResult = await query(
+  const referrersResult = await analyticsQuery(
     `
     SELECT event_date, referrer, count
     FROM site_metric_referrers

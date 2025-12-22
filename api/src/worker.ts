@@ -52,6 +52,7 @@ import { BusinessDetailsInput, DomainRecord } from './types';
 import { NotificationService } from './services/notifications';
 import { DomainJobService } from './services/domain-job';
 import { DomainJobRunner } from './services/domain-job-runner';
+import { DomainJobDispatcher } from './services/domain-job-dispatcher';
 
 const db = new DatabaseService();
 const domainEdge = new DomainEdgeService({
@@ -61,9 +62,14 @@ const domainEdge = new DomainEdgeService({
 });
 const notificationService = new NotificationService({ db });
 const domainManager = new DomainManager({ db, edge: domainEdge, notifications: notificationService });
-const domainJobs = new DomainJobService(db);
+const domainJobDispatcher = config.queues.domainJobs
+  ? new DomainJobDispatcher(config.queues.domainJobs, config.awsRegion)
+  : undefined;
+const domainJobs = new DomainJobService(db, { dispatcher: domainJobDispatcher });
 const domainJobRunner = new DomainJobRunner({ db, manager: domainManager, jobs: domainJobs });
 const defaultRefreshLimit = Number(process.env.DOMAIN_REFRESH_LIMIT || 25);
+const defaultRateLimitRetentionMinutes = Number(process.env.RATE_LIMIT_RETENTION_MINUTES || 1440);
+const defaultAuditLogRetentionDays = Number(process.env.AUDIT_LOG_RETENTION_DAYS || 30);
 const { runNotificationBatch, runNotificationJob } = resolveRootModule('src/notification-worker.js') as {
   runNotificationBatch: (params: { limit?: number; dryRun?: boolean; logger?: Console }) => Promise<any>;
   runNotificationJob: (params: { jobId: string; dryRun?: boolean; logger?: Console }) => Promise<any>;
@@ -408,6 +414,21 @@ export const handleDomainJobMessage = async (event: DomainJobMessageEvent) => {
   }
   const outcome = await domainJobRunner.runJob(job);
   return { status: outcome, jobId: job.id };
+};
+
+export const handleRateLimitCleanup = async (event: { maxAgeMinutes?: number } = {}) => {
+  const minutes = Math.max(
+    1,
+    Number(event.maxAgeMinutes) || defaultRateLimitRetentionMinutes
+  );
+  const deleted = await db.purgeRateLimitCounters(minutes);
+  return { deleted, minutes };
+};
+
+export const handleAuditLogCleanup = async (event: { retentionDays?: number } = {}) => {
+  const days = Math.max(1, Number(event.retentionDays) || defaultAuditLogRetentionDays);
+  const deleted = await db.purgeAuditLogs(days);
+  return { deleted, days };
 };
 
 export const handleAnalyticsIngest = async (event: AnalyticsIngestEvent) => {

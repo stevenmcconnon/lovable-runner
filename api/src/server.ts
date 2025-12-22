@@ -29,6 +29,7 @@ import { registerAnalyticsRoutes } from './routes/analytics';
 import { DomainJobService } from './services/domain-job';
 import { DomainJobDispatcher } from './services/domain-job-dispatcher';
 import { registerCoreRoutes } from './routes/core';
+import { registerTemplateRoutes } from './routes/templates';
 import { randomUUID } from 'node:crypto';
 import { recordApiRequestMetric } from './services/metrics';
 import { TelemetryService } from './services/telemetry';
@@ -180,6 +181,7 @@ export const buildServer = (): FastifyInstance => {
     registerTrackingRoutes(instance);
     registerSeoRoutes(instance, { db: database, seo: siteSeoService });
     registerCoreRoutes(instance, { db: database });
+    registerTemplateRoutes(instance);
   });
 
   app.get('/health', async () => ({ status: 'ok' }));

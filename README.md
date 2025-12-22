@@ -90,6 +90,7 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 ##### Domain lifecycle
 - Customer domains move through `pending_payment → paid → dns_pending → cert_requested → cert_validating → edge_updating → active` (or `failed`). The `site_domains` table now stores certificate ARN/status, validation records, CloudFront distribution metadata, routing errors, and timestamps so the API can return constant-time responses without hitting ACM/CloudFront inline.
 - Every lifecycle change is recorded in the new `domain_jobs` / `domain_events` tables. Provisioning jobs are enqueued as soon as a cart item is created or a manual domain is attached, and edge sync jobs follow automatically after ACM reports `ISSUED`.
+- Domain jobs are also mirrored to the `${StackName}-domain-jobs` SQS queue so multiple Lambda consumers can drain retries concurrently without a global advisory lock. The Postgres queue keeps ordering by using `FOR UPDATE SKIP LOCKED`, and retries re-dispatch themselves back to SQS automatically.
 - Per-account quotas enforce sanity: `DOMAIN_MAX_PER_ACCOUNT` caps total domains attached to an account, `DOMAIN_ORDER_DAILY_LIMIT` caps pending purchases per day, and `DOMAIN_REFRESH_DAILY_LIMIT` caps manual HTTPS refresh enqueues per account/day. These use the persistent `rate_limit_counters` table so limits survive restarts.
 - Domain failures are persisted (`status = 'failed'`, `routing_error` set) and logged as `domain.job.failed` events so operations has traceability when customers exceed validation windows or CloudFront updates stall.
 
@@ -227,12 +228,17 @@ node src/cli.js publish --project 1234-abcd
 - `LOVABLE_PLACEHOLDER_LIMIT` – max placeholder polling attempts before continuing anyway (defaults to 30; set to `0` to disable the limit)
 - `RUNNER_QUEUE_URL` – SQS queue buffering launch/edit requests; the SAM stack now provisions `${StackName}-runner-jobs` automatically and injects its URL into the API/worker (also exposed as a stack output if you need to reference it elsewhere).
 - `ANALYTICS_QUEUE_URL` – SQS queue ingesting analytics events; likewise provisioned as `${StackName}-analytics-events` and wired to the worker via SQS triggers so dashboards aren’t blocked by bursty metrics.
+- `DOMAIN_JOB_QUEUE_URL` – SQS queue dedicated to domain lifecycle jobs. Each provision/edge-sync attempt now flows through `${StackName}-domain-jobs`, so multiple workers can drain retries without tripping over one another.
+- `TEMPLATE_LIBRARY_BASE_URL` / `TEMPLATE_LIBRARY_TOKEN` – secure endpoint + shared secret for the template manifest so LLM agents can read `templates/template-library.json` directly from the deployed API.
+- `ANALYTICS_DATABASE_URL` – optional Postgres URL for analytics + telemetry writes. When set, ingestion, pixels, and rollups run against the replica instead of the primary database.
+- `RATE_LIMIT_RETENTION_MINUTES` / `AUDIT_LOG_RETENTION_DAYS` – retention windows used by the maintenance cron to purge stale `rate_limit_counters` rows and age out exported audit logs.
 - `GOOGLE_CALENDAR_CLIENT_ID` / `GOOGLE_CALENDAR_CLIENT_SECRET` / `GOOGLE_CALENDAR_REDIRECT_URI` – OAuth credentials for Google Calendar syncing (`redirect_uri` defaults to `https://api.ai-sitemaker.com/oauth/calendar/google/callback`).
 - `OUTLOOK_CALENDAR_CLIENT_ID` / `OUTLOOK_CALENDAR_CLIENT_SECRET` / `OUTLOOK_CALENDAR_REDIRECT_URI` – OAuth credentials for Microsoft/Outlook calendar syncing (`redirect_uri` defaults to `https://api.ai-sitemaker.com/oauth/calendar/outlook/callback`).
 - Apple Calendar uses the generated ICS feed (`/appointments/ics?slug=...&token=...`), no OAuth required.
 
 ### Operations & Backfills
 - CloudWatch now publishes an `${StackName}-ops` dashboard with runner/analytics queue depth + age and job-event failure charts. Subscribe to the built-in alarms (`runner-queue-*`, `analytics-queue-*`, and `job-event-failures`) so backlog or log-write issues page you before tenants notice.
+- Lifecycle maintenance jobs now run automatically: rate-limit counters are purged every 10 minutes, site audit logs older than the configured retention are truncated nightly, and the analytics rollup lambda invokes `scripts/rollup-site-metrics.js` logic every day to keep `site_metrics_daily` current.
 - After migrating to this release, run the new scripts once to hydrate the aggregate tables:
   ```bash
   npm run backfill:account-sites

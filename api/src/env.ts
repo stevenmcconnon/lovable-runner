@@ -35,6 +35,8 @@ const envSchema = z
     AUTH_CALLBACK_URL: z.string().optional(),
     SITE_BUILDER_API_ENABLED: z.string().optional(),
     SITE_DOCS_TOKEN: z.string().optional(),
+    TEMPLATE_LIBRARY_BASE_URL: z.string().url().optional(),
+    TEMPLATE_LIBRARY_TOKEN: z.string().optional(),
     THUMBNAIL_SERVICE_BASE: z.string().optional(),
     NAMECHEAP_API_USER: z.string().optional(),
     NAMECHEAP_API_KEY: z.string().optional(),
@@ -109,6 +111,8 @@ const rawEnv = envSchema.parse({
   AUTH_CALLBACK_URL: process.env.AUTH_CALLBACK_URL,
   SITE_BUILDER_API_ENABLED: process.env.SITE_BUILDER_API_ENABLED,
   SITE_DOCS_TOKEN: process.env.SITE_DOCS_TOKEN,
+  TEMPLATE_LIBRARY_BASE_URL: process.env.TEMPLATE_LIBRARY_BASE_URL,
+  TEMPLATE_LIBRARY_TOKEN: process.env.TEMPLATE_LIBRARY_TOKEN,
   THUMBNAIL_SERVICE_BASE: process.env.THUMBNAIL_SERVICE_BASE,
   NAMECHEAP_API_USER: process.env.NAMECHEAP_API_USER,
   NAMECHEAP_API_KEY: process.env.NAMECHEAP_API_KEY,
@@ -266,6 +270,10 @@ export const config = {
   siteBuilder: {
     enabled: rawEnv.SITE_BUILDER_API_ENABLED !== 'false',
     docsToken: rawEnv.SITE_DOCS_TOKEN ?? '',
+  },
+  templates: {
+    docsToken: rawEnv.TEMPLATE_LIBRARY_TOKEN || rawEnv.SITE_DOCS_TOKEN || '',
+    baseUrl: rawEnv.TEMPLATE_LIBRARY_BASE_URL || '',
   },
   thumbnail: {
     serviceBase: rawEnv.THUMBNAIL_SERVICE_BASE ?? '',

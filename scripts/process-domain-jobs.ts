@@ -6,6 +6,7 @@ import { DomainEdgeService } from '../api/src/services/domain-edge';
 import { DomainManager } from '../api/src/services/domain-manager';
 import { DomainJobService } from '../api/src/services/domain-job';
 import { DomainJobRunner } from '../api/src/services/domain-job-runner';
+import { DomainJobDispatcher } from '../api/src/services/domain-job-dispatcher';
 
 const parseLimit = () => {
   const argIndex = process.argv.findIndex((arg) => arg === '--limit' || arg === '-l');
@@ -24,7 +25,10 @@ const main = async () => {
     canonicalDefault: config.domains.edge.canonicalDefault,
     distributionId: config.domains.edge.distributionId,
   });
-  const jobs = new DomainJobService(db);
+  const dispatcher = config.queues.domainJobs
+    ? new DomainJobDispatcher(config.queues.domainJobs, config.awsRegion)
+    : undefined;
+  const jobs = new DomainJobService(db, { dispatcher });
   const manager = new DomainManager({ db, edge });
   const runner = new DomainJobRunner({ db, jobs, manager });
   try {

@@ -1,9 +1,8 @@
 const fetch = global.fetch;
-const fs = require('node:fs');
-const path = require('node:path');
 const { validateSiteQuality } = require('./site-schema');
 const { SECTION_MANIFEST, SECTION_IDS } = require('./sections/registry');
 const { describeStyleProfiles, STYLE_PROFILE_IDS } = require('./style-profiles');
+const { getTemplateInventory } = require('./template-catalog');
 
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini-2024-07-18';
 const FALLBACK_MODEL = process.env.OPENAI_FALLBACK_MODEL || 'gpt-5.1';
@@ -11,48 +10,19 @@ const OPENAI_URL = 'https://api.openai.com/v1/responses';
 
 const THEME_FONT_OPTIONS = ['inter', 'space-grotesk', 'poppins', 'playfair-display', 'lora', 'raleway'];
 
-const TEMPLATE_INDEX_PATH = path.join(__dirname, '..', 'templates', 'template-library.json');
-const TEMPLATE_LIBRARY_DIR = path.join(__dirname, '..', 'templates', 'library');
-
-const readJsonIfExists = (filePath) => {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-};
-
-const buildTemplateInventory = (limit = 40) => {
-  const index = readJsonIfExists(TEMPLATE_INDEX_PATH);
-  const entries = Array.isArray(index?.templatesIndex) ? index.templatesIndex.slice(0, limit) : [];
-  return entries
-    .map((entry) => {
-      const specPath = path.join(TEMPLATE_LIBRARY_DIR, `${entry.id}.json`);
-      const spec = readJsonIfExists(specPath);
-      const sectionList = (spec?.sections || []).map((s) => s.componentId).filter(Boolean);
-      return `- ${entry.id} (${entry.name}; ${entry.vertical || ''}${entry.subcategory ? `/${entry.subcategory}` : ''}) sections: ${sectionList.join(
-        ', '
-      )}; tags: ${(entry.tags || []).join(', ')}; useCases: ${(entry.useCases || []).join(', ')}`;
-    })
-    .join('\n');
-};
-
 const buildSectionsInventory = () =>
   SECTION_MANIFEST.map((section) => {
     const required = section.requiredProps?.length ? `Required props: ${section.requiredProps.join(', ')}.` : '';
     return `- ${section.id}: ${section.description} ${required}`.trim();
   }).join('\n');
 
-const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary }) => {
+const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary, templateInventory }) => {
   const details = [];
   if (businessDetails?.businessName) details.push(`Business name: ${businessDetails.businessName}`);
   if (businessDetails?.businessType) details.push(`Business type: ${businessDetails.businessType}`);
   if (businessDetails?.address) details.push(`Address: ${businessDetails.address}`);
   if (businessDetails?.phone) details.push(`Phone: ${businessDetails.phone}`);
   if (businessDetails?.additionalDetails) details.push(`Notes: ${businessDetails.additionalDetails}`);
-
-  const templateInventory = buildTemplateInventory();
 
   return [
     'You are a senior marketing copywriter rebuilding the referenced business website. Return ONLY JSON (no Markdown) describing a premium marketing site layout for our Vite + shadcn template.',
@@ -66,7 +36,7 @@ const buildPrompt = ({ sourceUrl, description, businessDetails, sourceSummary })
     'Set meta.brandName/headline/subheadline to the real business (prefer businessDetails.businessName; otherwise derive from the reference site text or the URL domain words).',
     'The JSON must follow the Site schema (meta, seo, theme, sections[] or pages[]) and every section entry must include a props object with all copy, CTAs, lists, and imagePrompt text needed to render that block.',
     'Template library (choose the closest fit and set site.templateId accordingly, follow its section order, and extend with additional sections to reach a full-length site):',
-    templateInventory,
+    templateInventory || 'Template catalog temporarily unavailable; infer layouts based on business type and the sections list below.',
     'Available sections and their behaviors:',
     buildSectionsInventory(),
     '',
@@ -357,7 +327,20 @@ const generateSiteWithOpenAI = async ({ sourceUrl, description, businessDetails,
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY is required');
 
-  const prompt = buildPrompt({ sourceUrl, description, businessDetails, sourceSummary });
+  let templateInventory = '';
+  try {
+    templateInventory = await getTemplateInventory();
+  } catch (error) {
+    console.warn('[openai] Failed to load template inventory', error?.message || error);
+  }
+
+  const prompt = buildPrompt({
+    sourceUrl,
+    description,
+    businessDetails,
+    sourceSummary,
+    templateInventory,
+  });
   const runModel = async (modelName) => {
     const body = {
       model: modelName,

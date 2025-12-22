@@ -2,6 +2,14 @@
 
 This document summarizes the current section components, gaps to fill, and the new starter template manifests for LLM-driven site generation without heavy builds.
 
+### API access
+The backend now exposes read-only endpoints so orchestration agents can fetch the manifest dynamically:
+- `GET /templates` – returns `templates/template-library.json`.
+- `GET /templates/:templateId` – streams a specific `templates/library/<id>.json`.
+- `GET /templates/presets` – returns `templates/template-copy-presets.json`.
+
+All three endpoints require the shared `TEMPLATE_LIBRARY_TOKEN`, sent via the `x-templates-token` header (or `x-docs-token`). Keep the token secret—these endpoints expose internal template metadata only.
+
 ### Current section components
 - Hero with image (CTA + stats), Features grid, **Product grid**, **Logo wall**, Testimonials cards, **Team grid**, FAQ accordion, Pricing table, CTA banner, Process timeline, Stats showcase, **Case studies**, Gallery carousel (supports `layout: "carousel" | "grid" | "masonry"`), Contact form.
 

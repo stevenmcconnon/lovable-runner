@@ -45,7 +45,6 @@ const analyticsPool =
       })
     : pool;
 
-const DOMAIN_JOB_LOCK_KEY = 837492;
 const DEFAULT_BACKFILL_BATCH_SIZE = (() => {
   const raw =
     Number(process.env.BACKFILL_BATCH_LIMIT ?? process.env.BACKFILL_BATCH_SIZE) || 250;
@@ -2071,29 +2070,6 @@ export class DatabaseService {
     return Number(rows?.[0]?.count ?? 0);
   }
 
-  async acquireDomainJobLock(): Promise<(() => Promise<void>) | null> {
-    const client = await pool.connect();
-    try {
-      const { rows } = await client.query('SELECT pg_try_advisory_lock($1) AS locked', [
-        DOMAIN_JOB_LOCK_KEY,
-      ]);
-      if (!rows?.[0]?.locked) {
-        client.release();
-        return null;
-      }
-      return async () => {
-        try {
-          await client.query('SELECT pg_advisory_unlock($1)', [DOMAIN_JOB_LOCK_KEY]);
-        } finally {
-          client.release();
-        }
-      };
-    } catch (error) {
-      client.release();
-      throw error;
-    }
-  }
-
   async listDomainsNeedingHttpsRefresh(limit = 25): Promise<DomainRecord[]> {
     const safeLimit = Math.max(1, Math.min(Number(limit) || 25, 500));
     const { rows } = await this.query(
@@ -2801,6 +2777,30 @@ export class DatabaseService {
       views: Number(fallback.rows[0]?.views ?? 0),
       ctaClicks: Number(fallback.rows[0]?.cta_clicks ?? 0),
     };
+  }
+
+  async purgeRateLimitCounters(olderThanMinutes = 1440): Promise<number> {
+    const windowMinutes = Math.max(1, Number(olderThanMinutes) || 60);
+    const result = await this.query(
+      `
+      DELETE FROM rate_limit_counters
+      WHERE window_end < NOW() - ($1 || ' minutes')::interval
+    `,
+      [windowMinutes]
+    );
+    return Number(result.rowCount ?? 0);
+  }
+
+  async purgeAuditLogs(olderThanDays = 30): Promise<number> {
+    const retentionDays = Math.max(1, Number(olderThanDays) || 30);
+    const result = await this.query(
+      `
+      DELETE FROM site_audit_logs
+      WHERE created_at < NOW() - ($1 || ' days')::interval
+    `,
+      [retentionDays]
+    );
+    return Number(result.rowCount ?? 0);
   }
 
   async close(): Promise<void> {

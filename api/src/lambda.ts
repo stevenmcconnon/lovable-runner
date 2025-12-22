@@ -14,6 +14,8 @@ import {
   handleAnalyticsIngest,
   handleAccountSitesBackfill,
   handleJobEventsBackfill,
+  handleRateLimitCleanup,
+  handleAuditLogCleanup,
 } from './worker';
 import { recordWorkerMetric } from './services/metrics';
 
@@ -173,6 +175,28 @@ const handleActionEvent = async (event: any) => {
     return runWithMetrics('RUN_DOMAIN_JOB', async () => {
       const result = await handleDomainJobMessage({
         jobId: event.jobId,
+      });
+      return {
+        statusCode: 200,
+        body: JSON.stringify(result),
+      };
+    });
+  }
+  if (event?.action === 'RUN_RATE_LIMIT_PURGE') {
+    return runWithMetrics('RUN_RATE_LIMIT_PURGE', async () => {
+      const result = await handleRateLimitCleanup({
+        maxAgeMinutes: event.maxAgeMinutes,
+      });
+      return {
+        statusCode: 200,
+        body: JSON.stringify(result),
+      };
+    });
+  }
+  if (event?.action === 'RUN_AUDIT_LOG_CLEANUP') {
+    return runWithMetrics('RUN_AUDIT_LOG_CLEANUP', async () => {
+      const result = await handleAuditLogCleanup({
+        retentionDays: event.retentionDays,
       });
       return {
         statusCode: 200,

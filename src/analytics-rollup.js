@@ -1,4 +1,4 @@
-const { query } = require('./pg-client');
+const { analyticsQuery } = require('./pg-client');
 
 const toDateString = (value) => {
   if (!value) return new Date().toISOString().slice(0, 10);
@@ -8,7 +8,7 @@ const toDateString = (value) => {
 
 const rollupForDate = async (statDate) => {
   const target = toDateString(statDate);
-  const result = await query(
+  const result = await analyticsQuery(
     `
     WITH upserts AS (
       INSERT INTO site_metrics_daily (

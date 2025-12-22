@@ -31,38 +31,31 @@ export class DomainJobRunner {
     limit = 10,
     options: { maxRuntimeMs?: number } = {}
   ): Promise<{ processed: number; completed: number; retried: number }> {
-    const releaseLock = await this.deps.db.acquireDomainJobLock();
-    if (!releaseLock) {
-      // eslint-disable-next-line no-console
-      console.warn('[domain-jobs] another worker is already running; skipping this batch');
+    const jobs = await this.deps.jobs.claimBatch(limit);
+    if (!jobs.length) {
       return { processed: 0, completed: 0, retried: 0 };
     }
-    try {
-      const jobs = await this.deps.jobs.claimBatch(limit);
-      let completed = 0;
-      let retried = 0;
-      let processed = 0;
-      const startedAt = Date.now();
-      const maxRuntimeMs = Math.max(1000, Number(options.maxRuntimeMs ?? DEFAULT_MAX_RUNTIME_MS));
-      for (const job of jobs) {
-        const elapsed = Date.now() - startedAt;
-        if (elapsed >= maxRuntimeMs) {
-          // eslint-disable-next-line no-await-in-loop
-          await this.deferJob(job);
-          retried += 1;
-          processed += 1;
-          continue;
-        }
+    let completed = 0;
+    let retried = 0;
+    let processed = 0;
+    const startedAt = Date.now();
+    const maxRuntimeMs = Math.max(1000, Number(options.maxRuntimeMs ?? DEFAULT_MAX_RUNTIME_MS));
+    for (const job of jobs) {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= maxRuntimeMs) {
         // eslint-disable-next-line no-await-in-loop
-        const outcome = await this.processJobSafe(job);
-        if (outcome === 'completed') completed += 1;
-        if (outcome === 'retry') retried += 1;
+        await this.deferJob(job);
+        retried += 1;
         processed += 1;
+        continue;
       }
-      return { processed, completed, retried };
-    } finally {
-      await releaseLock().catch(() => undefined);
+      // eslint-disable-next-line no-await-in-loop
+      const outcome = await this.processJobSafe(job);
+      if (outcome === 'completed') completed += 1;
+      if (outcome === 'retry') retried += 1;
+      processed += 1;
     }
+    return { processed, completed, retried };
   }
 
   async runJob(job: DomainJobRecord): Promise<'completed' | 'retry' | 'failed'> {
