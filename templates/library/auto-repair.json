@@ -18,6 +18,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "sticky nav with call now, book service, and fleet portal links"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "ASE-certified hero with same-day CTA"
     },
@@ -26,12 +30,32 @@
       "purpose": "turnaround times, warranties"
     },
     {
+      "componentId": "trust-badges",
+      "purpose": "ASE, OEM certifications, warranty partners"
+    },
+    {
       "componentId": "features-grid",
       "purpose": "brakes, diagnostics, tires, inspections"
     },
     {
       "componentId": "process-timeline",
       "purpose": "drop-off → diagnose → approve → repair"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "shop, technicians, equipment"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "shop address, shuttle service, hours"
+    },
+    {
+      "componentId": "inventory-list",
+      "purpose": "loaner vehicles or featured service specials"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "fleet maintenance checklist opt-in"
     },
     {
       "componentId": "testimonials-cards",
@@ -44,6 +68,14 @@
     {
       "componentId": "contact-form",
       "purpose": "book service slot or pickup"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "call now and request service buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "service policies, financing, social/legal"
     }
   ]
 }

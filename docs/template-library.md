@@ -7,25 +7,46 @@ The backend now exposes read-only endpoints so orchestration agents can fetch th
 - `GET /templates` – returns `templates/template-library.json`.
 - `GET /templates/:templateId` – streams a specific `templates/library/<id>.json`.
 - `GET /templates/presets` – returns `templates/template-copy-presets.json`.
+- `GET /templates/palettes` – returns `templates/template-palettes.json` (75 curated accessible color themes).
 
 All three endpoints require the shared `TEMPLATE_LIBRARY_TOKEN`, sent via the `x-templates-token` header (or `x-docs-token`). Keep the token secret—these endpoints expose internal template metadata only.
 
 ### Current section components
-- Hero with image (CTA + stats), Features grid, **Product grid**, **Logo wall**, Testimonials cards, **Team grid**, FAQ accordion, Pricing table, CTA banner, Process timeline, Stats showcase, **Case studies**, Gallery carousel (supports `layout: "carousel" | "grid" | "masonry"`), Contact form.
+- Global shell: **Site navigation** (sticky, announcement bar), **Footer links & contact**.
+- Location & trust: **Hours/location**, **Trust badges**, Logo wall, Testimonial cards, Stats showcase, Case studies.
+- Services & proof: Hero with image, Features grid, Product grid, Menu grid, Process timeline, Team grid, FAQ accordion.
+- Commerce & booking: Pricing table, Booking widget, **Reservation widget**, Contact form, **Lead magnet**, **Sticky CTA bar**.
+- Media: Gallery carousel (`layout: "carousel" | "grid" | "masonry"`), **Video spotlight**, **Inventory/listing grid**, Review collector.
 
 ### High-value gaps to add next
-- Global shell: sticky nav + anchor links, footer with links/social/legal.
-- Location & trust: hours/map block, logo strip, trust badges/compliance labels.
-- People: team/practitioner bios, attorney/stylist cards, instructor grid.
-- Commerce/booking: booking widget (time slots), reservation widget, rate table/payment calculator, product/detail card, cart/checkout link, menu grid for food/service menus, inventory/listing cards with filters.
-- Content: case-study cards, blog/updates list, video embed grid, logo + testimonial mashup.
-- Lead capture: sticky “call/book now” bar, short lead magnet form, quote estimator for services and events.
+- Deeper commerce: quote estimator for services, interactive rate tables/payment calculators, lightweight cart/checkout embeds.
+- Content marketing: blog/updates list, newsletter archive, podcast episode list, mashup sections combining testimonials + logos.
+- Automation: embedded calendar availability picker powered by `/appointments`, micro-surveys/polls, advanced lead-routing logic.
 
 ### Template manifests (JSON)
 - `templates/template-library.json` – index of available templates with ids, verticals, tags, tone/vibe, and paths to the individual files.
-- `templates/library/<template-id>.json` – one file per template (30 total) with sections and `needsComponents` flags.
+- `templates/library/<template-id>.json` – one file per template (38 total) with sections and `needsComponents` flags.
 - `templates/template-copy-presets.json` – 10 drop-in `site.json` payloads (plumber, electrician, HVAC, law, dental, trainer, wedding photographer, SaaS, ecommerce, restaurant) matching `templates/site-base/src/content/site-schema.ts`.
+- `templates/template-palettes.json` – 75 palette objects with `primary`, `secondary`, `accent`, text colors, suggested fonts, industries, and `styleProfile` hints for consistent theming.
 - Usage: pick `templateId`, load matching copy preset (or generate new copy using the section order in the manifest), adjust props, and write to `src/content/site.json` (or runtime JSON fetch once we decouple from bundling).
+
+### Color palette presets
+- Each palette record includes high-contrast `primary`/`text` pairings plus `onPrimary`/`onAccent` tokens so CTAs meet WCAG 2.1 AA contrast without guesswork.
+- `styleProfile`, `fonts`, and `vibes` allow the generator to align design language (e.g., `sharp-minimal` + Space Grotesk for SaaS; `rounded-elevated` + Playfair/Lora for luxury).
+- `industries` hints help recommend palettes per template; you can also randomize within a vertical to avoid identical electrician sites.
+- Use `template-palettes.json` + template metadata to produce thousands of unique combinations (templates × palettes × copy) while staying on-brand.
+
+### Component-specific guidance
+- `site-navigation`: include `logo.text`, a short `logo.tagline`, and at least four anchor `links` (each with `label` plus `href` or `sectionId`). `announcement` is optional Markdown/Portable Text rendered above the bar.
+- `hours-location`: expects `address` Portable Text and an array of `hours` rows (`label` + `value`). Provide either `mapEmbedUrl` (Google/Mapbox embed) or `mapImage` (image asset + prompt for generation).
+- `trust-badges`: send minimum three `badges`, each with `label`, short `description`, and optional `icon` values of `shield`, `check`, or `star`. Use `guarantees` for double-column promises.
+- `menu-grid`: supply 2–4 `categories` with `items`. Items accept `tags` like `{ "label": "Spicy", "variant": "spicy" }` to automatically color-code chips.
+- `reservation-widget` vs `booking-widget`: use reservation for hospitality (party size + seating); booking for services (project description). Both hit `/contact` with intent metadata.
+- `inventory-list`: each `items[]` entry accepts `metrics` (e.g., `{ "label": "Mileage", "value": "12,340" }`) and `media.src`. Ideal for real-estate/auto directories.
+- `video-spotlight`: provide `videos[]` with `url` (YouTube/Vimeo/loom) or pre-built `embedUrl`, optional `thumbnail`, and `duration`. First video autoplays; the list builds a playlist.
+- `lead-magnet`: short form, so send `bullets` (Portable Text snippets) and `resourceName` to show the download title. Response is ingested through the contact endpoint with `intent: lead-magnet`.
+- `sticky-cta-bar`: keep copy short. Provide `primaryCta` (with `label` and optional `sectionId` anchor) and optional `secondaryCta` or `phone`. The bar fades in after ~360px scroll.
+- `footer-links`: provide at least two `columns[]`, plus optional `social` links, `legal` links (privacy/terms), and a `newsletter` block (title/description/placeholder/ctaLabel/confirmation).
 
 ### Content schema & styling (LLM guidance)
 - **Portable Text everywhere:** Any section prop that carries long-form copy (hero text, features, testimonials, FAQs, CTAs, etc.) now accepts [Portable Text](https://portabletext.org/) blocks in addition to plain strings. Prefer emitting blocks so we can preserve italics, underline, strike, code, and links.

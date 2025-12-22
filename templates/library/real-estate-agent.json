@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Real Estate Agent"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "neighborhood specialist hero with consult CTA"
     },
@@ -29,8 +33,16 @@
       "purpose": "homes sold, avg days on market"
     },
     {
+      "componentId": "trust-badges",
+      "purpose": "Real Estate Agent certifications, guarantees, and associations"
+    },
+    {
       "componentId": "features-grid",
       "purpose": "buyer/seller services and staging"
+    },
+    {
+      "componentId": "inventory-list",
+      "purpose": "Featured listings, vehicles, or specials from Real Estate Agent"
     },
     {
       "componentId": "process-timeline",
@@ -41,17 +53,28 @@
       "purpose": "client proof and awards"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Real Estate Agent service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "listing process, fees, timelines"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Real Estate Agent"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book consultation"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Real Estate Agent"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Real Estate Agent footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "listing-cards",
-    "map-block",
-    "schedule-picker"
   ]
 }

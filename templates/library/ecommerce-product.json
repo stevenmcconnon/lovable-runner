@@ -18,6 +18,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Single Product DTC"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "product hero with buy CTA"
     },
@@ -26,8 +30,16 @@
       "purpose": "ingredients/features, benefits, how it works"
     },
     {
+      "componentId": "inventory-list",
+      "purpose": "Featured listings, vehicles, or specials from Single Product DTC"
+    },
+    {
       "componentId": "stats-showcase",
       "purpose": "clinical claims or usage stats"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Single Product DTC certifications, guarantees, and associations"
     },
     {
       "componentId": "gallery-carousel",
@@ -48,11 +60,18 @@
     {
       "componentId": "cta-banner",
       "purpose": "limited offer CTA"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Single Product DTC"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Single Product DTC"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Single Product DTC footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "product-detail",
-    "cart/checkout-link",
-    "badge-list"
   ]
 }

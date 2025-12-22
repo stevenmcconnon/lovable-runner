@@ -17,12 +17,20 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for B2B Consulting"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "outcome-focused hero with consult CTA"
     },
     {
       "componentId": "stats-showcase",
       "purpose": "ROI, industries served, certifications"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "B2B Consulting certifications, guarantees, and associations"
     },
     {
       "componentId": "features-grid",
@@ -45,12 +53,20 @@
       "purpose": "engagement model, timing, team"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from B2B Consulting"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book intro call"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact B2B Consulting"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "B2B Consulting footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "case-study-cards",
-    "logo-grid"
   ]
 }

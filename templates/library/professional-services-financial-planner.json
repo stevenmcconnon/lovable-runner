@@ -1,0 +1,81 @@
+{
+  "id": "professional-services-financial-planner",
+  "name": "Wealth & Financial Planner",
+  "vertical": "professional-services",
+  "subcategory": "financial-planning",
+  "useCases": [
+    "wealth management",
+    "retirement planning",
+    "business owner advisory"
+  ],
+  "tone": "calm, authoritative",
+  "vibe": "luxury",
+  "tags": [
+    "fiduciary",
+    "retirement",
+    "investment",
+    "lead-gen"
+  ],
+  "sections": [
+    {
+      "componentId": "site-navigation",
+      "purpose": "Top bar with schedule intro call CTA and regulatory disclosures"
+    },
+    {
+      "componentId": "hero-with-image",
+      "purpose": "Hero promoting fiduciary planning and concierge onboarding"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "Assets advised, client retention, years in operation"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "Service pillars: retirement, tax strategy, business exits, estate planning"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "CFP®, CFA, fiduciary oath, custodian partnerships"
+    },
+    {
+      "componentId": "case-studies",
+      "purpose": "Mini success stories for families, founders, and professionals"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "Discovery → plan build → implementation → quarterly reviews"
+    },
+    {
+      "componentId": "pricing-table",
+      "purpose": "Transparent tiers with basis points or flat retainer options"
+    },
+    {
+      "componentId": "team-grid",
+      "purpose": "Advisor bios with specialties and certifications"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable retirement readiness scorecard"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "High net worth clients and business owners endorsements"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "Coverage on fiduciary scope, custodian, account minimums"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "Book consultation with ability to attach statements"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on schedule call + download scorecard"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "ADV brochures, compliance docs, privacy policy, newsroom"
+    }
+  ]
+}

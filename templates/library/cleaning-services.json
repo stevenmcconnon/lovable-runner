@@ -18,8 +18,20 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "sticky nav with plan signup and phone CTA"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "cleanliness guarantee with booking CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "homes cleaned, satisfaction rate, response time"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "background checks, eco products, bonded/insured"
     },
     {
       "componentId": "features-grid",
@@ -34,6 +46,14 @@
       "purpose": "book → prepare → clean → review"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "service neighborhoods, HQ address, hours"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "downloadable home reset checklist"
+    },
+    {
       "componentId": "testimonials-cards",
       "purpose": "trust and consistency proof"
     },
@@ -44,6 +64,14 @@
     {
       "componentId": "contact-form",
       "purpose": "schedule recurring plan"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "call now and book cleaning buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "service policies, social, legal"
     }
   ]
 }

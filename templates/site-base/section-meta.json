@@ -1,5 +1,16 @@
 [
   {
+    "id": "site-navigation",
+    "label": "Sticky navigation",
+    "description": "Top-of-site navigation shell with announcement bar, anchor links, and CTA buttons that stays visible on scroll.",
+    "requiredProps": [
+      "logo",
+      "links"
+    ],
+    "minWordCount": 20,
+    "group": "shell"
+  },
+  {
     "id": "hero-with-image",
     "label": "Hero with floating imagery",
     "description": "Large hero block with eyebrow, headline, CTA buttons, stat pills, and a generated imagery prompt card.",
@@ -13,6 +24,29 @@
     ],
     "minWordCount": 50,
     "group": "hero"
+  },
+  {
+    "id": "hours-location",
+    "label": "Hours & location",
+    "description": "Two-column card showing address, hours grid, parking/access notes, and optional embedded map or generated map image.",
+    "requiredProps": [
+      "title",
+      "address",
+      "hours"
+    ],
+    "minWordCount": 45,
+    "group": "trust"
+  },
+  {
+    "id": "trust-badges",
+    "label": "Trust & compliance badges",
+    "description": "Carousel-style proof tiles for certifications, guarantees, insurance, or compliance labels with short reasoning copy.",
+    "requiredProps": [
+      "title",
+      "badges"
+    ],
+    "minWordCount": 35,
+    "group": "proof"
   },
   {
     "id": "features-grid",
@@ -99,6 +133,17 @@
     "group": "services"
   },
   {
+    "id": "menu-grid",
+    "label": "Menu grid",
+    "description": "Restaurant/catering friendly grouped menu with badges for spice/vegan and optional chef notes.",
+    "requiredProps": [
+      "title",
+      "categories"
+    ],
+    "minWordCount": 60,
+    "group": "commerce"
+  },
+  {
     "id": "cta-banner",
     "label": "CTA banner",
     "description": "High-impact CTA row with supporting imagery prompt and dual buttons.",
@@ -173,6 +218,17 @@
     "group": "support"
   },
   {
+    "id": "reservation-widget",
+    "label": "Reservation widget",
+    "description": "Hospitality-focused reservation form capturing party size, seating preferences, and special requests.",
+    "requiredProps": [
+      "title",
+      "submitLabel"
+    ],
+    "minWordCount": 35,
+    "group": "commerce"
+  },
+  {
     "id": "booking-widget",
     "label": "Booking widget",
     "description": "Service picker + preferred date/time capture with booking CTA and reassurance copy.",
@@ -184,6 +240,60 @@
     ],
     "minWordCount": 40,
     "group": "support"
+  },
+  {
+    "id": "inventory-list",
+    "label": "Inventory / listing cards",
+    "description": "Real estate or automotive listing grid with highlights, metrics, and CTAs.",
+    "requiredProps": [
+      "title",
+      "items"
+    ],
+    "minWordCount": 60,
+    "group": "commerce"
+  },
+  {
+    "id": "video-spotlight",
+    "label": "Video spotlight",
+    "description": "Feature video player with supporting playlist style cards and transcripts.",
+    "requiredProps": [
+      "title",
+      "videos"
+    ],
+    "minWordCount": 40,
+    "group": "media"
+  },
+  {
+    "id": "lead-magnet",
+    "label": "Lead magnet form",
+    "description": "Short-form download/guide opt-in with bullets, input fields, and privacy note tied to contact ingestion.",
+    "requiredProps": [
+      "title",
+      "submitLabel"
+    ],
+    "minWordCount": 40,
+    "group": "cta"
+  },
+  {
+    "id": "sticky-cta-bar",
+    "label": "Sticky CTA bar",
+    "description": "Floating CTA strip that appears after scrolling to keep phone/demo actions always visible.",
+    "requiredProps": [
+      "title",
+      "primaryCta"
+    ],
+    "minWordCount": 20,
+    "group": "cta"
+  },
+  {
+    "id": "footer-links",
+    "label": "Footer links & contact",
+    "description": "Multi-column footer with contact info, newsletter capture, and legal/social links.",
+    "requiredProps": [
+      "columns"
+    ],
+    "minWordCount": 30,
+    "group": "shell"
   },
   {
     "id": "review-collector",

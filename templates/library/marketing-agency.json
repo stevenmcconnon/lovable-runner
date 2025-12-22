@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Marketing Agency"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "positioning hero with discovery CTA"
     },
@@ -25,12 +29,20 @@
       "purpose": "ROI metrics, channel expertise"
     },
     {
+      "componentId": "trust-badges",
+      "purpose": "Marketing Agency certifications, guarantees, and associations"
+    },
+    {
       "componentId": "features-grid",
       "purpose": "paid, SEO, creative, lifecycle"
     },
     {
       "componentId": "process-timeline",
       "purpose": "audit → strategy → launch → optimize"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "Video walkthroughs and spotlights from Marketing Agency"
     },
     {
       "componentId": "testimonials-cards",
@@ -45,12 +57,20 @@
       "purpose": "contracts, reporting, pricing"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Marketing Agency"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book discovery call"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Marketing Agency"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Marketing Agency footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "case-study-cards",
-    "logo-grid"
   ]
 }

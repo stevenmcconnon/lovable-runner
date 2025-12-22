@@ -18,8 +18,20 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "sticky nav with seasonal offer and maintenance signup"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "lush hero with seasonal CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "acres maintained, crews, design awards"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "certified arborists, insured crews, chemical licenses"
     },
     {
       "componentId": "gallery-carousel",
@@ -38,12 +50,28 @@
       "purpose": "maintenance tiers or seasonal packages"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "service radius, depot location, office hours"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "yard care calendar download"
+    },
+    {
       "componentId": "testimonials-cards",
       "purpose": "neighbors and HOAs"
     },
     {
       "componentId": "contact-form",
       "purpose": "book walkthrough or request quote"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "call now and request design buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "service areas, supplier partners, legal"
     }
   ]
 }

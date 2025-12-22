@@ -18,12 +18,20 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Dental Practice"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "smile-focused hero with booking CTA"
     },
     {
       "componentId": "stats-showcase",
       "purpose": "patients served, same-day crowns"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Dental Practice certifications, guarantees, and associations"
     },
     {
       "componentId": "features-grid",
@@ -42,16 +50,28 @@
       "purpose": "patient stories"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Dental Practice service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "insurance, payment, sedation"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Dental Practice"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book appointment"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Dental Practice"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Dental Practice footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "appointment-picker",
-    "insurance-logos"
   ]
 }

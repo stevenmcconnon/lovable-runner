@@ -1,0 +1,81 @@
+{
+  "id": "education-tech-bootcamp",
+  "name": "Tech Career Bootcamp",
+  "vertical": "education",
+  "subcategory": "bootcamp",
+  "useCases": [
+    "program enrollment",
+    "info sessions",
+    "corporate upskilling"
+  ],
+  "tone": "motivational, data-backed",
+  "vibe": "tech",
+  "tags": [
+    "coding",
+    "career-switch",
+    "job-placement",
+    "cohort"
+  ],
+  "sections": [
+    {
+      "componentId": "site-navigation",
+      "purpose": "Nav with cohort dropdown, financing, and apply CTA"
+    },
+    {
+      "componentId": "hero-with-image",
+      "purpose": "Hero touting placement stats and immersive experience"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "Job placement rate, graduate salary lift, hiring partners"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "Curriculum tracks—software, UX, data, AI"
+    },
+    {
+      "componentId": "logo-wall",
+      "purpose": "Hiring partners and corporate sponsors"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "Apply → prep work → immersive sprint → career launch"
+    },
+    {
+      "componentId": "inventory-list",
+      "purpose": "Upcoming cohorts with modality, seats, tuition"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Accreditation, ISA options, employer guarantees"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "Graduate success stories and campus flythrough"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "Alumni quotes by track with outcome metrics"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "Admissions, financing, job guarantee criteria"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Download the program syllabus PDF"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "Book info session or employer partnership call"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Apply now button + download syllabus"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Admissions policies, outcomes report, campus addresses"
+    }
+  ]
+}

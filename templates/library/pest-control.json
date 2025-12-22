@@ -18,8 +18,20 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "sticky nav with emergency line and plan signup"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "fast removal hero with guarantee badge"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "response time, success rate"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "EPA certifications, pet-safe, insured"
     },
     {
       "componentId": "features-grid",
@@ -30,12 +42,20 @@
       "purpose": "inspect → treat → monitor → prevent"
     },
     {
-      "componentId": "stats-showcase",
-      "purpose": "response time, success rate"
-    },
-    {
       "componentId": "pricing-table",
       "purpose": "quarterly plans and add-ons"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "technicians on-site, equipment, monitoring"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "coverage map, dispatch hours, emergency contact"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "home pest prevention checklist download"
     },
     {
       "componentId": "testimonials-cards",
@@ -48,6 +68,14 @@
     {
       "componentId": "contact-form",
       "purpose": "book inspection"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "call now and request treatment buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "service areas, licenses, legal"
     }
   ]
 }

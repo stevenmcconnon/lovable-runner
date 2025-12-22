@@ -1,0 +1,77 @@
+{
+  "id": "logistics-fleet-services",
+  "name": "Logistics & Fleet Ops",
+  "vertical": "industrial",
+  "subcategory": "logistics",
+  "useCases": [
+    "3pl sales",
+    "fleet maintenance",
+    "dispatch recruiting"
+  ],
+  "tone": "operational, confident",
+  "vibe": "industrial",
+  "tags": [
+    "3pl",
+    "dispatch",
+    "fleet",
+    "b2b"
+  ],
+  "sections": [
+    {
+      "componentId": "site-navigation",
+      "purpose": "Navigation with shipper portal + carrier onboarding CTAs"
+    },
+    {
+      "componentId": "hero-with-image",
+      "purpose": "Value proposition hero for shippers needing reliable capacity"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "Fleet size, on-time %, loads moved, safety score"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "Services cover contract logistics, dedicated fleets, brokerage"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "DOT safety, CTPAT, ISO certifications, insurances"
+    },
+    {
+      "componentId": "inventory-list",
+      "purpose": "Sample equipment list and specialized trailers"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "Ops control center and driver stories"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "Onboarding flow from RFQ to live shipments"
+    },
+    {
+      "componentId": "case-studies",
+      "purpose": "Enterprise shipper success metrics"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "HQ yard, service centers, nationwide coverage map"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable capacity planning guide"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "RFQ intake with shipment volume and mode details"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Get quote + call dispatch persistent CTAs"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Carrier resources, compliance docs, careers"
+    }
+  ]
+}

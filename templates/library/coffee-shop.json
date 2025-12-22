@@ -18,6 +18,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Coffee Shop"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "community hero with visit CTA"
     },
@@ -30,8 +34,16 @@
       "purpose": "beans, brew methods, vibes, merch"
     },
     {
+      "componentId": "menu-grid",
+      "purpose": "Menu categories showcasing signature dishes and pricing"
+    },
+    {
       "componentId": "stats-showcase",
       "purpose": "roast dates, sourcing regions, wifi speed"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Coffee Shop certifications, guarantees, and associations"
     },
     {
       "componentId": "process-timeline",
@@ -42,17 +54,32 @@
       "purpose": "regulars and reviews"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Coffee Shop service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "hours, parking, wifi, pets"
     },
     {
+      "componentId": "reservation-widget",
+      "purpose": "Reservation form capturing party size, date, and requests"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Coffee Shop"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "catering or wholesale inquiries"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Coffee Shop"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Coffee Shop footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "menu-grid",
-    "hours/location-block",
-    "loyalty-promo"
   ]
 }

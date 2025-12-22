@@ -18,6 +18,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Restaurant"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "signature dish hero with reserve CTA"
     },
@@ -30,8 +34,16 @@
       "purpose": "cuisine highlights, chef story, sourcing"
     },
     {
+      "componentId": "menu-grid",
+      "purpose": "Menu categories showcasing signature dishes and pricing"
+    },
+    {
       "componentId": "stats-showcase",
       "purpose": "awards, seating, wait times"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Restaurant certifications, guarantees, and associations"
     },
     {
       "componentId": "process-timeline",
@@ -42,17 +54,32 @@
       "purpose": "diners and press quotes"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Restaurant service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "hours, parking, dietary"
     },
     {
+      "componentId": "reservation-widget",
+      "purpose": "Reservation form capturing party size, date, and requests"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Restaurant"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "private dining inquiries"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Restaurant"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Restaurant footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "menu-grid",
-    "reservation-widget",
-    "hours/location-block"
   ]
 }

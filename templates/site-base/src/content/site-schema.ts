@@ -1,6 +1,9 @@
 export type SectionComponentId =
+  | 'site-navigation'
   | 'hero-with-image'
   | 'features-grid'
+  | 'hours-location'
+  | 'trust-badges'
   | 'logo-wall'
   | 'testimonials-cards'
   | 'faq-accordion'
@@ -14,6 +17,13 @@ export type SectionComponentId =
   | 'case-studies'
   | 'contact-form'
   | 'booking-widget'
+  | 'reservation-widget'
+  | 'menu-grid'
+  | 'inventory-list'
+  | 'video-spotlight'
+  | 'lead-magnet'
+  | 'sticky-cta-bar'
+  | 'footer-links'
   | 'review-collector';
 
 export type SectionConfig<TProps = Record<string, unknown>> = {

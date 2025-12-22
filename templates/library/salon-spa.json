@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Salon & Spa"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "style-focused hero with booking CTA"
     },
@@ -37,17 +41,32 @@
       "purpose": "client praise"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Salon & Spa service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "cancellations, products, parking"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Salon & Spa"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book appointment"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Salon & Spa certifications, guarantees, and associations"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Salon & Spa"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Salon & Spa footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "service-menu",
-    "stylist-bios",
-    "booking-widget"
   ]
 }

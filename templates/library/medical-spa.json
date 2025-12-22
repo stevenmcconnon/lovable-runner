@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Medical Spa"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "luxury hero with consultation CTA"
     },
@@ -41,16 +45,32 @@
       "purpose": "outcomes and comfort"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Medical Spa service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "downtime, safety, candidacy"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Medical Spa"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book consultation"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Medical Spa certifications, guarantees, and associations"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Medical Spa"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Medical Spa footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "treatment-menu",
-    "practitioner-bios"
   ]
 }

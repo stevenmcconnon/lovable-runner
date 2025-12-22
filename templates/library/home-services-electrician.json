@@ -18,16 +18,24 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "sticky nav with quote CTA, phone, and safety badges"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "code-compliant services and quick dispatch"
     },
     {
-      "componentId": "features-grid",
-      "purpose": "upgrades, EV chargers, lighting, inspections"
-    },
-    {
       "componentId": "stats-showcase",
       "purpose": "licenses, zero-call-back rate, coverage zones"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "insurance proof, OSHA training, warranty guarantees"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "upgrades, EV chargers, lighting, inspections"
     },
     {
       "componentId": "process-timeline",
@@ -38,12 +46,32 @@
       "purpose": "safety and punctuality proof"
     },
     {
+      "componentId": "gallery-carousel",
+      "purpose": "panel upgrades, lighting installs, smart home gear"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "dispatch territory map and emergency hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "permits, warranties, scheduling"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "home electrical safety checklist opt-in"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book a visit or request a quote"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "persistent call now and inspection buttons while scrolling"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "license numbers, coverage areas, social/legal links"
     }
   ]
 }

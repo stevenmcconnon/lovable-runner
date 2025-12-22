@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Yoga Studio"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "class variety hero with pass CTA"
     },
@@ -37,16 +41,32 @@
       "purpose": "community proof"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Yoga Studio service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "what to bring, level, parking"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Yoga Studio"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "new student questions"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Yoga Studio certifications, guarantees, and associations"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Yoga Studio"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Yoga Studio footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "class-schedule",
-    "instructor-bios"
   ]
 }

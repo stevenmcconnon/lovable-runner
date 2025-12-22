@@ -168,7 +168,7 @@ const App = () => {
     const controller = new AbortController();
     const applySeoDirectives = async () => {
       try {
-        const baseUrl = apiBase.replace(/\\/+$/, '');
+        const baseUrl = apiBase.replace(/\/+$/, '');
         const url = new URL(`/seo/sites/${encodeURIComponent(slug)}`, baseUrl).toString();
         const requestUrl = new URL(url);
         if (window.location.host) {

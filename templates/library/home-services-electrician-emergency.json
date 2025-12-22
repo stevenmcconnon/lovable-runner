@@ -1,0 +1,77 @@
+{
+  "id": "home-services-electrician-emergency",
+  "name": "Emergency Electrician 24/7",
+  "vertical": "home-services",
+  "subcategory": "electrician",
+  "useCases": [
+    "storm calls",
+    "generator installs",
+    "after-hours troubleshooting"
+  ],
+  "tone": "urgent, reassuring",
+  "vibe": "tech",
+  "tags": [
+    "emergency",
+    "generator",
+    "24-7",
+    "residential"
+  ],
+  "sections": [
+    {
+      "componentId": "site-navigation",
+      "purpose": "Sticky bar with emergency hotline, live chat, and service links"
+    },
+    {
+      "componentId": "hero-with-image",
+      "purpose": "24/7 response hero with generator backup CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "response times, vans on patrol, claims resolved"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "licensing, insurance, background checks, utility partnerships"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "priority services: outage repair, generators, panel replacements"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "dispatch → diagnose → stabilize → permanent fix"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "crew at night, generator installs, safety gear"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "coverage map and rotating on-call schedule"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "downloadable outage preparedness checklist"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "homeowners praising fast after-hours service"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "emergency fees, insurance coordination, warranties"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "book immediate visit with problem description and photos"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "always-on call now and text-a-tech buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "service areas, certifications, safety resources, legal links"
+    }
+  ]
+}

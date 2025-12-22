@@ -1,16 +1,32 @@
 {
   "version": "2024-11-xx",
   "componentsAvailable": [
+    "site-navigation",
     "hero-with-image",
     "features-grid",
+    "hours-location",
+    "trust-badges",
+    "logo-wall",
     "testimonials-cards",
+    "team-grid",
     "faq-accordion",
     "pricing-table",
+    "product-grid",
+    "menu-grid",
     "cta-banner",
     "process-timeline",
     "stats-showcase",
+    "case-studies",
     "gallery-carousel",
-    "contact-form"
+    "inventory-list",
+    "video-spotlight",
+    "contact-form",
+    "lead-magnet",
+    "booking-widget",
+    "reservation-widget",
+    "sticky-cta-bar",
+    "footer-links",
+    "review-collector"
   ],
   "templatesIndex": [
     {
@@ -51,6 +67,66 @@
         "panel upgrades",
         "safety inspections",
         "remodel wiring"
+      ]
+    },
+    {
+      "id": "home-services-electrician-emergency",
+      "name": "Emergency Electrician 24/7",
+      "vertical": "home-services",
+      "subcategory": "electrician",
+      "path": "templates/library/home-services-electrician-emergency.json",
+      "tags": [
+        "emergency",
+        "generator",
+        "24-7",
+        "residential"
+      ],
+      "tone": "urgent, reassuring",
+      "vibe": "tech",
+      "useCases": [
+        "storm calls",
+        "generator installs",
+        "after-hours troubleshooting"
+      ]
+    },
+    {
+      "id": "home-services-electrician-commercial",
+      "name": "Commercial Electrical Contractor",
+      "vertical": "home-services",
+      "subcategory": "electrician",
+      "path": "templates/library/home-services-electrician-commercial.json",
+      "tags": [
+        "commercial",
+        "tenant-improvements",
+        "maintenance",
+        "safety"
+      ],
+      "tone": "authoritative, precise",
+      "vibe": "tech",
+      "useCases": [
+        "facility maintenance",
+        "build-outs",
+        "24-7 contracts"
+      ]
+    },
+    {
+      "id": "home-services-electrician-smart-home",
+      "name": "Smart Home Electrician",
+      "vertical": "home-services",
+      "subcategory": "electrician",
+      "path": "templates/library/home-services-electrician-smart-home.json",
+      "tags": [
+        "smart-home",
+        "automation",
+        "energy",
+        "consulting"
+      ],
+      "tone": "innovative, practical",
+      "vibe": "tech",
+      "useCases": [
+        "smart home planning",
+        "device installation",
+        "energy automation management"
       ]
     },
     {
@@ -190,6 +266,26 @@
         "inventory browsing",
         "financing leads",
         "test drives"
+      ]
+    },
+    {
+      "id": "logistics-fleet-services",
+      "name": "Logistics & Fleet Ops",
+      "vertical": "industrial",
+      "subcategory": "logistics",
+      "path": "templates/library/logistics-fleet-services.json",
+      "tags": [
+        "3pl",
+        "dispatch",
+        "fleet",
+        "b2b"
+      ],
+      "tone": "operational, confident",
+      "vibe": "industrial",
+      "useCases": [
+        "3pl sales",
+        "fleet maintenance",
+        "dispatch recruiting"
       ]
     },
     {
@@ -345,6 +441,26 @@
       ]
     },
     {
+      "id": "healthcare-therapy-practice",
+      "name": "Therapy Collective",
+      "vertical": "healthcare",
+      "subcategory": "therapy",
+      "path": "templates/library/healthcare-therapy-practice.json",
+      "tags": [
+        "mental-health",
+        "telehealth",
+        "group-practice",
+        "insurance"
+      ],
+      "tone": "warm, reassuring",
+      "vibe": "calm",
+      "useCases": [
+        "group practice",
+        "virtual therapy",
+        "specialty programs"
+      ]
+    },
+    {
       "id": "personal-trainer",
       "name": "Personal Trainer",
       "vertical": "fitness",
@@ -460,6 +576,26 @@
       ]
     },
     {
+      "id": "nonprofit-community-foundation",
+      "name": "Community Impact Foundation",
+      "vertical": "nonprofit",
+      "subcategory": "foundation",
+      "path": "templates/library/nonprofit-community-foundation.json",
+      "tags": [
+        "grants",
+        "donations",
+        "impact",
+        "events"
+      ],
+      "tone": "mission-driven, transparent",
+      "vibe": "uplifting",
+      "useCases": [
+        "grant making",
+        "fundraising campaigns",
+        "volunteer mobilization"
+      ]
+    },
+    {
       "id": "marketing-agency",
       "name": "Marketing Agency",
       "vertical": "agency",
@@ -498,6 +634,26 @@
       ]
     },
     {
+      "id": "professional-services-financial-planner",
+      "name": "Wealth & Financial Planner",
+      "vertical": "professional-services",
+      "subcategory": "financial-planning",
+      "path": "templates/library/professional-services-financial-planner.json",
+      "tags": [
+        "fiduciary",
+        "retirement",
+        "investment",
+        "lead-gen"
+      ],
+      "tone": "calm, authoritative",
+      "vibe": "luxury",
+      "useCases": [
+        "wealth management",
+        "retirement planning",
+        "business owner advisory"
+      ]
+    },
+    {
       "id": "saas-product",
       "name": "SaaS Product Landing",
       "vertical": "software",
@@ -515,6 +671,26 @@
         "signups",
         "demo requests",
         "waitlists"
+      ]
+    },
+    {
+      "id": "education-tech-bootcamp",
+      "name": "Tech Career Bootcamp",
+      "vertical": "education",
+      "subcategory": "bootcamp",
+      "path": "templates/library/education-tech-bootcamp.json",
+      "tags": [
+        "coding",
+        "career-switch",
+        "job-placement",
+        "cohort"
+      ],
+      "tone": "motivational, data-backed",
+      "vibe": "tech",
+      "useCases": [
+        "program enrollment",
+        "info sessions",
+        "corporate upskilling"
       ]
     },
     {

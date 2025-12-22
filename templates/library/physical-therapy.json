@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Physical Therapy Clinic"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "mobility hero with booking CTA"
     },
@@ -33,20 +37,36 @@
       "purpose": "return-to-play, visit count, outcomes"
     },
     {
+      "componentId": "trust-badges",
+      "purpose": "Physical Therapy Clinic certifications, guarantees, and associations"
+    },
+    {
       "componentId": "testimonials-cards",
       "purpose": "athlete and patient stories"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "Physical Therapy Clinic service map and operating hours"
     },
     {
       "componentId": "faq-accordion",
       "purpose": "insurance, referrals, home programs"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Physical Therapy Clinic"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book evaluation"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Physical Therapy Clinic"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Physical Therapy Clinic footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "schedule-picker",
-    "clinician-bios"
   ]
 }

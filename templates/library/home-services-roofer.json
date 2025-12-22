@@ -18,8 +18,20 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "sticky nav with inspection CTA, phone, and insurance link"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "storm-readiness hero with insurance CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "roofs restored, crews on standby, claim approvals"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "licensed, insured, manufacturer-certified badges"
     },
     {
       "componentId": "gallery-carousel",
@@ -34,6 +46,14 @@
       "purpose": "materials, crews, clean-up promise"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "service radius, office address, emergency hotline"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "storm checklist / insurance guide download"
+    },
+    {
       "componentId": "testimonials-cards",
       "purpose": "homeowner proof and photos"
     },
@@ -44,6 +64,14 @@
     {
       "componentId": "contact-form",
       "purpose": "request inspection slot"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "call now and request inspection buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "service areas, license numbers, legal links"
     }
   ]
 }

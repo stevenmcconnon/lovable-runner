@@ -18,6 +18,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Catering / Food Truck"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "event catering hero with book CTA"
     },
@@ -26,8 +30,16 @@
       "purpose": "menus, service styles, dietary options"
     },
     {
+      "componentId": "menu-grid",
+      "purpose": "Menu categories showcasing signature dishes and pricing"
+    },
+    {
       "componentId": "stats-showcase",
       "purpose": "events served, capacity, ratings"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Catering / Food Truck certifications, guarantees, and associations"
     },
     {
       "componentId": "process-timeline",
@@ -42,17 +54,32 @@
       "purpose": "hosts and corporate clients"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Catering / Food Truck service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "minimums, travel, licensing"
     },
     {
+      "componentId": "reservation-widget",
+      "purpose": "Reservation form capturing party size, date, and requests"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Catering / Food Truck"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "event intake form"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Catering / Food Truck"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Catering / Food Truck footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "menu-grid",
-    "event-calendar",
-    "quote-estimator"
   ]
 }

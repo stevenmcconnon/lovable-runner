@@ -1,0 +1,76 @@
+{
+  "id": "home-services-electrician-commercial",
+  "name": "Commercial Electrical Contracts",
+  "vertical": "home-services",
+  "subcategory": "electrician",
+  "useCases": [
+    "tenant improvements",
+    "facility maintenance",
+    "build-outs"
+  ],
+  "tone": "authoritative, precise",
+  "vibe": "tech",
+  "tags": [
+    "commercial",
+    "multi-site",
+    "compliance"
+  ],
+  "sections": [
+    {
+      "componentId": "site-navigation",
+      "purpose": "Sticky nav with project types, safety manual, and RFP button"
+    },
+    {
+      "componentId": "hero-with-image",
+      "purpose": "multi-site hero highlighting crews, compliance, and uptime"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "square footage served, SLAs, inspection pass rate"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "OSHA, bonded, vendor portals, government clearances"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "services for property managers, GC partners, and facility teams"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "scope → budgeting → phasing → commissioning"
+    },
+    {
+      "componentId": "case-studies",
+      "purpose": "featured campuses, manufacturing retrofits, and metrics"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "crew in industrial settings, thermal scans, switchgear rooms"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "regional offices and service corridors"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "capital planning checklist for facilities directors"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "compliance, union labor, 24/7 dispatch"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "submit project brief or request RFP call"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "persistent RFP + emergency service buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "certifications, vendor portals, docs, legal"
+    }
+  ]
+}

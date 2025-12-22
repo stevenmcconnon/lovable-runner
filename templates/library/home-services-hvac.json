@@ -18,28 +18,44 @@
   ],
   "sections": [
     {
-      "componentId": "hero-with-image",
-      "purpose": "climate control promise and financing CTA"
+      "componentId": "site-navigation",
+      "purpose": "sticky nav with plan pricing, financing CTA, and call now link"
     },
     {
-      "componentId": "features-grid",
-      "purpose": "heating, cooling, IAQ, smart thermostats"
+      "componentId": "hero-with-image",
+      "purpose": "climate control promise and financing CTA"
     },
     {
       "componentId": "stats-showcase",
       "purpose": "energy savings, response windows, brands"
     },
     {
-      "componentId": "process-timeline",
-      "purpose": "diagnose → options → install/repair → maintain"
+      "componentId": "trust-badges",
+      "purpose": "EPA/NATE badges, warranty guarantees, emergency coverage"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "heating, cooling, IAQ, smart thermostats"
     },
     {
       "componentId": "pricing-table",
       "purpose": "maintenance plans and memberships"
     },
     {
-      "componentId": "testimonials-cards",
-      "purpose": "comfort outcomes and before/after"
+      "componentId": "process-timeline",
+      "purpose": "diagnose → options → install/repair → maintain"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "crew in action, installs, duct cleaning"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "service area map, dispatch hours, emergency hotline"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "HVAC seasonal prep checklist opt-in"
     },
     {
       "componentId": "faq-accordion",
@@ -48,6 +64,14 @@
     {
       "componentId": "contact-form",
       "purpose": "schedule visit or join plan"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "call now and schedule tune-up buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "service areas, certifications, social/legal"
     }
   ]
 }

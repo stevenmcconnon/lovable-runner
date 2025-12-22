@@ -18,6 +18,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Personal Trainer"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "transformation hero with booking CTA"
     },
@@ -42,16 +46,32 @@
       "purpose": "client outcomes"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Personal Trainer service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "scheduling, nutrition, remote options"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Personal Trainer"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book consult"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Personal Trainer certifications, guarantees, and associations"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Personal Trainer"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Personal Trainer footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "schedule-picker",
-    "program-grid"
   ]
 }

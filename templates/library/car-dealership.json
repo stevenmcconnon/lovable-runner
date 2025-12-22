@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "sticky nav with inventory filters, trade-in CTA, and contact"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "featured models and financing CTA"
     },
@@ -25,12 +29,32 @@
       "purpose": "inventory count, delivery times, ratings"
     },
     {
+      "componentId": "trust-badges",
+      "purpose": "OEM certifications, warranty partners, customer care"
+    },
+    {
+      "componentId": "inventory-list",
+      "purpose": "featured vehicles with price, mileage, CTA"
+    },
+    {
       "componentId": "features-grid",
       "purpose": "top trims or selling points"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "trade-in or payment calculator opt-in"
+    },
+    {
       "componentId": "gallery-carousel",
       "purpose": "hero vehicles and lifestyle shots"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "showroom + service hours, map, contact"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "walkthroughs of featured models"
     },
     {
       "componentId": "testimonials-cards",
@@ -43,11 +67,14 @@
     {
       "componentId": "contact-form",
       "purpose": "schedule test drive or call back"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "call now, schedule test drive, and apply buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "inventory links, financing disclosures, social/legal"
     }
-  ],
-  "needsComponents": [
-    "inventory-grid",
-    "trade-in-estimator",
-    "payment-calculator"
   ]
 }

@@ -16,6 +16,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Law Firm"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "authority hero with consultation CTA"
     },
@@ -26,6 +30,10 @@
     {
       "componentId": "stats-showcase",
       "purpose": "case results, years, bar admissions"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Law Firm certifications, guarantees, and associations"
     },
     {
       "componentId": "process-timeline",
@@ -40,12 +48,20 @@
       "purpose": "fees, timelines, confidentiality"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Law Firm"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "case evaluation form"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Law Firm"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Law Firm footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "attorney-bios",
-    "case-result-cards"
   ]
 }

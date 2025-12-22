@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Wedding Photographer"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "story-led hero with consult CTA"
     },
@@ -37,16 +41,40 @@
       "purpose": "inquire → plan → shoot → deliver"
     },
     {
+      "componentId": "video-spotlight",
+      "purpose": "Video walkthroughs and spotlights from Wedding Photographer"
+    },
+    {
       "componentId": "testimonials-cards",
       "purpose": "couple stories"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "Wedding Photographer service map and operating hours"
     },
     {
       "componentId": "faq-accordion",
       "purpose": "turnaround, travel, rights"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Wedding Photographer"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "inquiry form"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Wedding Photographer certifications, guarantees, and associations"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Wedding Photographer"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Wedding Photographer footer with contact columns, social, and legal links"
     }
   ]
 }

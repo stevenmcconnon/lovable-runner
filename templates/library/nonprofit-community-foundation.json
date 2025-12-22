@@ -1,0 +1,81 @@
+{
+  "id": "nonprofit-community-foundation",
+  "name": "Community Impact Foundation",
+  "vertical": "nonprofit",
+  "subcategory": "foundation",
+  "useCases": [
+    "grant making",
+    "fundraising campaigns",
+    "volunteer mobilization"
+  ],
+  "tone": "mission-driven, transparent",
+  "vibe": "uplifting",
+  "tags": [
+    "grants",
+    "donations",
+    "impact",
+    "events"
+  ],
+  "sections": [
+    {
+      "componentId": "site-navigation",
+      "purpose": "Donation-forward nav with quick volunteer + programs links"
+    },
+    {
+      "componentId": "hero-with-image",
+      "purpose": "Impact statement hero featuring latest campaign CTA"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "Impact KPIs like funds distributed and beneficiaries"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "Program pillars with links to grant guidelines"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Charity ratings, audited financials, DEI commitments"
+    },
+    {
+      "componentId": "gallery-carousel",
+      "purpose": "Events and on-the-ground storytelling"
+    },
+    {
+      "componentId": "case-studies",
+      "purpose": "Spotlight grantees and their measurable impact"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "Executive director update and donor testimonials"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "Community hub location, drop-in hours, mailing info"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable annual impact report preview"
+    },
+    {
+      "componentId": "inventory-list",
+      "purpose": "Upcoming events and volunteer shifts with capacity"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "Grant eligibility, donation receipts, corporate matching"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "General inquiries plus media/grant interest checkboxes"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Donate now + join newsletter persistent actions"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Financials, staff board, job postings, privacy, terms"
+    }
+  ]
+}

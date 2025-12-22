@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Video Production Studio"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "impact hero with reel CTA"
     },
@@ -33,20 +37,40 @@
       "purpose": "views, lift, turnaround"
     },
     {
+      "componentId": "trust-badges",
+      "purpose": "Video Production Studio certifications, guarantees, and associations"
+    },
+    {
       "componentId": "process-timeline",
       "purpose": "discover → script → shoot → edit"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "Video walkthroughs and spotlights from Video Production Studio"
     },
     {
       "componentId": "testimonials-cards",
       "purpose": "client outcomes"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Video Production Studio"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "project brief intake"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "Video Production Studio service map and operating hours"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Video Production Studio"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Video Production Studio footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "video-embed-grid",
-    "case-study-cards"
   ]
 }

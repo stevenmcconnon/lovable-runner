@@ -17,12 +17,20 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Mortgage & Lending"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "rate-focused hero with pre-approval CTA"
     },
     {
       "componentId": "stats-showcase",
       "purpose": "avg close time, lenders, satisfaction"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Mortgage & Lending certifications, guarantees, and associations"
     },
     {
       "componentId": "features-grid",
@@ -41,12 +49,20 @@
       "purpose": "rates, docs, timelines"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Mortgage & Lending"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "start application"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Mortgage & Lending"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Mortgage & Lending footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "rate-table",
-    "payment-calculator"
   ]
 }

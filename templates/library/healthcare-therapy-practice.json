@@ -1,0 +1,77 @@
+{
+  "id": "healthcare-therapy-practice",
+  "name": "Therapy Collective",
+  "vertical": "healthcare",
+  "subcategory": "therapy",
+  "useCases": [
+    "group practice",
+    "virtual therapy",
+    "specialty programs"
+  ],
+  "tone": "warm, reassuring",
+  "vibe": "calm",
+  "tags": [
+    "mental-health",
+    "telehealth",
+    "group-practice",
+    "insurance"
+  ],
+  "sections": [
+    {
+      "componentId": "site-navigation",
+      "purpose": "Navigation with crisis hotline ribbon and patient portal links"
+    },
+    {
+      "componentId": "hero-with-image",
+      "purpose": "Inclusive hero promoting in-person and virtual care"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Credentials, insurance networks, telehealth compliant tech"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "Service areas: individual therapy, couples, teens, group programs"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "Founder welcome video and therapy room walkthrough"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "Intake → matching → first session → ongoing care"
+    },
+    {
+      "componentId": "team-grid",
+      "purpose": "Clinician bios with modalities, languages, and specialties"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "Multiple locations with embedded map and telehealth hours"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "Insurance, privacy, telehealth requirements, cancellation policy"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide to preparing for first therapy session"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "Anonymous success stories focusing on outcomes"
+    },
+    {
+      "componentId": "booking-widget",
+      "purpose": "Match with a therapist request including modality filters"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Persistent request appointment and call line"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Resources, crisis lines, legal, accessibility statement"
+    }
+  ]
+}

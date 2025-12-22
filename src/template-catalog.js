@@ -6,6 +6,7 @@ const fetch = global.fetch;
 const templateRoot = path.join(__dirname, '..', 'templates');
 const manifestPath = path.join(templateRoot, 'template-library.json');
 const presetsPath = path.join(templateRoot, 'template-copy-presets.json');
+const palettesPath = path.join(templateRoot, 'template-palettes.json');
 const libraryDir = path.join(templateRoot, 'library');
 
 const catalogConfig = {
@@ -17,6 +18,7 @@ const CACHE_TTL_MS = Number(process.env.TEMPLATE_LIBRARY_CACHE_MS || 5 * 60 * 10
 
 let manifestCache = { data: null, fetchedAt: 0 };
 let presetsCache = { data: null, fetchedAt: 0 };
+let palettesCache = { data: null, fetchedAt: 0 };
 const specCache = new Map();
 
 const readJsonFile = (filePath) => {
@@ -77,6 +79,20 @@ const getTemplatePresets = async () => {
   return presets;
 };
 
+const getTemplatePalettes = async () => {
+  if (palettesCache.data && Date.now() - palettesCache.fetchedAt < CACHE_TTL_MS) {
+    return palettesCache.data;
+  }
+  let palettes = await fetchJson('/templates/palettes');
+  if (!palettes) {
+    palettes = readJsonFile(palettesPath);
+  }
+  if (palettes) {
+    palettesCache = { data: palettes, fetchedAt: Date.now() };
+  }
+  return palettes;
+};
+
 const getTemplateSpec = async (templateId) => {
   const cached = specCache.get(templateId);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
@@ -120,4 +136,5 @@ module.exports = {
   getTemplateManifest: getManifest,
   getTemplateSpec,
   getTemplatePresets,
+  getTemplatePalettes,
 };

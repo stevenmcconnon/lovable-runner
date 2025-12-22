@@ -1,0 +1,81 @@
+{
+  "id": "home-services-electrician-smart-home",
+  "name": "Smart Home Electrician",
+  "vertical": "home-services",
+  "subcategory": "electrician",
+  "useCases": [
+    "smart home planning",
+    "device installation",
+    "energy automation management"
+  ],
+  "tone": "innovative, practical",
+  "vibe": "tech",
+  "tags": [
+    "smart-home",
+    "automation",
+    "energy",
+    "consulting"
+  ],
+  "sections": [
+    {
+      "componentId": "site-navigation",
+      "purpose": "Sticky nav with CTA for automation assessment and quick chat"
+    },
+    {
+      "componentId": "hero-with-image",
+      "purpose": "Connected home hero highlighting whole-home automation upgrades"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "Short walkthrough of smart home installs and client testimonials"
+    },
+    {
+      "componentId": "features-grid",
+      "purpose": "Services like lighting scenes, EV charger setup, security integrations"
+    },
+    {
+      "componentId": "stats-showcase",
+      "purpose": "Devices installed, automation uptime, energy savings delivered"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Certified installers with manufacturer partnerships and safety credentials"
+    },
+    {
+      "componentId": "process-timeline",
+      "purpose": "Discovery → design map → install → optimization support"
+    },
+    {
+      "componentId": "inventory-list",
+      "purpose": "Menu of supported devices/brands with compatibility notes"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "Service radius plus on-site consultation hours"
+    },
+    {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable smart home planning checklist with wiring tips"
+    },
+    {
+      "componentId": "testimonials-cards",
+      "purpose": "Homeowners describing automation improvements"
+    },
+    {
+      "componentId": "faq-accordion",
+      "purpose": "Covers networking requirements, warranties, support tiers"
+    },
+    {
+      "componentId": "contact-form",
+      "purpose": "Request an in-home assessment with room-by-room checklist"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Persistent book consultation and call buttons"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Partner logos, knowledge base, legal, newsletter signup"
+    }
+  ]
+}

@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Barber Shop"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "classic hero with walk-in/booking CTA"
     },
@@ -37,15 +41,32 @@
       "purpose": "regulars and neighborhood proof"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Barber Shop service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "appointments, payments, parking"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Barber Shop"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "book or ask a question"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Barber Shop certifications, guarantees, and associations"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Barber Shop"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Barber Shop footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "booking-widget"
   ]
 }

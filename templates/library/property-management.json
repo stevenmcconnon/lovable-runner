@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Property Management"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "owner outcomes and NOI focus"
     },
@@ -25,8 +29,16 @@
       "purpose": "leasing, maintenance, accounting, reporting"
     },
     {
+      "componentId": "inventory-list",
+      "purpose": "Featured listings, vehicles, or specials from Property Management"
+    },
+    {
       "componentId": "stats-showcase",
       "purpose": "occupancy, response SLA, markets"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "Property Management certifications, guarantees, and associations"
     },
     {
       "componentId": "process-timeline",
@@ -37,12 +49,28 @@
       "purpose": "owner quotes and retention"
     },
     {
+      "componentId": "hours-location",
+      "purpose": "Property Management service map and operating hours"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "fees, coverage, tech stack"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Property Management"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "owner intake form"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Property Management"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Property Management footer with contact columns, social, and legal links"
     }
   ]
 }

@@ -18,12 +18,20 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "sticky top nav with emergency phone CTA and anchor links"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "24/7 emergency CTA with phone and badge"
     },
     {
       "componentId": "stats-showcase",
       "purpose": "response time, jobs completed, warranties"
+    },
+    {
+      "componentId": "trust-badges",
+      "purpose": "licensing, background checks, insurance guarantees"
     },
     {
       "componentId": "features-grid",
@@ -38,12 +46,32 @@
       "purpose": "local proof and neighborhoods served"
     },
     {
+      "componentId": "gallery-carousel",
+      "purpose": "before/after pipe repairs and crew at work"
+    },
+    {
+      "componentId": "hours-location",
+      "purpose": "service area map, shop hours, parking"
+    },
+    {
       "componentId": "faq-accordion",
       "purpose": "pricing, licensing, availability"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "downloadable maintenance checklist for leak prevention"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "request service form with emergency note"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "always-on phone + book now buttons during scroll"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "service areas, licenses, social, and privacy links"
     }
   ]
 }

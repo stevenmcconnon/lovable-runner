@@ -17,6 +17,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for Accounting & Bookkeeping"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "profit and compliance hero with CTA"
     },
@@ -33,6 +37,10 @@
       "purpose": "accuracy, savings, response SLAs"
     },
     {
+      "componentId": "trust-badges",
+      "purpose": "Accounting & Bookkeeping certifications, guarantees, and associations"
+    },
+    {
       "componentId": "pricing-table",
       "purpose": "starter, growth, CFO tiers"
     },
@@ -41,8 +49,20 @@
       "purpose": "industry-specific proof"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from Accounting & Bookkeeping"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "schedule consult"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact Accounting & Bookkeeping"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "Accounting & Bookkeeping footer with contact columns, social, and legal links"
     }
   ]
 }

@@ -1,0 +1,1996 @@
+{
+  "version": "2024-11-xx",
+  "count": 75,
+  "palettes": [
+    {
+      "id": "tech-electric-azure",
+      "label": "Tech Pulse Electric Azure",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#f5f7ff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#334155",
+      "accent": "#38bdf8",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#04111f",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "tech",
+        "saas",
+        "modern"
+      ],
+      "industries": [
+        "software",
+        "agency",
+        "services"
+      ]
+    },
+    {
+      "id": "tech-violet-drive",
+      "label": "Tech Pulse Violet Drive",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#f5f7ff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#334155",
+      "accent": "#a855f7",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#04111f",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "tech",
+        "saas",
+        "modern"
+      ],
+      "industries": [
+        "software",
+        "agency",
+        "services"
+      ]
+    },
+    {
+      "id": "tech-cyber-mint",
+      "label": "Tech Pulse Cyber Mint",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#f5f7ff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#334155",
+      "accent": "#2dd4bf",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#04111f",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "tech",
+        "saas",
+        "modern"
+      ],
+      "industries": [
+        "software",
+        "agency",
+        "services"
+      ]
+    },
+    {
+      "id": "tech-signal-orange",
+      "label": "Tech Pulse Signal Orange",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#f5f7ff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#334155",
+      "accent": "#fb923c",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#04111f",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "tech",
+        "saas",
+        "modern"
+      ],
+      "industries": [
+        "software",
+        "agency",
+        "services"
+      ]
+    },
+    {
+      "id": "tech-neon-lime",
+      "label": "Tech Pulse Neon Lime",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#f5f7ff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#334155",
+      "accent": "#a3e635",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#04111f",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "tech",
+        "saas",
+        "modern"
+      ],
+      "industries": [
+        "software",
+        "agency",
+        "services"
+      ]
+    },
+    {
+      "id": "luxury-antique-gold",
+      "label": "Luxury Atelier Antique Gold",
+      "primary": "#111827",
+      "secondary": "#1f2937",
+      "background": "#fdf8f5",
+      "surface": "#ffffff",
+      "text": "#1b1b1b",
+      "muted": "#4b5563",
+      "accent": "#d4af37",
+      "onPrimary": "#fdf6ec",
+      "onAccent": "#120b05",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "lora"
+      ],
+      "vibes": [
+        "luxury",
+        "boutique"
+      ],
+      "industries": [
+        "beauty",
+        "medical",
+        "hospitality"
+      ]
+    },
+    {
+      "id": "luxury-velvet-mauve",
+      "label": "Luxury Atelier Velvet Mauve",
+      "primary": "#111827",
+      "secondary": "#1f2937",
+      "background": "#fdf8f5",
+      "surface": "#ffffff",
+      "text": "#1b1b1b",
+      "muted": "#4b5563",
+      "accent": "#b981f8",
+      "onPrimary": "#fdf6ec",
+      "onAccent": "#120b05",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "lora"
+      ],
+      "vibes": [
+        "luxury",
+        "boutique"
+      ],
+      "industries": [
+        "beauty",
+        "medical",
+        "hospitality"
+      ]
+    },
+    {
+      "id": "luxury-ruby-aperture",
+      "label": "Luxury Atelier Ruby Aperture",
+      "primary": "#111827",
+      "secondary": "#1f2937",
+      "background": "#fdf8f5",
+      "surface": "#ffffff",
+      "text": "#1b1b1b",
+      "muted": "#4b5563",
+      "accent": "#c2410c",
+      "onPrimary": "#fdf6ec",
+      "onAccent": "#120b05",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "lora"
+      ],
+      "vibes": [
+        "luxury",
+        "boutique"
+      ],
+      "industries": [
+        "beauty",
+        "medical",
+        "hospitality"
+      ]
+    },
+    {
+      "id": "luxury-emerald-veil",
+      "label": "Luxury Atelier Emerald Veil",
+      "primary": "#111827",
+      "secondary": "#1f2937",
+      "background": "#fdf8f5",
+      "surface": "#ffffff",
+      "text": "#1b1b1b",
+      "muted": "#4b5563",
+      "accent": "#0f766e",
+      "onPrimary": "#fdf6ec",
+      "onAccent": "#120b05",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "lora"
+      ],
+      "vibes": [
+        "luxury",
+        "boutique"
+      ],
+      "industries": [
+        "beauty",
+        "medical",
+        "hospitality"
+      ]
+    },
+    {
+      "id": "earthy-moss",
+      "label": "Earthy Heritage Moss",
+      "primary": "#1f2937",
+      "secondary": "#142031",
+      "background": "#f4f1ea",
+      "surface": "#ffffff",
+      "text": "#17212f",
+      "muted": "#475569",
+      "accent": "#4d7c0f",
+      "onPrimary": "#fdfaf5",
+      "onAccent": "#0b1106",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "earthy",
+        "organic"
+      ],
+      "industries": [
+        "home-services",
+        "landscaping",
+        "construction"
+      ]
+    },
+    {
+      "id": "earthy-copper",
+      "label": "Earthy Heritage Copper",
+      "primary": "#1f2937",
+      "secondary": "#142031",
+      "background": "#f4f1ea",
+      "surface": "#ffffff",
+      "text": "#17212f",
+      "muted": "#475569",
+      "accent": "#b45309",
+      "onPrimary": "#fdfaf5",
+      "onAccent": "#0b1106",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "earthy",
+        "organic"
+      ],
+      "industries": [
+        "home-services",
+        "landscaping",
+        "construction"
+      ]
+    },
+    {
+      "id": "earthy-sage",
+      "label": "Earthy Heritage Sage",
+      "primary": "#1f2937",
+      "secondary": "#142031",
+      "background": "#f4f1ea",
+      "surface": "#ffffff",
+      "text": "#17212f",
+      "muted": "#475569",
+      "accent": "#a3b18a",
+      "onPrimary": "#fdfaf5",
+      "onAccent": "#0b1106",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "earthy",
+        "organic"
+      ],
+      "industries": [
+        "home-services",
+        "landscaping",
+        "construction"
+      ]
+    },
+    {
+      "id": "earthy-pine",
+      "label": "Earthy Heritage Pine",
+      "primary": "#1f2937",
+      "secondary": "#142031",
+      "background": "#f4f1ea",
+      "surface": "#ffffff",
+      "text": "#17212f",
+      "muted": "#475569",
+      "accent": "#065f46",
+      "onPrimary": "#fdfaf5",
+      "onAccent": "#0b1106",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "earthy",
+        "organic"
+      ],
+      "industries": [
+        "home-services",
+        "landscaping",
+        "construction"
+      ]
+    },
+    {
+      "id": "playful-citrus",
+      "label": "Playful Bloom Citrus",
+      "primary": "#1d1b84",
+      "secondary": "#312e81",
+      "background": "#fff7ed",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#4c1d95",
+      "accent": "#fb923c",
+      "onPrimary": "#fdf7ff",
+      "onAccent": "#12040f",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "poppins",
+        "inter"
+      ],
+      "vibes": [
+        "playful",
+        "vibrant"
+      ],
+      "industries": [
+        "creative",
+        "events",
+        "hospitality"
+      ]
+    },
+    {
+      "id": "playful-bubblegum",
+      "label": "Playful Bloom Bubblegum",
+      "primary": "#1d1b84",
+      "secondary": "#312e81",
+      "background": "#fff7ed",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#4c1d95",
+      "accent": "#f472b6",
+      "onPrimary": "#fdf7ff",
+      "onAccent": "#12040f",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "poppins",
+        "inter"
+      ],
+      "vibes": [
+        "playful",
+        "vibrant"
+      ],
+      "industries": [
+        "creative",
+        "events",
+        "hospitality"
+      ]
+    },
+    {
+      "id": "playful-aqua",
+      "label": "Playful Bloom Aqua",
+      "primary": "#1d1b84",
+      "secondary": "#312e81",
+      "background": "#fff7ed",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#4c1d95",
+      "accent": "#2dd4bf",
+      "onPrimary": "#fdf7ff",
+      "onAccent": "#12040f",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "poppins",
+        "inter"
+      ],
+      "vibes": [
+        "playful",
+        "vibrant"
+      ],
+      "industries": [
+        "creative",
+        "events",
+        "hospitality"
+      ]
+    },
+    {
+      "id": "playful-lilac",
+      "label": "Playful Bloom Lilac",
+      "primary": "#1d1b84",
+      "secondary": "#312e81",
+      "background": "#fff7ed",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#4c1d95",
+      "accent": "#c084fc",
+      "onPrimary": "#fdf7ff",
+      "onAccent": "#12040f",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "poppins",
+        "inter"
+      ],
+      "vibes": [
+        "playful",
+        "vibrant"
+      ],
+      "industries": [
+        "creative",
+        "events",
+        "hospitality"
+      ]
+    },
+    {
+      "id": "industrial-amber-signal",
+      "label": "Industrial Grid Amber Signal",
+      "primary": "#111827",
+      "secondary": "#1f2937",
+      "background": "#f5f5f4",
+      "surface": "#ffffff",
+      "text": "#111827",
+      "muted": "#44403c",
+      "accent": "#f59e0b",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#070d13",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "industrial",
+        "b2b"
+      ],
+      "industries": [
+        "construction",
+        "logistics",
+        "manufacturing"
+      ]
+    },
+    {
+      "id": "industrial-safety-green",
+      "label": "Industrial Grid Safety Green",
+      "primary": "#111827",
+      "secondary": "#1f2937",
+      "background": "#f5f5f4",
+      "surface": "#ffffff",
+      "text": "#111827",
+      "muted": "#44403c",
+      "accent": "#a3e635",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#070d13",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "industrial",
+        "b2b"
+      ],
+      "industries": [
+        "construction",
+        "logistics",
+        "manufacturing"
+      ]
+    },
+    {
+      "id": "industrial-steel-blue",
+      "label": "Industrial Grid Steel Blue",
+      "primary": "#111827",
+      "secondary": "#1f2937",
+      "background": "#f5f5f4",
+      "surface": "#ffffff",
+      "text": "#111827",
+      "muted": "#44403c",
+      "accent": "#3b82f6",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#070d13",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "industrial",
+        "b2b"
+      ],
+      "industries": [
+        "construction",
+        "logistics",
+        "manufacturing"
+      ]
+    },
+    {
+      "id": "industrial-torch-red",
+      "label": "Industrial Grid Torch Red",
+      "primary": "#111827",
+      "secondary": "#1f2937",
+      "background": "#f5f5f4",
+      "surface": "#ffffff",
+      "text": "#111827",
+      "muted": "#44403c",
+      "accent": "#f87171",
+      "onPrimary": "#f8fafc",
+      "onAccent": "#070d13",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "industrial",
+        "b2b"
+      ],
+      "industries": [
+        "construction",
+        "logistics",
+        "manufacturing"
+      ]
+    },
+    {
+      "id": "wellness-teal-mist",
+      "label": "Wellness Light Teal Mist",
+      "primary": "#134e4a",
+      "secondary": "#115e59",
+      "background": "#f7fdfa",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c43",
+      "accent": "#2dd4bf",
+      "onPrimary": "#e2f5f0",
+      "onAccent": "#011310",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "wellness",
+        "calm"
+      ],
+      "industries": [
+        "healthcare",
+        "fitness",
+        "wellness"
+      ]
+    },
+    {
+      "id": "wellness-sage-haze",
+      "label": "Wellness Light Sage Haze",
+      "primary": "#134e4a",
+      "secondary": "#115e59",
+      "background": "#f7fdfa",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c43",
+      "accent": "#a7f3d0",
+      "onPrimary": "#e2f5f0",
+      "onAccent": "#011310",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "wellness",
+        "calm"
+      ],
+      "industries": [
+        "healthcare",
+        "fitness",
+        "wellness"
+      ]
+    },
+    {
+      "id": "wellness-lavender-breeze",
+      "label": "Wellness Light Lavender Breeze",
+      "primary": "#134e4a",
+      "secondary": "#115e59",
+      "background": "#f7fdfa",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c43",
+      "accent": "#c4b5fd",
+      "onPrimary": "#e2f5f0",
+      "onAccent": "#011310",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "wellness",
+        "calm"
+      ],
+      "industries": [
+        "healthcare",
+        "fitness",
+        "wellness"
+      ]
+    },
+    {
+      "id": "wellness-coral-tranquil",
+      "label": "Wellness Light Coral Tranquil",
+      "primary": "#134e4a",
+      "secondary": "#115e59",
+      "background": "#f7fdfa",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c43",
+      "accent": "#fb7185",
+      "onPrimary": "#e2f5f0",
+      "onAccent": "#011310",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "wellness",
+        "calm"
+      ],
+      "industries": [
+        "healthcare",
+        "fitness",
+        "wellness"
+      ]
+    },
+    {
+      "id": "wellness-sunrise",
+      "label": "Wellness Light Sunrise",
+      "primary": "#134e4a",
+      "secondary": "#115e59",
+      "background": "#f7fdfa",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c43",
+      "accent": "#fcd34d",
+      "onPrimary": "#e2f5f0",
+      "onAccent": "#011310",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "wellness",
+        "calm"
+      ],
+      "industries": [
+        "healthcare",
+        "fitness",
+        "wellness"
+      ]
+    },
+    {
+      "id": "legal-royal-gold",
+      "label": "Legal Authority Royal Gold",
+      "primary": "#101828",
+      "secondary": "#1c2742",
+      "background": "#f6f6fb",
+      "surface": "#ffffff",
+      "text": "#0c1423",
+      "muted": "#4c5673",
+      "accent": "#d6b25e",
+      "onPrimary": "#f7f7fe",
+      "onAccent": "#0b1221",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "playfair-display",
+        "inter"
+      ],
+      "vibes": [
+        "professional",
+        "rigorous"
+      ],
+      "industries": [
+        "legal",
+        "consulting"
+      ]
+    },
+    {
+      "id": "legal-oxblood",
+      "label": "Legal Authority Oxblood",
+      "primary": "#101828",
+      "secondary": "#1c2742",
+      "background": "#f6f6fb",
+      "surface": "#ffffff",
+      "text": "#0c1423",
+      "muted": "#4c5673",
+      "accent": "#8b1c13",
+      "onPrimary": "#f7f7fe",
+      "onAccent": "#0b1221",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "playfair-display",
+        "inter"
+      ],
+      "vibes": [
+        "professional",
+        "rigorous"
+      ],
+      "industries": [
+        "legal",
+        "consulting"
+      ]
+    },
+    {
+      "id": "legal-navy-sky",
+      "label": "Legal Authority Navy Sky",
+      "primary": "#101828",
+      "secondary": "#1c2742",
+      "background": "#f6f6fb",
+      "surface": "#ffffff",
+      "text": "#0c1423",
+      "muted": "#4c5673",
+      "accent": "#1d4ed8",
+      "onPrimary": "#f7f7fe",
+      "onAccent": "#0b1221",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "playfair-display",
+        "inter"
+      ],
+      "vibes": [
+        "professional",
+        "rigorous"
+      ],
+      "industries": [
+        "legal",
+        "consulting"
+      ]
+    },
+    {
+      "id": "legal-forest-bronze",
+      "label": "Legal Authority Forest Bronze",
+      "primary": "#101828",
+      "secondary": "#1c2742",
+      "background": "#f6f6fb",
+      "surface": "#ffffff",
+      "text": "#0c1423",
+      "muted": "#4c5673",
+      "accent": "#365314",
+      "onPrimary": "#f7f7fe",
+      "onAccent": "#0b1221",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "playfair-display",
+        "inter"
+      ],
+      "vibes": [
+        "professional",
+        "rigorous"
+      ],
+      "industries": [
+        "legal",
+        "consulting"
+      ]
+    },
+    {
+      "id": "finance-aqua-mint",
+      "label": "Finance Clarity Aqua Mint",
+      "primary": "#082f49",
+      "secondary": "#0f4c75",
+      "background": "#f2fbff",
+      "surface": "#ffffff",
+      "text": "#04202e",
+      "muted": "#164863",
+      "accent": "#2dd4bf",
+      "onPrimary": "#e9f6ff",
+      "onAccent": "#02121c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "finance",
+        "trust"
+      ],
+      "industries": [
+        "finance",
+        "insurance"
+      ]
+    },
+    {
+      "id": "finance-cobalt-line",
+      "label": "Finance Clarity Cobalt Line",
+      "primary": "#082f49",
+      "secondary": "#0f4c75",
+      "background": "#f2fbff",
+      "surface": "#ffffff",
+      "text": "#04202e",
+      "muted": "#164863",
+      "accent": "#2563eb",
+      "onPrimary": "#e9f6ff",
+      "onAccent": "#02121c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "finance",
+        "trust"
+      ],
+      "industries": [
+        "finance",
+        "insurance"
+      ]
+    },
+    {
+      "id": "finance-amber-ledger",
+      "label": "Finance Clarity Amber Ledger",
+      "primary": "#082f49",
+      "secondary": "#0f4c75",
+      "background": "#f2fbff",
+      "surface": "#ffffff",
+      "text": "#04202e",
+      "muted": "#164863",
+      "accent": "#fbbf24",
+      "onPrimary": "#e9f6ff",
+      "onAccent": "#02121c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "finance",
+        "trust"
+      ],
+      "industries": [
+        "finance",
+        "insurance"
+      ]
+    },
+    {
+      "id": "finance-emerald-portfolio",
+      "label": "Finance Clarity Emerald Portfolio",
+      "primary": "#082f49",
+      "secondary": "#0f4c75",
+      "background": "#f2fbff",
+      "surface": "#ffffff",
+      "text": "#04202e",
+      "muted": "#164863",
+      "accent": "#16a34a",
+      "onPrimary": "#e9f6ff",
+      "onAccent": "#02121c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "finance",
+        "trust"
+      ],
+      "industries": [
+        "finance",
+        "insurance"
+      ]
+    },
+    {
+      "id": "automotive-signal-red",
+      "label": "Automotive Apex Signal Red",
+      "primary": "#0b0f19",
+      "secondary": "#1c1f2a",
+      "background": "#f5f5f5",
+      "surface": "#ffffff",
+      "text": "#111111",
+      "muted": "#4b4b4b",
+      "accent": "#ef4444",
+      "onPrimary": "#f2f2f2",
+      "onAccent": "#050505",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "automotive",
+        "bold"
+      ],
+      "industries": [
+        "automotive",
+        "transport"
+      ]
+    },
+    {
+      "id": "automotive-speed-orange",
+      "label": "Automotive Apex Speed Orange",
+      "primary": "#0b0f19",
+      "secondary": "#1c1f2a",
+      "background": "#f5f5f5",
+      "surface": "#ffffff",
+      "text": "#111111",
+      "muted": "#4b4b4b",
+      "accent": "#fb923c",
+      "onPrimary": "#f2f2f2",
+      "onAccent": "#050505",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "automotive",
+        "bold"
+      ],
+      "industries": [
+        "automotive",
+        "transport"
+      ]
+    },
+    {
+      "id": "automotive-turbo-cyan",
+      "label": "Automotive Apex Turbo Cyan",
+      "primary": "#0b0f19",
+      "secondary": "#1c1f2a",
+      "background": "#f5f5f5",
+      "surface": "#ffffff",
+      "text": "#111111",
+      "muted": "#4b4b4b",
+      "accent": "#06b6d4",
+      "onPrimary": "#f2f2f2",
+      "onAccent": "#050505",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "automotive",
+        "bold"
+      ],
+      "industries": [
+        "automotive",
+        "transport"
+      ]
+    },
+    {
+      "id": "automotive-lime-track",
+      "label": "Automotive Apex Lime Track",
+      "primary": "#0b0f19",
+      "secondary": "#1c1f2a",
+      "background": "#f5f5f5",
+      "surface": "#ffffff",
+      "text": "#111111",
+      "muted": "#4b4b4b",
+      "accent": "#84cc16",
+      "onPrimary": "#f2f2f2",
+      "onAccent": "#050505",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "automotive",
+        "bold"
+      ],
+      "industries": [
+        "automotive",
+        "transport"
+      ]
+    },
+    {
+      "id": "automotive-steel-blue",
+      "label": "Automotive Apex Steel Blue",
+      "primary": "#0b0f19",
+      "secondary": "#1c1f2a",
+      "background": "#f5f5f5",
+      "surface": "#ffffff",
+      "text": "#111111",
+      "muted": "#4b4b4b",
+      "accent": "#3b82f6",
+      "onPrimary": "#f2f2f2",
+      "onAccent": "#050505",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "automotive",
+        "bold"
+      ],
+      "industries": [
+        "automotive",
+        "transport"
+      ]
+    },
+    {
+      "id": "hospitality-rose-gold",
+      "label": "Hospitality Glow Rose Gold",
+      "primary": "#291334",
+      "secondary": "#3b1d4f",
+      "background": "#fffaf2",
+      "surface": "#ffffff",
+      "text": "#241126",
+      "muted": "#5b325f",
+      "accent": "#f472b6",
+      "onPrimary": "#fef6fb",
+      "onAccent": "#150711",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "inter"
+      ],
+      "vibes": [
+        "warm",
+        "hospitality"
+      ],
+      "industries": [
+        "hospitality",
+        "events"
+      ]
+    },
+    {
+      "id": "hospitality-peach-burst",
+      "label": "Hospitality Glow Peach Burst",
+      "primary": "#291334",
+      "secondary": "#3b1d4f",
+      "background": "#fffaf2",
+      "surface": "#ffffff",
+      "text": "#241126",
+      "muted": "#5b325f",
+      "accent": "#fb7185",
+      "onPrimary": "#fef6fb",
+      "onAccent": "#150711",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "inter"
+      ],
+      "vibes": [
+        "warm",
+        "hospitality"
+      ],
+      "industries": [
+        "hospitality",
+        "events"
+      ]
+    },
+    {
+      "id": "hospitality-copper-spark",
+      "label": "Hospitality Glow Copper Spark",
+      "primary": "#291334",
+      "secondary": "#3b1d4f",
+      "background": "#fffaf2",
+      "surface": "#ffffff",
+      "text": "#241126",
+      "muted": "#5b325f",
+      "accent": "#f59e0b",
+      "onPrimary": "#fef6fb",
+      "onAccent": "#150711",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "inter"
+      ],
+      "vibes": [
+        "warm",
+        "hospitality"
+      ],
+      "industries": [
+        "hospitality",
+        "events"
+      ]
+    },
+    {
+      "id": "hospitality-champagne",
+      "label": "Hospitality Glow Champagne",
+      "primary": "#291334",
+      "secondary": "#3b1d4f",
+      "background": "#fffaf2",
+      "surface": "#ffffff",
+      "text": "#241126",
+      "muted": "#5b325f",
+      "accent": "#fcd34d",
+      "onPrimary": "#fef6fb",
+      "onAccent": "#150711",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "inter"
+      ],
+      "vibes": [
+        "warm",
+        "hospitality"
+      ],
+      "industries": [
+        "hospitality",
+        "events"
+      ]
+    },
+    {
+      "id": "creative-magenta-flare",
+      "label": "Creative Neon Magenta Flare",
+      "primary": "#050315",
+      "secondary": "#120a3a",
+      "background": "#fdf7ff",
+      "surface": "#ffffff",
+      "text": "#0f0b2d",
+      "muted": "#4b30a4",
+      "accent": "#ec4899",
+      "onPrimary": "#f4f0ff",
+      "onAccent": "#050108",
+      "styleProfile": "full-bleed",
+      "fonts": [
+        "space-grotesk",
+        "poppins"
+      ],
+      "vibes": [
+        "creative",
+        "bold"
+      ],
+      "industries": [
+        "creative",
+        "content",
+        "startups"
+      ]
+    },
+    {
+      "id": "creative-electric-purple",
+      "label": "Creative Neon Electric Purple",
+      "primary": "#050315",
+      "secondary": "#120a3a",
+      "background": "#fdf7ff",
+      "surface": "#ffffff",
+      "text": "#0f0b2d",
+      "muted": "#4b30a4",
+      "accent": "#a855f7",
+      "onPrimary": "#f4f0ff",
+      "onAccent": "#050108",
+      "styleProfile": "full-bleed",
+      "fonts": [
+        "space-grotesk",
+        "poppins"
+      ],
+      "vibes": [
+        "creative",
+        "bold"
+      ],
+      "industries": [
+        "creative",
+        "content",
+        "startups"
+      ]
+    },
+    {
+      "id": "creative-laser-blue",
+      "label": "Creative Neon Laser Blue",
+      "primary": "#050315",
+      "secondary": "#120a3a",
+      "background": "#fdf7ff",
+      "surface": "#ffffff",
+      "text": "#0f0b2d",
+      "muted": "#4b30a4",
+      "accent": "#38bdf8",
+      "onPrimary": "#f4f0ff",
+      "onAccent": "#050108",
+      "styleProfile": "full-bleed",
+      "fonts": [
+        "space-grotesk",
+        "poppins"
+      ],
+      "vibes": [
+        "creative",
+        "bold"
+      ],
+      "industries": [
+        "creative",
+        "content",
+        "startups"
+      ]
+    },
+    {
+      "id": "creative-acid-green",
+      "label": "Creative Neon Acid Green",
+      "primary": "#050315",
+      "secondary": "#120a3a",
+      "background": "#fdf7ff",
+      "surface": "#ffffff",
+      "text": "#0f0b2d",
+      "muted": "#4b30a4",
+      "accent": "#bef264",
+      "onPrimary": "#f4f0ff",
+      "onAccent": "#050108",
+      "styleProfile": "full-bleed",
+      "fonts": [
+        "space-grotesk",
+        "poppins"
+      ],
+      "vibes": [
+        "creative",
+        "bold"
+      ],
+      "industries": [
+        "creative",
+        "content",
+        "startups"
+      ]
+    },
+    {
+      "id": "healthcare-aqua-care",
+      "label": "Healthcare Fresh Aqua Care",
+      "primary": "#0c3c78",
+      "secondary": "#0b4a8f",
+      "background": "#f3fbff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c82",
+      "accent": "#0ea5e9",
+      "onPrimary": "#e3f0ff",
+      "onAccent": "#03142b",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "inter",
+        "lora"
+      ],
+      "vibes": [
+        "clinical",
+        "trust"
+      ],
+      "industries": [
+        "healthcare",
+        "dental"
+      ]
+    },
+    {
+      "id": "healthcare-mint-care",
+      "label": "Healthcare Fresh Mint Care",
+      "primary": "#0c3c78",
+      "secondary": "#0b4a8f",
+      "background": "#f3fbff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c82",
+      "accent": "#34d399",
+      "onPrimary": "#e3f0ff",
+      "onAccent": "#03142b",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "inter",
+        "lora"
+      ],
+      "vibes": [
+        "clinical",
+        "trust"
+      ],
+      "industries": [
+        "healthcare",
+        "dental"
+      ]
+    },
+    {
+      "id": "healthcare-lavender-care",
+      "label": "Healthcare Fresh Lavender Care",
+      "primary": "#0c3c78",
+      "secondary": "#0b4a8f",
+      "background": "#f3fbff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c82",
+      "accent": "#c4b5fd",
+      "onPrimary": "#e3f0ff",
+      "onAccent": "#03142b",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "inter",
+        "lora"
+      ],
+      "vibes": [
+        "clinical",
+        "trust"
+      ],
+      "industries": [
+        "healthcare",
+        "dental"
+      ]
+    },
+    {
+      "id": "healthcare-peach-care",
+      "label": "Healthcare Fresh Peach Care",
+      "primary": "#0c3c78",
+      "secondary": "#0b4a8f",
+      "background": "#f3fbff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c82",
+      "accent": "#fda4af",
+      "onPrimary": "#e3f0ff",
+      "onAccent": "#03142b",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "inter",
+        "lora"
+      ],
+      "vibes": [
+        "clinical",
+        "trust"
+      ],
+      "industries": [
+        "healthcare",
+        "dental"
+      ]
+    },
+    {
+      "id": "healthcare-golden-hour",
+      "label": "Healthcare Fresh Golden Hour",
+      "primary": "#0c3c78",
+      "secondary": "#0b4a8f",
+      "background": "#f3fbff",
+      "surface": "#ffffff",
+      "text": "#0f172a",
+      "muted": "#1c4c82",
+      "accent": "#fbbf24",
+      "onPrimary": "#e3f0ff",
+      "onAccent": "#03142b",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "inter",
+        "lora"
+      ],
+      "vibes": [
+        "clinical",
+        "trust"
+      ],
+      "industries": [
+        "healthcare",
+        "dental"
+      ]
+    },
+    {
+      "id": "beauty-rose",
+      "label": "Beauty Muse Rose",
+      "primary": "#2e0f2f",
+      "secondary": "#451244",
+      "background": "#fdf6f9",
+      "surface": "#ffffff",
+      "text": "#2c102b",
+      "muted": "#7a2e5e",
+      "accent": "#f472b6",
+      "onPrimary": "#fdebf3",
+      "onAccent": "#19030f",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "poppins"
+      ],
+      "vibes": [
+        "beauty",
+        "luxury"
+      ],
+      "industries": [
+        "beauty",
+        "fashion"
+      ]
+    },
+    {
+      "id": "beauty-mulberry",
+      "label": "Beauty Muse Mulberry",
+      "primary": "#2e0f2f",
+      "secondary": "#451244",
+      "background": "#fdf6f9",
+      "surface": "#ffffff",
+      "text": "#2c102b",
+      "muted": "#7a2e5e",
+      "accent": "#a21caf",
+      "onPrimary": "#fdebf3",
+      "onAccent": "#19030f",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "poppins"
+      ],
+      "vibes": [
+        "beauty",
+        "luxury"
+      ],
+      "industries": [
+        "beauty",
+        "fashion"
+      ]
+    },
+    {
+      "id": "beauty-champagne-blush",
+      "label": "Beauty Muse Champagne Blush",
+      "primary": "#2e0f2f",
+      "secondary": "#451244",
+      "background": "#fdf6f9",
+      "surface": "#ffffff",
+      "text": "#2c102b",
+      "muted": "#7a2e5e",
+      "accent": "#fbb6ce",
+      "onPrimary": "#fdebf3",
+      "onAccent": "#19030f",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "poppins"
+      ],
+      "vibes": [
+        "beauty",
+        "luxury"
+      ],
+      "industries": [
+        "beauty",
+        "fashion"
+      ]
+    },
+    {
+      "id": "beauty-sunset-glow",
+      "label": "Beauty Muse Sunset Glow",
+      "primary": "#2e0f2f",
+      "secondary": "#451244",
+      "background": "#fdf6f9",
+      "surface": "#ffffff",
+      "text": "#2c102b",
+      "muted": "#7a2e5e",
+      "accent": "#f97316",
+      "onPrimary": "#fdebf3",
+      "onAccent": "#19030f",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "playfair-display",
+        "poppins"
+      ],
+      "vibes": [
+        "beauty",
+        "luxury"
+      ],
+      "industries": [
+        "beauty",
+        "fashion"
+      ]
+    },
+    {
+      "id": "ecommerce-sunset-pop",
+      "label": "Commerce Pop Sunset Pop",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#fdfcfe",
+      "surface": "#ffffff",
+      "text": "#111827",
+      "muted": "#475569",
+      "accent": "#fb923c",
+      "onPrimary": "#fdfbff",
+      "onAccent": "#06050c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "poppins",
+        "inter"
+      ],
+      "vibes": [
+        "retail",
+        "dynamic"
+      ],
+      "industries": [
+        "ecommerce",
+        "retail"
+      ]
+    },
+    {
+      "id": "ecommerce-neon-mint",
+      "label": "Commerce Pop Neon Mint",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#fdfcfe",
+      "surface": "#ffffff",
+      "text": "#111827",
+      "muted": "#475569",
+      "accent": "#34d399",
+      "onPrimary": "#fdfbff",
+      "onAccent": "#06050c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "poppins",
+        "inter"
+      ],
+      "vibes": [
+        "retail",
+        "dynamic"
+      ],
+      "industries": [
+        "ecommerce",
+        "retail"
+      ]
+    },
+    {
+      "id": "ecommerce-berry",
+      "label": "Commerce Pop Berry",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#fdfcfe",
+      "surface": "#ffffff",
+      "text": "#111827",
+      "muted": "#475569",
+      "accent": "#db2777",
+      "onPrimary": "#fdfbff",
+      "onAccent": "#06050c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "poppins",
+        "inter"
+      ],
+      "vibes": [
+        "retail",
+        "dynamic"
+      ],
+      "industries": [
+        "ecommerce",
+        "retail"
+      ]
+    },
+    {
+      "id": "ecommerce-royal-blue",
+      "label": "Commerce Pop Royal Blue",
+      "primary": "#0f172a",
+      "secondary": "#1e293b",
+      "background": "#fdfcfe",
+      "surface": "#ffffff",
+      "text": "#111827",
+      "muted": "#475569",
+      "accent": "#3b82f6",
+      "onPrimary": "#fdfbff",
+      "onAccent": "#06050c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "poppins",
+        "inter"
+      ],
+      "vibes": [
+        "retail",
+        "dynamic"
+      ],
+      "industries": [
+        "ecommerce",
+        "retail"
+      ]
+    },
+    {
+      "id": "nonprofit-turquoise-hope",
+      "label": "Mission Care Turquoise Hope",
+      "primary": "#0f2a3d",
+      "secondary": "#123852",
+      "background": "#f0f8ff",
+      "surface": "#ffffff",
+      "text": "#122437",
+      "muted": "#1f3d54",
+      "accent": "#14b8a6",
+      "onPrimary": "#e2f1ff",
+      "onAccent": "#03101a",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "mission",
+        "community"
+      ],
+      "industries": [
+        "nonprofit",
+        "education"
+      ]
+    },
+    {
+      "id": "nonprofit-caring-coral",
+      "label": "Mission Care Caring Coral",
+      "primary": "#0f2a3d",
+      "secondary": "#123852",
+      "background": "#f0f8ff",
+      "surface": "#ffffff",
+      "text": "#122437",
+      "muted": "#1f3d54",
+      "accent": "#fb7185",
+      "onPrimary": "#e2f1ff",
+      "onAccent": "#03101a",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "mission",
+        "community"
+      ],
+      "industries": [
+        "nonprofit",
+        "education"
+      ]
+    },
+    {
+      "id": "nonprofit-sunrise-amber",
+      "label": "Mission Care Sunrise Amber",
+      "primary": "#0f2a3d",
+      "secondary": "#123852",
+      "background": "#f0f8ff",
+      "surface": "#ffffff",
+      "text": "#122437",
+      "muted": "#1f3d54",
+      "accent": "#fbbf24",
+      "onPrimary": "#e2f1ff",
+      "onAccent": "#03101a",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "mission",
+        "community"
+      ],
+      "industries": [
+        "nonprofit",
+        "education"
+      ]
+    },
+    {
+      "id": "nonprofit-orchid-hope",
+      "label": "Mission Care Orchid Hope",
+      "primary": "#0f2a3d",
+      "secondary": "#123852",
+      "background": "#f0f8ff",
+      "surface": "#ffffff",
+      "text": "#122437",
+      "muted": "#1f3d54",
+      "accent": "#c084fc",
+      "onPrimary": "#e2f1ff",
+      "onAccent": "#03101a",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "mission",
+        "community"
+      ],
+      "industries": [
+        "nonprofit",
+        "education"
+      ]
+    },
+    {
+      "id": "nonprofit-leaf",
+      "label": "Mission Care Leaf",
+      "primary": "#0f2a3d",
+      "secondary": "#123852",
+      "background": "#f0f8ff",
+      "surface": "#ffffff",
+      "text": "#122437",
+      "muted": "#1f3d54",
+      "accent": "#4ade80",
+      "onPrimary": "#e2f1ff",
+      "onAccent": "#03101a",
+      "styleProfile": "rounded-elevated",
+      "fonts": [
+        "lora",
+        "inter"
+      ],
+      "vibes": [
+        "mission",
+        "community"
+      ],
+      "industries": [
+        "nonprofit",
+        "education"
+      ]
+    },
+    {
+      "id": "education-royal-campus",
+      "label": "Campus Modern Royal Campus",
+      "primary": "#11212f",
+      "secondary": "#1c2f3f",
+      "background": "#f8fbff",
+      "surface": "#ffffff",
+      "text": "#102132",
+      "muted": "#2b4258",
+      "accent": "#2563eb",
+      "onPrimary": "#eef5ff",
+      "onAccent": "#03070a",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "education",
+        "structured"
+      ],
+      "industries": [
+        "education",
+        "bootcamp"
+      ]
+    },
+    {
+      "id": "education-sunflower",
+      "label": "Campus Modern Sunflower",
+      "primary": "#11212f",
+      "secondary": "#1c2f3f",
+      "background": "#f8fbff",
+      "surface": "#ffffff",
+      "text": "#102132",
+      "muted": "#2b4258",
+      "accent": "#fbbf24",
+      "onPrimary": "#eef5ff",
+      "onAccent": "#03070a",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "education",
+        "structured"
+      ],
+      "industries": [
+        "education",
+        "bootcamp"
+      ]
+    },
+    {
+      "id": "education-forest-campus",
+      "label": "Campus Modern Forest Campus",
+      "primary": "#11212f",
+      "secondary": "#1c2f3f",
+      "background": "#f8fbff",
+      "surface": "#ffffff",
+      "text": "#102132",
+      "muted": "#2b4258",
+      "accent": "#16a34a",
+      "onPrimary": "#eef5ff",
+      "onAccent": "#03070a",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "education",
+        "structured"
+      ],
+      "industries": [
+        "education",
+        "bootcamp"
+      ]
+    },
+    {
+      "id": "education-cranberry",
+      "label": "Campus Modern Cranberry",
+      "primary": "#11212f",
+      "secondary": "#1c2f3f",
+      "background": "#f8fbff",
+      "surface": "#ffffff",
+      "text": "#102132",
+      "muted": "#2b4258",
+      "accent": "#dc2626",
+      "onPrimary": "#eef5ff",
+      "onAccent": "#03070a",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "education",
+        "structured"
+      ],
+      "industries": [
+        "education",
+        "bootcamp"
+      ]
+    },
+    {
+      "id": "education-teal-campus",
+      "label": "Campus Modern Teal Campus",
+      "primary": "#11212f",
+      "secondary": "#1c2f3f",
+      "background": "#f8fbff",
+      "surface": "#ffffff",
+      "text": "#102132",
+      "muted": "#2b4258",
+      "accent": "#0ea5e9",
+      "onPrimary": "#eef5ff",
+      "onAccent": "#03070a",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "space-grotesk",
+        "inter"
+      ],
+      "vibes": [
+        "education",
+        "structured"
+      ],
+      "industries": [
+        "education",
+        "bootcamp"
+      ]
+    },
+    {
+      "id": "logistics-orange-route",
+      "label": "Logistics Velocity Orange Route",
+      "primary": "#041221",
+      "secondary": "#0f1f2f",
+      "background": "#f5f9fc",
+      "surface": "#ffffff",
+      "text": "#0d1b2a",
+      "muted": "#1e293b",
+      "accent": "#f97316",
+      "onPrimary": "#eff6ff",
+      "onAccent": "#01070c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "logistics",
+        "industrial"
+      ],
+      "industries": [
+        "logistics",
+        "b2b",
+        "professional-services"
+      ]
+    },
+    {
+      "id": "logistics-lime-signal",
+      "label": "Logistics Velocity Lime Signal",
+      "primary": "#041221",
+      "secondary": "#0f1f2f",
+      "background": "#f5f9fc",
+      "surface": "#ffffff",
+      "text": "#0d1b2a",
+      "muted": "#1e293b",
+      "accent": "#bef264",
+      "onPrimary": "#eff6ff",
+      "onAccent": "#01070c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "logistics",
+        "industrial"
+      ],
+      "industries": [
+        "logistics",
+        "b2b",
+        "professional-services"
+      ]
+    },
+    {
+      "id": "logistics-blue-route",
+      "label": "Logistics Velocity Blue Route",
+      "primary": "#041221",
+      "secondary": "#0f1f2f",
+      "background": "#f5f9fc",
+      "surface": "#ffffff",
+      "text": "#0d1b2a",
+      "muted": "#1e293b",
+      "accent": "#0ea5e9",
+      "onPrimary": "#eff6ff",
+      "onAccent": "#01070c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "logistics",
+        "industrial"
+      ],
+      "industries": [
+        "logistics",
+        "b2b",
+        "professional-services"
+      ]
+    },
+    {
+      "id": "logistics-amber-route",
+      "label": "Logistics Velocity Amber Route",
+      "primary": "#041221",
+      "secondary": "#0f1f2f",
+      "background": "#f5f9fc",
+      "surface": "#ffffff",
+      "text": "#0d1b2a",
+      "muted": "#1e293b",
+      "accent": "#facc15",
+      "onPrimary": "#eff6ff",
+      "onAccent": "#01070c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "logistics",
+        "industrial"
+      ],
+      "industries": [
+        "logistics",
+        "b2b",
+        "professional-services"
+      ]
+    },
+    {
+      "id": "logistics-teal-route",
+      "label": "Logistics Velocity Teal Route",
+      "primary": "#041221",
+      "secondary": "#0f1f2f",
+      "background": "#f5f9fc",
+      "surface": "#ffffff",
+      "text": "#0d1b2a",
+      "muted": "#1e293b",
+      "accent": "#14b8a6",
+      "onPrimary": "#eff6ff",
+      "onAccent": "#01070c",
+      "styleProfile": "sharp-minimal",
+      "fonts": [
+        "inter",
+        "space-grotesk"
+      ],
+      "vibes": [
+        "logistics",
+        "industrial"
+      ],
+      "industries": [
+        "logistics",
+        "b2b",
+        "professional-services"
+      ]
+    }
+  ]
+}

@@ -18,6 +18,10 @@
   ],
   "sections": [
     {
+      "componentId": "site-navigation",
+      "purpose": "Sticky navigation with primary CTAs and contact info for SaaS Product Landing"
+    },
+    {
       "componentId": "hero-with-image",
       "purpose": "value prop hero with CTA and product visual"
     },
@@ -30,8 +34,16 @@
       "purpose": "usage, uptime, ROI stats"
     },
     {
+      "componentId": "trust-badges",
+      "purpose": "SaaS Product Landing certifications, guarantees, and associations"
+    },
+    {
       "componentId": "pricing-table",
       "purpose": "plans with CTA buttons"
+    },
+    {
+      "componentId": "video-spotlight",
+      "purpose": "Video walkthroughs and spotlights from SaaS Product Landing"
     },
     {
       "componentId": "testimonials-cards",
@@ -46,13 +58,20 @@
       "purpose": "secondary signup push"
     },
     {
+      "componentId": "lead-magnet",
+      "purpose": "Downloadable guide, checklist, or resource from SaaS Product Landing"
+    },
+    {
       "componentId": "contact-form",
       "purpose": "demo request"
+    },
+    {
+      "componentId": "sticky-cta-bar",
+      "purpose": "Always-on call-to-action bar to contact SaaS Product Landing"
+    },
+    {
+      "componentId": "footer-links",
+      "purpose": "SaaS Product Landing footer with contact columns, social, and legal links"
     }
-  ],
-  "needsComponents": [
-    "logo-grid",
-    "integration-list",
-    "feature-tabs"
   ]
 }
