@@ -11,6 +11,8 @@
     "create": "node src/cli.js create",
     "publish": "node src/cli.js publish",
     "build": "tsc -p tsconfig.json",
+    "test": "npm run test:unit",
+    "test:unit": "SITE_SIGNING_SECRET=dev-signing-secret-0123456789abcdef ANALYTICS_QUEUE_URL=https://example.com/queue npm run build && SITE_SIGNING_SECRET=dev-signing-secret-0123456789abcdef ANALYTICS_QUEUE_URL=https://example.com/queue node --test \"api/tests/**/*.js\"",
     "dev:api": "ts-node --transpile-only api/src/dev-server.ts",
     "test:api": "node scripts/test-api.js",
     "test:api:full": "node scripts/test-openapi-full.js",

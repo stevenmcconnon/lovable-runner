@@ -84,6 +84,7 @@ test('accepts signed-in launch with quota remaining and returns slug', async () 
     getUsage: async () => state.usage,
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 1 }),
     listSiteGenerations: async () => [],
+    getSiteGenerationByRequestId: async () => null,
     createSiteGenerationRequest: async (payload) => {
       state.recorded = payload;
       return payload;
@@ -120,6 +121,7 @@ test('rejects cross-tenant launch attempts', async () => {
     getUsage: async () => ({ monthlyEditLimit: 5, editsUsedThisPeriod: 0, remainingEdits: 5 }),
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 5, freeSiteLimit: 10 }),
     listSiteGenerations: async () => [],
+    getSiteGenerationByRequestId: async () => null,
     createSiteGenerationRequest: async () => {
       throw new Error('should not create when forbidden');
     },
@@ -150,6 +152,7 @@ test('requires authentication for launch', async () => {
     getUsage: async () => ({ monthlyEditLimit: 1, editsUsedThisPeriod: 0, remainingEdits: 1 }),
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 10 }),
     listSiteGenerations: async () => [],
+    getSiteGenerationByRequestId: async () => null,
     createSiteGenerationRequest: async () => {
       throw new Error('unauthenticated users should not launch');
     },
@@ -176,6 +179,7 @@ test('returns 402 when signed-in user exceeds quota', async () => {
     getUsage: async () => ({ monthlyEditLimit: 1, editsUsedThisPeriod: 1, remainingEdits: 0 }),
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 10 }),
     listSiteGenerations: async () => [],
+    getSiteGenerationByRequestId: async () => null,
     createSiteGenerationRequest: async () => {
       throw new Error('should not create when over limit');
     },
@@ -205,6 +209,7 @@ test('respects pending launch reservations when enforcing quota', async () => {
     getUsage: async () => ({ monthlyEditLimit: 1, editsUsedThisPeriod: 0, remainingEdits: 1 }),
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 10 }),
     listSiteGenerations: async () => [],
+    getSiteGenerationByRequestId: async () => null,
     createSiteGenerationRequest: async () => {
       throw new Error('should not create when reservations exceed quota');
     },

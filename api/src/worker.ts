@@ -53,6 +53,7 @@ import { NotificationService } from './services/notifications';
 import { DomainJobService } from './services/domain-job';
 import { DomainJobRunner } from './services/domain-job-runner';
 import { DomainJobDispatcher } from './services/domain-job-dispatcher';
+import { resolveEditJobIdempotency, resolveLaunchIdempotency } from './utils/idempotency';
 
 const db = new DatabaseService();
 const domainEdge = new DomainEdgeService({
@@ -249,6 +250,11 @@ const summarizeDomain = (record: DomainRecord | null) => ({
 export const handleSiteLaunchJob = async (event: SiteLaunchEvent) => {
   if (!event?.requestId) throw new Error('requestId is required');
   const requestId = event.requestId;
+  const existing = await db.getSiteGenerationByRequestId(requestId);
+  const idempotency = resolveLaunchIdempotency(existing);
+  if (idempotency.skip) {
+    return idempotency.response;
+  }
   const referenceUrl = event.url;
   const businessDetails = event.businessDetails;
   const description = event.description || '';
@@ -472,6 +478,11 @@ export const handleAnalyticsIngest = async (event: AnalyticsIngestEvent) => {
 export const handleEditRequestJob = async (event: EditJobEvent) => {
   if (!event?.jobId) throw new Error('jobId is required');
   const jobId = event.jobId;
+  const existing = await db.getJobById(jobId);
+  const idempotency = resolveEditJobIdempotency(existing);
+  if (idempotency.skip) {
+    return idempotency.response;
+  }
   const referenceUrl = event.siteId && /^https?:/i.test(event.siteId) ? event.siteId : event.siteId || undefined;
   const description = event.description || '';
   const businessDetails = event.businessDetails ?? undefined;

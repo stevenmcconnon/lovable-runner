@@ -883,8 +883,6 @@ Resources:
             SITE_DOCS_TOKEN: !Ref SiteDocsToken
             TEMPLATE_LIBRARY_BASE_URL: !Ref TemplateLibraryBaseUrl
             SITE_SIGNING_SECRET: !Ref SiteSigningSecret
-            THUMBNAIL_SERVICE_BASE: !Ref ThumbnailServiceBase
-            UNSPLASH_ACCESS_KEY: !Ref UnsplashAccessKey
             NAMECHEAP_API_USER: !Ref NamecheapApiUser
             NAMECHEAP_API_KEY: !Ref NamecheapApiKey
             NAMECHEAP_USERNAME: !Ref NamecheapUsername
@@ -897,12 +895,6 @@ Resources:
             SITE_APPOINTMENTS_TABLE: !Ref SiteAppointmentsTable
             APPOINTMENT_SETTINGS_TABLE: !Ref AppointmentSettingsTable
             NOTIFICATION_PREFS_TABLE: !Ref NotificationPreferencesTable
-            GOOGLE_CALENDAR_CLIENT_ID: !Ref GoogleCalendarClientId
-            GOOGLE_CALENDAR_CLIENT_SECRET: !Ref GoogleCalendarClientSecret
-            GOOGLE_CALENDAR_REDIRECT_URI: !Ref GoogleCalendarRedirectUri
-            OUTLOOK_CALENDAR_CLIENT_ID: !Ref OutlookCalendarClientId
-            OUTLOOK_CALENDAR_CLIENT_SECRET: !Ref OutlookCalendarClientSecret
-            OUTLOOK_CALENDAR_REDIRECT_URI: !Ref OutlookCalendarRedirectUri
             DOMAIN_JOB_BATCH_LIMIT: !Ref DomainJobBatchLimit
             DOMAIN_JOB_MAX_RUNTIME_MS: !Ref DomainJobMaxRuntimeMs
             DOMAIN_MAX_PER_ACCOUNT: !Ref DomainMaxPerAccount
@@ -1753,6 +1745,74 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
       AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  RunnerDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-runner-dlq
+      AlarmDescription: Runner DLQ has messages
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt RunnerJobDeadLetterQueue.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  DomainDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-domain-dlq
+      AlarmDescription: Domain job DLQ has messages
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DomainJobDeadLetterQueue.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  AnalyticsDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-analytics-dlq
+      AlarmDescription: Analytics DLQ has messages
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt AnalyticsEventDeadLetterQueue.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  RunnerFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-runner-errors
+      AlarmDescription: Runner API Lambda errors are spiking
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref RunnerFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   AnalyticsQueueBacklogAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1886,6 +1946,44 @@ Resources:
                 "title": "Job Event Failures",
                 "metrics": [
                   [ "${AWS::StackName}/JobEvents", "RecordFailures" ]
+                ],
+                "region": "${AWS::Region}",
+              "stat": "Sum",
+              "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "DLQ Depth",
+                "metrics": [
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${RunnerJobDeadLetterQueue.QueueName}" ],
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${DomainJobDeadLetterQueue.QueueName}" ],
+                  [ "AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${AnalyticsEventDeadLetterQueue.QueueName}" ]
+                ],
+                "region": "${AWS::Region}",
+                "stat": "Sum",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "title": "Lambda Errors",
+                "metrics": [
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${RunnerFunction}", { "stat": "Sum" } ],
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${RunnerWorkerFunction}", { "stat": "Sum" } ],
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${RunnerJobsWorkerFunction}", { "stat": "Sum" } ],
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${DomainWorkerFunction}", { "stat": "Sum" } ],
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${AnalyticsEventsWorkerFunction}", { "stat": "Sum" } ]
                 ],
                 "region": "${AWS::Region}",
                 "stat": "Sum",

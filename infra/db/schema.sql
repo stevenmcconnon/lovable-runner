@@ -167,6 +167,10 @@ CREATE TABLE IF NOT EXISTS site_generations (
 
 CREATE INDEX IF NOT EXISTS site_generations_account_idx ON site_generations(account_id);
 CREATE INDEX IF NOT EXISTS site_generations_request_idx ON site_generations(request_id);
+CREATE INDEX IF NOT EXISTS edit_requests_account_created_idx ON edit_requests(account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS edit_requests_status_created_idx ON edit_requests(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS edit_jobs_status_created_idx ON edit_jobs(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS edit_jobs_request_created_idx ON edit_jobs(edit_request_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS account_sites (
   account_id UUID NOT NULL,
