@@ -75,6 +75,10 @@ const domainJobRunner = new DomainJobRunner({ db, manager: domainManager, jobs: 
 const defaultRefreshLimit = Number(process.env.DOMAIN_REFRESH_LIMIT || 25);
 const defaultRateLimitRetentionMinutes = Number(process.env.RATE_LIMIT_RETENTION_MINUTES || 1440);
 const defaultAuditLogRetentionDays = Number(process.env.AUDIT_LOG_RETENTION_DAYS || 30);
+const defaultAnalyticsVisitorRetentionDays = Math.max(
+  1,
+  Number(process.env.ANALYTICS_VISITOR_RETENTION_DAYS || config.analyticsRetentionDays || 90)
+);
 const { runNotificationBatch, runNotificationJob } = resolveRootModule('src/notification-worker.js') as {
   runNotificationBatch: (params: { limit?: number; dryRun?: boolean; logger?: Console }) => Promise<any>;
   runNotificationJob: (params: { jobId: string; dryRun?: boolean; logger?: Console }) => Promise<any>;
@@ -445,6 +449,12 @@ export const handleAuditLogCleanup = async (event: { retentionDays?: number } = 
   const days = Math.max(1, Number(event.retentionDays) || defaultAuditLogRetentionDays);
   const deleted = await db.purgeAuditLogs(days);
   return { deleted, days };
+};
+
+export const handleAnalyticsVisitorPurge = async (event: { retentionDays?: number } = {}) => {
+  const days = Math.max(1, Number(event.retentionDays) || defaultAnalyticsVisitorRetentionDays);
+  const result = await db.purgeAnalyticsVisitors(days);
+  return { ...result, days };
 };
 
 export const handleAnalyticsIngest = async (event: AnalyticsIngestEvent) => {

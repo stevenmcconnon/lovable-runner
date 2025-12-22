@@ -2997,6 +2997,28 @@ export class DatabaseService {
     return Number(result.rowCount ?? 0);
   }
 
+  async purgeAnalyticsVisitors(retentionDays = 90): Promise<{ visitors: number; referrers: number }> {
+    const days = Math.max(1, Number(retentionDays) || 90);
+    const visitors = await this.query(
+      `
+      DELETE FROM site_metric_visitors
+      WHERE event_date < CURRENT_DATE - ($1 || ' days')::interval
+    `,
+      [days]
+    );
+    const referrers = await this.query(
+      `
+      DELETE FROM site_metric_referrers
+      WHERE event_date < CURRENT_DATE - ($1 || ' days')::interval
+    `,
+      [days]
+    );
+    return {
+      visitors: Number(visitors.rowCount ?? 0),
+      referrers: Number(referrers.rowCount ?? 0),
+    };
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }

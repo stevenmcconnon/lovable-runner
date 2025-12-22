@@ -15,6 +15,7 @@ import {
   handleJobEventsBackfill,
   handleRateLimitCleanup,
   handleAuditLogCleanup,
+  handleAnalyticsVisitorPurge,
 } from './worker';
 import { recordWorkerMetric } from './services/metrics';
 
@@ -184,6 +185,17 @@ const handleActionEvent = async (event: any) => {
   if (event?.action === 'RUN_AUDIT_LOG_CLEANUP') {
     return runWithMetrics('RUN_AUDIT_LOG_CLEANUP', async () => {
       const result = await handleAuditLogCleanup({
+        retentionDays: event.retentionDays,
+      });
+      return {
+        statusCode: 200,
+        body: JSON.stringify(result),
+      };
+    });
+  }
+  if (event?.action === 'RUN_ANALYTICS_VISITOR_PURGE') {
+    return runWithMetrics('RUN_ANALYTICS_VISITOR_PURGE', async () => {
+      const result = await handleAnalyticsVisitorPurge({
         retentionDays: event.retentionDays,
       });
       return {

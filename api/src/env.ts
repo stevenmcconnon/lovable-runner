@@ -63,6 +63,7 @@ const envSchema = z
     DOMAIN_JOB_QUEUE_URL: z.string().url().optional(),
     DOMAIN_JOB_TOPIC_ARN: z.string().optional(),
     NOTIFICATION_JOB_QUEUE_URL: z.string().url().optional(),
+    ANALYTICS_VISITOR_RETENTION_DAYS: z.string().optional(),
   })
   .refine(
     (value) =>
@@ -140,6 +141,7 @@ const rawEnv = envSchema.parse({
   DOMAIN_JOB_QUEUE_URL: process.env.DOMAIN_JOB_QUEUE_URL,
   DOMAIN_JOB_TOPIC_ARN: process.env.DOMAIN_JOB_TOPIC_ARN,
   NOTIFICATION_JOB_QUEUE_URL: process.env.NOTIFICATION_JOB_QUEUE_URL,
+  ANALYTICS_VISITOR_RETENTION_DAYS: process.env.ANALYTICS_VISITOR_RETENTION_DAYS,
 });
 
 const fallbackOrigin = rawEnv.FRONTEND_ORIGIN ?? 'https://ai-sitemaker.com';
@@ -306,6 +308,7 @@ export const config = {
     limits: domainLimits,
   },
   analyticsQueueUrl: rawEnv.ANALYTICS_QUEUE_URL,
+  analyticsRetentionDays: Math.max(1, Number(rawEnv.ANALYTICS_VISITOR_RETENTION_DAYS || '90')),
   queues: {
     domainJobs: rawEnv.DOMAIN_JOB_QUEUE_URL || rawEnv.RUNNER_QUEUE_URL || '',
     domainJobTopicArn: rawEnv.DOMAIN_JOB_TOPIC_ARN || '',

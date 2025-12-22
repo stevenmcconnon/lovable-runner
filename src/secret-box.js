@@ -18,6 +18,12 @@ const buildLocalKey = () => {
 
 const localKey = buildLocalKey();
 
+if (!kmsKeyId && !localKey) {
+  throw new Error(
+    'INTEGRATION_KMS_KEY_ARN or INTEGRATION_ENCRYPTION_KEY must be set to store integration secrets.'
+  );
+}
+
 const encryptLocal = (plaintext) => {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', localKey, iv);

@@ -9,7 +9,6 @@ Globals:
     MemorySize: 2048
     Architectures:
       - x86_64
-    LogRetentionInDays: !Ref LogRetentionInDays
 
 Parameters:
   DeployBucket:
@@ -39,7 +38,7 @@ Parameters:
     Description: Master user password for the RDS instance
   DBInstanceClass:
     Type: String
-    Default: db.t4g.small
+    Default: db.t4g.micro
     Description: Instance class for the RDS instance (adjust for load)
   DBAllocatedStorage:
     Type: Number
@@ -47,6 +46,12 @@ Parameters:
     MinValue: 20
     MaxValue: 1000
     Description: Allocated storage in GiB for the RDS instance
+  BackupRetentionDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 35
+    Description: Automated snapshot retention in days for the RDS instance
   DbVpcId:
     Type: AWS::EC2::VPC::Id
     Default: vpc-06707eddabf2dae24
@@ -131,8 +136,8 @@ Parameters:
     Description: Image model used for asset generation (e.g., imagen-3.0-generate-1)
   IntegrationKmsKeyArn:
     Type: String
-    Default: ''
-    Description: Optional KMS key ARN used to encrypt integration tokens (set for production)
+    MinLength: 1
+    Description: KMS key ARN used to encrypt integration tokens (required for production)
   RunnerApiBase:
     Type: String
     Default: https://api.ai-sitemaker.com
@@ -251,6 +256,16 @@ Parameters:
     MinValue: 0
     MaxValue: 200
     Description: Maximum number of manual HTTPS refresh requests per account per day
+  AnalyticsVisitorRetentionDays:
+    Type: Number
+    Default: 90
+    MinValue: 1
+    MaxValue: 365
+    Description: Days to retain raw analytics visitor/referrer rows before cleanup
+  AlarmTopicArn:
+    Type: String
+    Default: ''
+    Description: SNS topic ARN to notify on alarms (leave blank to skip notifications)
   RateLimitRetentionMinutes:
     Type: Number
     Default: 1440
@@ -357,6 +372,7 @@ Conditions:
   HasDomainWorkerReservedConcurrency: !Not [!Equals [!Ref DomainWorkerReservedConcurrency, 0]]
   HasDbAllowedCidr: !Not [!Equals [!Ref DbAllowedCidr, '']]
   UseDbProxy: !Equals [!Ref UseRdsProxy, 'true']
+  HasAlarmTopic: !Not [!Equals [!Ref AlarmTopicArn, '']]
 
 Resources:
   RunnerApi:
@@ -419,7 +435,8 @@ Resources:
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBName: !Ref DBName
-      BackupRetentionPeriod: 1
+      BackupRetentionPeriod: !Ref BackupRetentionDays
+      AutoMinorVersionUpgrade: true
       DeletionProtection: false
       MultiAZ: false
       StorageEncrypted: true
@@ -568,6 +585,36 @@ Resources:
     Properties:
       RouteTableId: !Ref RunnerLambdaPrivateRouteTable
       SubnetId: !Ref RunnerLambdaPrivateSubnetB
+  RunnerS3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref DbVpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref RunnerLambdaPrivateRouteTable
+  RunnerSqsInterfaceEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref DbVpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sqs
+      VpcEndpointType: Interface
+      SubnetIds:
+        - !Ref RunnerLambdaPrivateSubnetA
+        - !Ref RunnerLambdaPrivateSubnetB
+      SecurityGroupIds:
+        - !Ref RunnerFunctionSecurityGroup
+  RunnerStsInterfaceEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref DbVpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sts
+      VpcEndpointType: Interface
+      SubnetIds:
+        - !Ref RunnerLambdaPrivateSubnetA
+        - !Ref RunnerLambdaPrivateSubnetB
+      SecurityGroupIds:
+        - !Ref RunnerFunctionSecurityGroup
   RunnerFunctionSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -862,6 +909,7 @@ Resources:
             DOMAIN_ORDER_DAILY_LIMIT: !Ref DomainOrderDailyLimit
             DOMAIN_REFRESH_DAILY_LIMIT: !Ref DomainRefreshDailyLimit
             ANALYTICS_DATABASE_URL: !Ref AnalyticsDatabaseUrl
+            ANALYTICS_VISITOR_RETENTION_DAYS: !Ref AnalyticsVisitorRetentionDays
             DOMAIN_JOB_QUEUE_URL: !GetAtt DomainJobQueue.QueueUrl
             DOMAIN_JOB_TOPIC_ARN: !Ref DomainJobTopic
             RATE_LIMIT_RETENTION_MINUTES: !Ref RateLimitRetentionMinutes
@@ -1434,6 +1482,27 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt AuditLogCleanupRule.Arn
 
+  AnalyticsVisitorCleanupRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-analytics-visitor-cleanup
+      Description: Purges aged analytics visitor/referrer rows
+      ScheduleExpression: rate(1 day)
+      State: ENABLED
+      Targets:
+        - Id: AnalyticsVisitorCleanupTarget
+          Arn: !GetAtt RunnerWorkerFunction.Arn
+          Input: |
+            {"action":"RUN_ANALYTICS_VISITOR_PURGE"}
+
+  AnalyticsVisitorCleanupInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RunnerWorkerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt AnalyticsVisitorCleanupRule.Arn
+
   DomainJobFailureMetricFilter:
     Type: AWS::Logs::MetricFilter
     DependsOn:
@@ -1459,6 +1528,7 @@ Resources:
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
 
   DomainLifecycleFailureMetricFilter:
     Type: AWS::Logs::MetricFilter
@@ -1485,6 +1555,7 @@ Resources:
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
 
   DomainThrottleMetricFilter:
     Type: AWS::Logs::MetricFilter
@@ -1511,6 +1582,143 @@ Resources:
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  ApiErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-api-errors
+      AlarmDescription: API Lambda is returning errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref RunnerFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  RunnerWorkerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-runner-worker-errors
+      AlarmDescription: Runner worker is failing
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref RunnerWorkerFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  RunnerJobsWorkerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-site-jobs-worker-errors
+      AlarmDescription: Site jobs worker is failing
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref RunnerJobsWorkerFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  AnalyticsWorkerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-analytics-worker-errors
+      AlarmDescription: Analytics ingestion worker is failing
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AnalyticsEventsWorkerFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  DomainWorkerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-domain-worker-errors
+      AlarmDescription: Domain worker is failing
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DomainWorkerFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  NotificationWorkerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-notification-worker-errors
+      AlarmDescription: Notification worker is failing
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref NotificationWorkerFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  RdsCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-rds-cpu-high
+      AlarmDescription: RDS CPU over 80% (sustained)
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RunnerDatabase
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  RdsConnectionAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-rds-connections-high
+      AlarmDescription: RDS connections approaching limit
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RunnerDatabase
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 70
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   RunnerQueueBacklogAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1527,6 +1735,7 @@ Resources:
       Threshold: 50
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   RunnerQueueAgeAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1543,6 +1752,7 @@ Resources:
       Threshold: 300
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   AnalyticsQueueBacklogAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1559,6 +1769,7 @@ Resources:
       Threshold: 500
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   AnalyticsQueueAgeAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1575,6 +1786,7 @@ Resources:
       Threshold: 120
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   JobEventFailureMetricFilterApi:
     Type: AWS::Logs::MetricFilter
     Properties:
@@ -1608,6 +1820,7 @@ Resources:
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   OperationsDashboard:
     Type: AWS::CloudWatch::Dashboard
     Properties:
@@ -1694,15 +1907,6 @@ Resources:
       AutoVerifiedAttributes:
         - email
 
-  UserPoolResourceServer:
-    Type: AWS::Cognito::UserPoolResourceServer
-    Properties:
-      Identifier: lovable-backend
-      Name: Lovable Backend API
-      Scopes:
-        - ScopeName: internal
-          ScopeDescription: Internal automation access for jobs/domains/launches
-
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
@@ -1732,7 +1936,7 @@ Resources:
         - client_credentials
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthScopes:
-        - !Sub '${UserPoolResourceServer.Identifier}/internal'
+        - lovable-backend/internal
       SupportedIdentityProviders:
         - COGNITO
 
