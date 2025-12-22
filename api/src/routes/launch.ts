@@ -38,6 +38,7 @@ const launchPayload = z
     description: z.string().min(1).optional(),
     accountId: z.string().uuid().optional(),
     testMode: z.boolean().optional(),
+    idempotencyKey: z.string().min(1).max(200).optional(),
     businessDetails: z
       .object({
         businessName: z.string().optional(),
@@ -163,6 +164,12 @@ const deriveRequesterIp = (request: FastifyRequest) => {
   return forwarded || request.ip || 'unknown';
 };
 
+const toDeterministicUuid = (key: string) => {
+  const cleaned = key.trim();
+  const hash = require('node:crypto').createHash('sha256').update(cleaned).digest('hex');
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+};
+
 const resolveAccountContext = (request: FastifyRequest, requestedAccountId?: string | null) => {
   if (request.auth?.type === 'user') {
     const accountId = request.auth.profile?.accountId;
@@ -205,6 +212,9 @@ export const registerLaunchRoutes = (
     } catch (userError) {
       try {
         await app.authenticateMachine(request, reply);
+        if (request.auth?.type === 'machine' && !request.auth.permissions?.jobs?.run) {
+          throw forbidden('Machine token missing jobs.run permission');
+        }
       } catch {
         throw unauthorized((userError as Error)?.message || 'Authentication required');
       }
@@ -217,7 +227,7 @@ export const registerLaunchRoutes = (
       return reply.code(400).send({ message: 'Invalid payload', details: parsed.error.flatten() });
     }
     const body = parsed.data;
-    const requestId = randomUUID();
+    const requestId = body.idempotencyKey ? toDeterministicUuid(body.idempotencyKey) : randomUUID();
     const resolvedBucket =
       process.env.LOVABLE_DEPLOY_BUCKET ||
       process.env.DEPLOY_BUCKET ||
@@ -233,6 +243,18 @@ export const registerLaunchRoutes = (
       description: body.description,
       requestId,
     });
+    const existing = await db.getSiteGenerationByRequestId(requestId);
+    if (existing) {
+      return reply.code(existing.status === 'completed' ? 200 : 202).send({
+        status: existing.status,
+        requestId,
+        slug: existing.slug,
+        prefix: existing.prefix,
+        bucket: existing.bucket,
+        publicUrl: existing.publicUrl,
+        errorMessage: existing.errorMessage,
+      });
+    }
     const { slug, prefixPath } = await ensureUniqueSlug({
       bucket: resolvedBucket,
       basePrefix,
@@ -319,17 +341,35 @@ export const registerLaunchRoutes = (
       }),
       requestId,
     });
-    await db.createSiteGenerationRequest({
-      requestId,
-      accountId,
-      userId,
-      sourceUrl: body.url ?? null,
-      description: body.description,
-      businessDetails: body.businessDetails,
-      slug,
-      prefix: prefixPath,
-      bucket: resolvedBucket,
-    });
+    try {
+      await db.createSiteGenerationRequest({
+        requestId,
+        accountId,
+        userId,
+        sourceUrl: body.url ?? null,
+        description: body.description,
+        businessDetails: body.businessDetails,
+        slug,
+        prefix: prefixPath,
+        bucket: resolvedBucket,
+      });
+    } catch (error: any) {
+      if ((error as any)?.code === '23505') {
+        const existingGeneration = await db.getSiteGenerationByRequestId(requestId);
+        if (existingGeneration) {
+          return reply.code(existingGeneration.status === 'completed' ? 200 : 202).send({
+            status: existingGeneration.status,
+            requestId,
+            slug: existingGeneration.slug,
+            prefix: existingGeneration.prefix,
+            bucket: existingGeneration.bucket,
+            publicUrl: existingGeneration.publicUrl,
+            errorMessage: existingGeneration.errorMessage,
+          });
+        }
+      }
+      throw error;
+    }
     let reservedUsage = false;
     if (!isMachine && accountId) {
       await db

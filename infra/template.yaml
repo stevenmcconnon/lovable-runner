@@ -9,6 +9,7 @@ Globals:
     MemorySize: 2048
     Architectures:
       - x86_64
+    LogRetentionInDays: !Ref LogRetentionInDays
 
 Parameters:
   DeployBucket:
@@ -214,6 +215,24 @@ Parameters:
     MinValue: 0
     MaxValue: 500
     Description: Reserved concurrency limit for the runner Lambda to contain async worker storms (set to 0 to disable)
+  RunnerJobWorkerReservedConcurrency:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 500
+    Description: Reserved concurrency for the site job SQS worker (set 0 to disable)
+  AnalyticsWorkerReservedConcurrency:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 500
+    Description: Reserved concurrency for the analytics ingest worker (set 0 to disable)
+  DomainWorkerReservedConcurrency:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 500
+    Description: Reserved concurrency for the domain job worker (set 0 to disable)
   DomainMaxPerAccount:
     Type: Number
     Default: 5
@@ -242,6 +261,12 @@ Parameters:
     Default: 30
     MinValue: 1
     Description: Days to retain site audit log records before cleanup
+  LogRetentionInDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: CloudWatch log retention in days for all Lambdas
   SiteBuilderApiEnabled:
     Type: String
     AllowedValues:
@@ -327,6 +352,9 @@ Conditions:
   HasPreviewDomain: !Not [!Equals [!Ref PreviewDomainName, '']]
   HasIntegrationKmsKey: !Not [!Equals [!Ref IntegrationKmsKeyArn, '']]
   HasReservedConcurrency: !Not [!Equals [!Ref RunnerReservedConcurrency, 0]]
+  HasRunnerJobReservedConcurrency: !Not [!Equals [!Ref RunnerJobWorkerReservedConcurrency, 0]]
+  HasAnalyticsWorkerReservedConcurrency: !Not [!Equals [!Ref AnalyticsWorkerReservedConcurrency, 0]]
+  HasDomainWorkerReservedConcurrency: !Not [!Equals [!Ref DomainWorkerReservedConcurrency, 0]]
   HasDbAllowedCidr: !Not [!Equals [!Ref DbAllowedCidr, '']]
   UseDbProxy: !Equals [!Ref UseRdsProxy, 'true']
 
@@ -650,33 +678,95 @@ Resources:
           KeyType: HASH
         - AttributeName: recipient
           KeyType: RANGE
+  RunnerJobDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-runner-jobs-dlq
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-runner-jobs-dlq
   RunnerJobQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ${AWS::StackName}-runner-jobs
       VisibilityTimeout: 900
       MessageRetentionPeriod: 1209600 # 14 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RunnerJobDeadLetterQueue.Arn
+        maxReceiveCount: 5
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-runner-jobs
+  AnalyticsEventDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-analytics-events-dlq
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-analytics-events-dlq
   AnalyticsEventQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ${AWS::StackName}-analytics-events
       VisibilityTimeout: 900
       MessageRetentionPeriod: 604800 # 7 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt AnalyticsEventDeadLetterQueue.Arn
+        maxReceiveCount: 10
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-analytics-events
+  DomainJobDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-domain-jobs-dlq
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-domain-jobs-dlq
+  DomainJobTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${AWS::StackName}-domain-jobs
+      DisplayName: !Sub ${AWS::StackName}-domain-jobs
   DomainJobQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub ${AWS::StackName}-domain-jobs
       VisibilityTimeout: 900
       MessageRetentionPeriod: 604800
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DomainJobDeadLetterQueue.Arn
+        maxReceiveCount: 10
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-domain-jobs
+  DomainJobQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref DomainJobQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowDomainJobTopic
+            Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt DomainJobQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref DomainJobTopic
+  DomainJobTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref DomainJobTopic
+      Protocol: sqs
+      Endpoint: !GetAtt DomainJobQueue.Arn
+      RawMessageDelivery: true
   RunnerFunction:
     Type: AWS::Serverless::Function
     DependsOn:
@@ -773,6 +863,7 @@ Resources:
             DOMAIN_REFRESH_DAILY_LIMIT: !Ref DomainRefreshDailyLimit
             ANALYTICS_DATABASE_URL: !Ref AnalyticsDatabaseUrl
             DOMAIN_JOB_QUEUE_URL: !GetAtt DomainJobQueue.QueueUrl
+            DOMAIN_JOB_TOPIC_ARN: !Ref DomainJobTopic
             RATE_LIMIT_RETENTION_MINUTES: !Ref RateLimitRetentionMinutes
             AUDIT_LOG_RETENTION_DAYS: !Ref AuditLogRetentionDays
             RUNNER_QUEUE_URL: !GetAtt RunnerJobQueue.QueueUrl
@@ -881,6 +972,89 @@ Resources:
         Variables:
           <<: *RunnerEnvVariables
           RUNNER_FUNCTION_NAME: !Sub ${AWS::StackName}-runner-worker
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - S3CrudPolicy:
+            BucketName: !Ref DeployBucket
+        - S3CrudPolicy:
+            BucketName: !Ref TemplateUploadBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeadInboxTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAnalyticsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAppointmentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppointmentSettingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationPreferencesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+        - !If
+          - HasIntegrationKmsKey
+          - Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !Ref IntegrationKmsKeyArn
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
+        - Statement:
+            - Effect: Allow
+              Action:
+                - acm:DescribeCertificate
+                - acm:ListCertificates
+                - acm:RequestCertificate
+                - cloudfront:CreateDistribution
+                - cloudfront:GetDistribution
+                - cloudfront:CreateFunction
+                - cloudfront:UpdateFunction
+                - cloudfront:DescribeFunction
+                - cloudfront:PublishFunction
+              Resource: '*'
+  RunnerWorkerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
+  RunnerJobsWorkerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - RunnerDatabase
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-site-jobs-worker
+      CodeUri: ../
+      Handler: dist/lambda.handler
+      Description: Processes site launch/update/edit jobs from SQS
+      Timeout: 900
+      MemorySize: 2048
+      ReservedConcurrentExecutions: !If
+        - HasRunnerJobReservedConcurrency
+        - !Ref RunnerJobWorkerReservedConcurrency
+        - !Ref AWS::NoValue
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref RunnerFunctionSecurityGroup
+        SubnetIds:
+          - !Ref RunnerLambdaPrivateSubnetA
+          - !Ref RunnerLambdaPrivateSubnetB
+      Environment:
+        Variables:
+          <<: *RunnerEnvVariables
+          RUNNER_FUNCTION_NAME: !Sub ${AWS::StackName}-site-jobs-worker
       Events:
         RunnerQueueConsumer:
           Type: SQS
@@ -888,6 +1062,90 @@ Resources:
             Queue: !GetAtt RunnerJobQueue.Arn
             BatchSize: 1
             MaximumBatchingWindowInSeconds: 0
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - S3CrudPolicy:
+            BucketName: !Ref DeployBucket
+        - S3CrudPolicy:
+            BucketName: !Ref TemplateUploadBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LeadInboxTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAnalyticsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteReviewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SiteAppointmentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppointmentSettingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationPreferencesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+        - !If
+          - HasIntegrationKmsKey
+          - Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !Ref IntegrationKmsKeyArn
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
+        - Statement:
+            - Effect: Allow
+              Action:
+                - acm:DescribeCertificate
+                - acm:ListCertificates
+                - acm:RequestCertificate
+                - cloudfront:CreateDistribution
+                - cloudfront:GetDistribution
+                - cloudfront:CreateFunction
+                - cloudfront:UpdateFunction
+                - cloudfront:DescribeFunction
+                - cloudfront:PublishFunction
+              Resource: '*'
+  RunnerJobsWorkerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RunnerJobsWorkerFunction}
+  AnalyticsEventsWorkerFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - RunnerDatabase
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-analytics-worker
+      CodeUri: ../
+      Handler: dist/lambda.handler
+      Description: Processes analytics ingestion SQS events
+      Timeout: 900
+      MemorySize: 1024
+      ReservedConcurrentExecutions: !If
+        - HasAnalyticsWorkerReservedConcurrency
+        - !Ref AnalyticsWorkerReservedConcurrency
+        - !Ref AWS::NoValue
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref RunnerFunctionSecurityGroup
+        SubnetIds:
+          - !Ref RunnerLambdaPrivateSubnetA
+          - !Ref RunnerLambdaPrivateSubnetB
+      Environment:
+        Variables:
+          <<: *RunnerEnvVariables
+          RUNNER_FUNCTION_NAME: !Sub ${AWS::StackName}-analytics-worker
+      Events:
         AnalyticsQueueConsumer:
           Type: SQS
           Properties:
@@ -946,10 +1204,10 @@ Resources:
                 - cloudfront:DescribeFunction
                 - cloudfront:PublishFunction
               Resource: '*'
-  RunnerWorkerFunctionLogGroup:
+  AnalyticsEventsWorkerFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${RunnerWorkerFunction}
+      LogGroupName: !Sub /aws/lambda/${AnalyticsEventsWorkerFunction}
   DomainWorkerFunction:
     Type: AWS::Serverless::Function
     DependsOn:
@@ -962,6 +1220,10 @@ Resources:
       Description: Domain automation worker
       Timeout: 900
       MemorySize: 2048
+      ReservedConcurrentExecutions: !If
+        - HasDomainWorkerReservedConcurrency
+        - !Ref DomainWorkerReservedConcurrency
+        - !Ref AWS::NoValue
       VpcConfig:
         SecurityGroupIds:
           - !Ref RunnerFunctionSecurityGroup
@@ -1432,6 +1694,15 @@ Resources:
       AutoVerifiedAttributes:
         - email
 
+  UserPoolResourceServer:
+    Type: AWS::Cognito::UserPoolResourceServer
+    Properties:
+      Identifier: lovable-backend
+      Name: Lovable Backend API
+      Scopes:
+        - ScopeName: internal
+          ScopeDescription: Internal automation access for jobs/domains/launches
+
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
@@ -1461,7 +1732,7 @@ Resources:
         - client_credentials
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthScopes:
-        - lovable-backend/internal
+        - !Sub '${UserPoolResourceServer.Identifier}/internal'
       SupportedIdentityProviders:
         - COGNITO
 

@@ -3,6 +3,10 @@ import { DatabaseService } from './database';
 
 const allowedSlugsCacheKey = Symbol('allowedSlugs');
 
+const getAccountId = (request: FastifyRequest): string | null => {
+  return (request.auth as any)?.account?.id ?? request.auth?.profile?.accountId ?? null;
+};
+
 const setCachedSlugs = (request: FastifyRequest, slugs: string[]) => {
   (request as any)[allowedSlugsCacheKey] = slugs;
 };
@@ -17,7 +21,7 @@ export const loadAllowedSlugs = async (
 ): Promise<string[]> => {
   const cached = getCachedSlugs(request);
   if (cached) return cached;
-  const accountId = request.auth?.profile?.accountId;
+  const accountId = getAccountId(request);
   if (!accountId) {
     setCachedSlugs(request, []);
     return [];

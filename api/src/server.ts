@@ -30,6 +30,7 @@ import { DomainJobService } from './services/domain-job';
 import { DomainJobDispatcher } from './services/domain-job-dispatcher';
 import { registerCoreRoutes } from './routes/core';
 import { registerTemplateRoutes } from './routes/templates';
+import { registerAccountRoutes } from './routes/accounts';
 import { randomUUID } from 'node:crypto';
 import { recordApiRequestMetric } from './services/metrics';
 import { TelemetryService } from './services/telemetry';
@@ -137,9 +138,14 @@ export const buildServer = (): FastifyInstance => {
   });
   const notificationService = new NotificationService({ db: database });
   const telemetryService = new TelemetryService({ db: database });
-  const domainJobDispatcher = config.queues.domainJobs
-    ? new DomainJobDispatcher(config.queues.domainJobs, config.awsRegion)
-    : undefined;
+  const domainJobDispatcher =
+    config.queues.domainJobs || config.queues.domainJobTopicArn
+      ? new DomainJobDispatcher({
+          queueUrl: config.queues.domainJobs || undefined,
+          topicArn: config.queues.domainJobTopicArn || undefined,
+          region: config.awsRegion,
+        })
+      : undefined;
   const domainJobService = new DomainJobService(database, {
     dispatcher: domainJobDispatcher,
   });
@@ -182,6 +188,7 @@ export const buildServer = (): FastifyInstance => {
     registerSeoRoutes(instance, { db: database, seo: siteSeoService });
     registerCoreRoutes(instance, { db: database });
     registerTemplateRoutes(instance);
+    registerAccountRoutes(instance, { db: database });
   });
 
   app.get('/health', async () => ({ status: 'ok' }));

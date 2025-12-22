@@ -80,6 +80,21 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
     const userVerifier = createUserVerifier();
     const machineVerifier = createMachineVerifier();
 
+    const resolveAccountContext = async (request: FastifyRequest, userId: string) => {
+      const headerAccountId =
+        (request.headers['x-account-id'] as string | undefined) ||
+        (request.headers['X-Account-Id'] as string | undefined);
+      const memberships = await database.listMembershipsForUser(userId);
+      if (!memberships.length) {
+        return null;
+      }
+      if (headerAccountId) {
+        const match = memberships.find((m) => m.accountId === headerAccountId);
+        if (match) return match;
+      }
+      return memberships[0];
+    };
+
     fastify.decorate('authenticateUser', async (request: FastifyRequest): Promise<void> => {
       const token = extractToken(request);
       if (!token) throw unauthorized();
@@ -126,11 +141,16 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
           fullName,
         });
         await database.ensureRolesForUser(profile.id, ['customer']);
+        await database.ensureDefaultAccountMembership(profile.id, profile.accountId);
       }
       let roles = await database.getRolesForUser(profile.id);
       if (!roles.length) {
         await database.ensureRolesForUser(profile.id, ['customer']);
         roles = await database.getRolesForUser(profile.id);
+      }
+      const membership = await resolveAccountContext(request, profile.id);
+      if (membership) {
+        profile.accountId = membership.accountId;
       }
       const context: AuthContext = {
         type: 'user',
@@ -138,6 +158,12 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
         email,
         roles,
         profile,
+        account: membership
+          ? {
+              id: membership.accountId,
+              role: membership.role as UserRole,
+            }
+          : undefined,
       };
       request.auth = context;
     });
@@ -152,6 +178,24 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
         if (!token) throw unauthorized();
         try {
           const payload = await machineVerifier.verify(token);
+          const scopeClaim = (payload as any).scope;
+          const scopes =
+            typeof scopeClaim === 'string'
+              ? scopeClaim.split(/\s+/).filter(Boolean)
+              : Array.isArray(scopeClaim)
+              ? scopeClaim
+              : [];
+          const hasInternalScope = scopes.includes('lovable-backend/internal');
+          const machineClaim =
+            toBooleanClaim((payload as any).machine) ||
+            toBooleanClaim((payload as any)['lovable:machine']) ||
+            hasInternalScope;
+          if (!machineClaim) {
+            throw unauthorized('Machine claim missing');
+          }
+          const rawPermissions = ((payload as any).permissions || (payload as any)['lovable:permissions']) as
+            | Record<string, any>
+            | undefined;
           const allowAccountContextClaim =
             (payload as any)['lovable:allowAccountContext'] ??
             (payload as any)['lovable:allow_account_context'] ??
@@ -161,7 +205,11 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
             sub: payload.sub,
             roles: ['super-admin'],
             permissions: {
-              allowAccountContext: toBooleanClaim(allowAccountContextClaim),
+              allowAccountContext: toBooleanClaim(allowAccountContextClaim) || hasInternalScope,
+              admin: toBooleanClaim(rawPermissions?.admin) || hasInternalScope,
+              jobs: {
+                run: toBooleanClaim(rawPermissions?.jobs?.run) || hasInternalScope,
+              },
             },
           };
           request.auth = context;

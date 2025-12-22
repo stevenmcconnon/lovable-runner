@@ -50,6 +50,12 @@ export const registerInternalRoutes = (
 
   const machinePreHandler = async (request: any, reply: any) => {
     await app.authenticateMachine(request, reply);
+    if (!request.auth?.permissions?.jobs?.run) {
+      const error = new Error('Machine token missing jobs.run permission');
+      // @ts-expect-error attach status
+      error.statusCode = 403;
+      throw error;
+    }
   };
 
   app.post(

@@ -61,6 +61,7 @@ const envSchema = z
     ANALYTICS_DATABASE_URL: z.string().optional(),
     ANALYTICS_QUEUE_URL: z.string().url({ message: 'ANALYTICS_QUEUE_URL must be a valid URL' }),
     DOMAIN_JOB_QUEUE_URL: z.string().url().optional(),
+    DOMAIN_JOB_TOPIC_ARN: z.string().optional(),
     NOTIFICATION_JOB_QUEUE_URL: z.string().url().optional(),
   })
   .refine(
@@ -137,6 +138,7 @@ const rawEnv = envSchema.parse({
   ANALYTICS_DATABASE_URL: process.env.ANALYTICS_DATABASE_URL,
   ANALYTICS_QUEUE_URL: process.env.ANALYTICS_QUEUE_URL || process.env.SITE_ANALYTICS_QUEUE_URL,
   DOMAIN_JOB_QUEUE_URL: process.env.DOMAIN_JOB_QUEUE_URL,
+  DOMAIN_JOB_TOPIC_ARN: process.env.DOMAIN_JOB_TOPIC_ARN,
   NOTIFICATION_JOB_QUEUE_URL: process.env.NOTIFICATION_JOB_QUEUE_URL,
 });
 
@@ -306,6 +308,7 @@ export const config = {
   analyticsQueueUrl: rawEnv.ANALYTICS_QUEUE_URL,
   queues: {
     domainJobs: rawEnv.DOMAIN_JOB_QUEUE_URL || rawEnv.RUNNER_QUEUE_URL || '',
+    domainJobTopicArn: rawEnv.DOMAIN_JOB_TOPIC_ARN || '',
     notifications: rawEnv.NOTIFICATION_JOB_QUEUE_URL || '',
   },
   security: {

@@ -54,6 +54,7 @@ const editRequestInput = z.object({
 const siteLaunchInput = z.object({
   url: z.string().url(),
   description: z.string().max(2000).optional(),
+  idempotencyKey: z.string().min(1).max(200).optional(),
   business: businessDetailsSchema,
 });
 
@@ -88,6 +89,12 @@ const derivePlaceholderLabel = (params: {
   url?: string | null;
   fallback?: string;
 }) => params.business?.businessName || extractHostname(params.url) || params.fallback || 'Preview site';
+
+const toDeterministicUuid = (key: string) => {
+  const cleaned = key.trim();
+  const hash = require('node:crypto').createHash('sha256').update(cleaned).digest('hex');
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+};
 
 const shouldIncludeMeta = (value?: string | null) =>
   typeof value === 'string' && ['1', 'true', 'yes'].includes(value.toLowerCase());
@@ -186,7 +193,9 @@ export const registerCustomerRoutes = (
       const remaining = isActive
         ? usage.remainingEdits
         : Math.max(limit - usage.editsUsedThisPeriod, 0);
-      if (remaining <= 0) {
+      const pendingReservations = await db.getPendingLaunchReservationTotal(profile.accountId);
+      const effectiveRemaining = remaining - pendingReservations;
+      if (effectiveRemaining <= 0) {
         return reply.code(402).send({
           message: 'Edit limit exceeded',
           code: 'LIMIT_EXCEEDED',
@@ -202,18 +211,43 @@ export const registerCustomerRoutes = (
         siteId: body.siteId,
         businessDetails: body.business,
       });
-      await db.incrementUsage(profile.accountId, limit, 1).catch((error) => {
-        request.log.warn({ err: error }, '[customer] Failed to increment usage');
-      });
       const job = await db.createJobForRequest(editRequest.id);
-      await runner.enqueueEditJob({
-        jobId: job.id,
-        editRequestId: editRequest.id,
-        accountId: profile.accountId,
-        description: body.description,
-        siteId: body.siteId,
-        businessDetails: body.business,
-      });
+      let reservedUsage = false;
+      await db
+        .createLaunchReservation({
+          accountId: profile.accountId,
+          requestId: job.id,
+          cost: 1,
+          limitSnapshot: limit,
+        })
+        .then(() => {
+          reservedUsage = true;
+        })
+        .catch((error) => {
+          request.log.warn({ err: error }, '[customer] Failed to reserve usage for edit request');
+        });
+      try {
+        await runner.enqueueEditJob({
+          jobId: job.id,
+          editRequestId: editRequest.id,
+          accountId: profile.accountId,
+          description: body.description,
+          siteId: body.siteId,
+          businessDetails: body.business,
+        });
+      } catch (error) {
+        if (reservedUsage) {
+          await db
+            .releaseLaunchReservation(job.id, (error as any)?.message)
+            .catch((releaseError) =>
+              request.log.warn(
+                { err: releaseError, jobId: job.id },
+                '[customer] Failed to release edit usage reservation'
+              )
+            );
+        }
+        throw error;
+      }
 
       if (!isActive && usage.editsUsedThisPeriod === 0 && !profile.hasUsedTrial) {
         await db.markTrialUsed(profile.id);
@@ -253,14 +287,28 @@ export const registerCustomerRoutes = (
       }
       throw error;
     }
-    const requestId = randomUUID();
+    const requestId = body.idempotencyKey ? toDeterministicUuid(body.idempotencyKey) : randomUUID();
+    const existing = await db.getSiteGenerationByRequestId(requestId, profile.accountId);
+    if (existing) {
+      return reply.code(existing.status === 'completed' ? 200 : 202).send({
+        status: existing.status,
+        requestId,
+        slug: existing.slug,
+        prefix: existing.prefix,
+        bucket: existing.bucket,
+        publicUrl: existing.publicUrl,
+        errorMessage: existing.errorMessage,
+      });
+    }
     const subscription = await db.getSubscription(profile.accountId);
     const limit = subscription?.monthlyEditLimit ?? trialAllowance();
     const usage = await db.getUsage(profile.accountId, limit);
     const remaining = subscription?.status === 'active'
       ? usage.remainingEdits
       : Math.max(limit - usage.editsUsedThisPeriod, 0);
-    if (remaining <= 0) {
+    const pendingReservations = await db.getPendingLaunchReservationTotal(profile.accountId);
+    const effectiveRemaining = remaining - pendingReservations;
+    if (effectiveRemaining <= 0) {
       return reply.code(402).send({
         message: 'Edit limit exceeded',
         code: 'LIMIT_EXCEEDED',
@@ -305,20 +353,49 @@ export const registerCustomerRoutes = (
       brandName: derivePlaceholderLabel({ business: body.business, url: body.url, fallback: slug }),
       requestId,
     });
-    await db.createSiteGenerationRequest({
-      requestId,
-      accountId: profile.accountId,
-      userId: profile.id,
-      sourceUrl: body.url,
-      description: body.description,
-      businessDetails: body.business,
-      slug,
-      prefix: prefixPath,
-      bucket: resolvedBucket,
-    });
-    await db.incrementUsage(profile.accountId, limit, 1).catch((error) => {
-      request.log.warn({ err: error }, '[customer] Failed to increment usage for launch');
-    });
+    try {
+      await db.createSiteGenerationRequest({
+        requestId,
+        accountId: profile.accountId,
+        userId: profile.id,
+        sourceUrl: body.url,
+        description: body.description,
+        businessDetails: body.business,
+        slug,
+        prefix: prefixPath,
+        bucket: resolvedBucket,
+      });
+    } catch (error: any) {
+      if ((error as any)?.code === '23505') {
+        const existingGeneration = await db.getSiteGenerationByRequestId(requestId, profile.accountId);
+        if (existingGeneration) {
+          return reply.code(existingGeneration.status === 'completed' ? 200 : 202).send({
+            status: existingGeneration.status,
+            requestId,
+            slug: existingGeneration.slug,
+            prefix: existingGeneration.prefix,
+            bucket: existingGeneration.bucket,
+            publicUrl: existingGeneration.publicUrl,
+            errorMessage: existingGeneration.errorMessage,
+          });
+        }
+      }
+      throw error;
+    }
+    let reservedUsage = false;
+    await db
+      .createLaunchReservation({
+        accountId: profile.accountId,
+        requestId,
+        cost: 1,
+        limitSnapshot: limit,
+      })
+      .then(() => {
+        reservedUsage = true;
+      })
+      .catch((error) => {
+        request.log.warn({ err: error }, '[customer] Failed to reserve usage for launch');
+      });
     try {
       await runner.runLaunchDirect({
         url: body.url,
@@ -343,6 +420,16 @@ export const registerCustomerRoutes = (
         status: 'failed',
         errorMessage: error?.message ?? 'Failed to start launch',
       });
+      if (reservedUsage) {
+        await db
+          .releaseLaunchReservation(requestId, error?.message)
+          .catch((releaseError) =>
+            request.log.warn(
+              { err: releaseError, requestId },
+              '[customer] Failed to release launch reservation'
+            )
+          );
+      }
       throw error;
     }
   });

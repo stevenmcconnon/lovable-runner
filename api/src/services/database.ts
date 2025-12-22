@@ -30,6 +30,7 @@ import {
   DomainJobType,
   OwnerDashboardSnapshot,
   StatusCount,
+  AccountMembership,
 } from '../types';
 
 const pool = new Pool({
@@ -211,6 +212,13 @@ const mapDomainJob = (row: any): DomainJobRecord => ({
   lastError: row.last_error ?? null,
   createdAt: toIsoString(row.created_at),
   updatedAt: toIsoString(row.updated_at),
+});
+
+const mapAccountMembership = (row: any): AccountMembership => ({
+  accountId: row.account_id,
+  userId: row.user_id,
+  role: row.role,
+  createdAt: toIsoString(row.created_at),
 });
 
 const mapAuditLog = (row: any) => ({
@@ -596,6 +604,170 @@ export class DatabaseService {
     return rows.map((row) => row.role);
   }
 
+  async ensureDefaultAccountMembership(userId: string, accountId?: string | null): Promise<void> {
+    const resolvedAccountId = accountId || randomUUID();
+    await this.query(
+      `
+      INSERT INTO accounts (id)
+      VALUES ($1)
+      ON CONFLICT (id) DO NOTHING
+    `,
+      [resolvedAccountId]
+    );
+    await this.query(
+      `
+      INSERT INTO account_memberships (account_id, user_id, role)
+      VALUES ($1, $2, 'owner')
+      ON CONFLICT (account_id, user_id) DO NOTHING
+    `,
+      [resolvedAccountId, userId]
+    );
+    await this.query(`UPDATE profiles SET account_id = $1 WHERE id = $2`, [resolvedAccountId, userId]);
+  }
+
+  async listMembershipsForUser(userId: string): Promise<AccountMembership[]> {
+    const { rows } = await this.query(
+      `
+      SELECT account_id, user_id, role, created_at
+      FROM account_memberships
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `,
+      [userId]
+    );
+    return rows.map(mapAccountMembership);
+  }
+
+  async listMembersForAccount(accountId: string): Promise<AccountMembership[]> {
+    const { rows } = await this.query(
+      `
+      SELECT account_id, user_id, role, created_at
+      FROM account_memberships
+      WHERE account_id = $1
+      ORDER BY created_at ASC
+    `,
+      [accountId]
+    );
+    return rows.map(mapAccountMembership);
+  }
+
+  async upsertMembership(accountId: string, userId: string, role: UserRole): Promise<void> {
+    await this.query(
+      `
+      INSERT INTO account_memberships (account_id, user_id, role)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (account_id, user_id) DO UPDATE
+        SET role = EXCLUDED.role
+    `,
+      [accountId, userId, role]
+    );
+  }
+
+  async removeMembership(accountId: string, userId: string): Promise<void> {
+    await this.query(`DELETE FROM account_memberships WHERE account_id = $1 AND user_id = $2`, [
+      accountId,
+      userId,
+    ]);
+  }
+
+  async shareSiteWithAccount(slug: string, accountId: string): Promise<void> {
+    await this.query(
+      `
+      INSERT INTO account_sites (account_id, slug)
+      VALUES ($1, $2)
+      ON CONFLICT (account_id, slug) DO NOTHING
+    `,
+      [accountId, slug]
+    );
+  }
+
+  async createInvitation(params: {
+    accountId: string;
+    email: string;
+    role: UserRole;
+    invitedBy?: string | null;
+  }): Promise<{ token: string }> {
+    const token = randomUUID();
+    await this.query(
+      `
+      INSERT INTO account_invitations (token, account_id, email, role, status, invited_by)
+      VALUES ($1,$2,$3,$4,'pending',$5)
+    `,
+      [token, params.accountId, params.email, params.role, params.invitedBy ?? null]
+    );
+    return { token };
+  }
+
+  async getInvitation(token: string): Promise<{
+    token: string;
+    accountId: string;
+    email: string;
+    role: UserRole;
+    status: string;
+  } | null> {
+    const { rows } = await this.query(
+      `
+      SELECT token, account_id, email, role, status
+      FROM account_invitations
+      WHERE token = $1
+      LIMIT 1
+    `,
+      [token]
+    );
+    if (!rows[0]) return null;
+    return {
+      token: rows[0].token,
+      accountId: rows[0].account_id,
+      email: rows[0].email,
+      role: rows[0].role,
+      status: rows[0].status,
+    };
+  }
+
+  async acceptInvitation(token: string, userId: string): Promise<AccountMembership | null> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      const inviteResult = await client.query(
+        `SELECT * FROM account_invitations WHERE token = $1 AND status = 'pending' FOR UPDATE`,
+        [token]
+      );
+      const invite = inviteResult.rows[0];
+      if (!invite) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      await client.query(
+        `
+        UPDATE account_invitations
+        SET status = 'accepted', redeemed_at = NOW()
+        WHERE token = $1
+      `,
+        [token]
+      );
+      await client.query(
+        `
+        INSERT INTO account_memberships (account_id, user_id, role)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (account_id, user_id) DO UPDATE
+          SET role = EXCLUDED.role
+      `,
+        [invite.account_id, userId, invite.role]
+      );
+      await client.query('COMMIT');
+      return {
+        accountId: invite.account_id,
+        userId,
+        role: invite.role,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async createProfileFromCognito(input: {
     cognitoSub: string;
     email: string;
@@ -603,21 +775,43 @@ export class DatabaseService {
   }): Promise<ProfileRecord> {
     const profileId = randomUUID();
     const accountId = randomUUID();
-    const { rows } = await this.query(
-      `
-      INSERT INTO profiles (id, account_id, email, full_name, cognito_sub, has_used_trial)
-      VALUES ($1, $2, $3, $4, $5, false)
-      ON CONFLICT (cognito_sub) DO UPDATE
-        SET email = EXCLUDED.email,
-            full_name = COALESCE(EXCLUDED.full_name, profiles.full_name)
-      RETURNING id, account_id, email, full_name, cognito_sub, has_used_trial
-    `,
-      [profileId, accountId, input.email, input.fullName ?? null, input.cognitoSub]
-    );
-    if (!rows[0]) {
-      throw new Error('Failed to create or fetch profile');
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(`INSERT INTO accounts (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [accountId]);
+      const { rows } = await client.query(
+        `
+        INSERT INTO profiles (id, account_id, email, full_name, cognito_sub, has_used_trial)
+        VALUES ($1, $2, $3, $4, $5, false)
+        ON CONFLICT (cognito_sub) DO UPDATE
+          SET email = EXCLUDED.email,
+              full_name = COALESCE(EXCLUDED.full_name, profiles.full_name)
+        RETURNING id, account_id, email, full_name, cognito_sub, has_used_trial
+      `,
+        [profileId, accountId, input.email, input.fullName ?? null, input.cognitoSub]
+      );
+      const profile = rows[0] ? mapProfile(rows[0]) : null;
+      if (profile) {
+        await client.query(
+          `
+          INSERT INTO account_memberships (account_id, user_id, role)
+          VALUES ($1, $2, 'owner')
+          ON CONFLICT (account_id, user_id) DO NOTHING
+        `,
+          [profile.accountId, profile.id]
+        );
+      }
+      await client.query('COMMIT');
+      if (!profile) {
+        throw new Error('Failed to create or fetch profile');
+      }
+      return profile;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    return mapProfile(rows[0]);
   }
 
   async ensureRolesForUser(userId: string, roles: UserRole[]): Promise<void> {

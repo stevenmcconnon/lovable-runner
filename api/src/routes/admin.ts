@@ -123,6 +123,12 @@ export const registerAdminRoutes = (
     }
     try {
       await app.authenticateMachine(request, reply);
+      if (!request.auth?.permissions?.admin) {
+        const error = new Error('Machine token missing admin permission');
+        // @ts-expect-error attach status
+        error.statusCode = 403;
+        throw error;
+      }
     } catch (machineError) {
       throw userError || machineError;
     }

@@ -54,10 +54,18 @@ node src/cli.js fetch --project <project-id> --out ./output --zip
 
 #### Background workers
 - The SAM stack also deploys dedicated worker Lambdas:
-  - `RunnerWorkerFunction` handles async invocations from the API (launches, edits, updates) plus analytics rollups.
+- `RunnerWorkerFunction` now runs scheduled/maintenance jobs (analytics rollups, rate-limit cleanup, audit log pruning) without sitting on any SQS queue.
+- `RunnerJobsWorkerFunction` is dedicated to draining the `${StackName}-runner-jobs` SQS queue so site launches/edits/updates have their own reserved concurrency + DLQ.
+- `AnalyticsEventsWorkerFunction` drains the `${StackName}-analytics-events` SQS queue with its own concurrency guard + DLQ so noisy telemetry can’t starve launches.
   - `DomainWorkerFunction` is dedicated to custom-domain automation (HTTPS refresh + domain job batches) so bursty domain retries can’t starve other traffic.
   - `NotificationWorkerFunction` wakes up every few minutes to drain the notification job table and send SES emails without competing with launches or domains.
 - `RUNNER_FUNCTION_NAME` inside the API now points at this worker so tenant traffic can’t be starved by long-running jobs.
+- Machine tokens: use the Cognito machine app client (`COGNITO_M2M_CLIENT_ID`) with the `lovable-backend/internal` scope. Tokens should carry `machine: true` and `permissions` (admin + jobs.run + allowAccountContext) or at least the internal scope, which the backend now treats as granting those permissions.
+
+### Operational guardrails
+- **Cost caps** – use the new `LogRetentionInDays` parameter (default 30) to bound CloudWatch logs, start RDS at t4g.micro/small until load demands more, and prefer VPC endpoints over NAT to stay under \$250/mo before scale.
+- **Smoke tests** – run `npm run test:api` (or `npm run test:api:full`) against a stage before deploy; wire this into CI to block risky releases.
+- **Usage reservations** – launches/edit jobs reserve usage and consume it only on completion; failures release reservations so quotas stay accurate even when requests are retried idempotently.
 
 Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `super-admin`). See `infra/template.yaml` for a SAM template that provisions the Cognito pool, HTTP API Gateway, PostgreSQL database, and the Lambda function wired to all routes.
 
@@ -90,14 +98,14 @@ Authentication is enforced through Amazon Cognito groups (`user`, `admin`, `supe
 ##### Domain lifecycle
 - Customer domains move through `pending_payment → paid → dns_pending → cert_requested → cert_validating → edge_updating → active` (or `failed`). The `site_domains` table now stores certificate ARN/status, validation records, CloudFront distribution metadata, routing errors, and timestamps so the API can return constant-time responses without hitting ACM/CloudFront inline.
 - Every lifecycle change is recorded in the new `domain_jobs` / `domain_events` tables. Provisioning jobs are enqueued as soon as a cart item is created or a manual domain is attached, and edge sync jobs follow automatically after ACM reports `ISSUED`.
-- Domain jobs are also mirrored to the `${StackName}-domain-jobs` SQS queue so multiple Lambda consumers can drain retries concurrently without a global advisory lock. The Postgres queue keeps ordering by using `FOR UPDATE SKIP LOCKED`, and retries re-dispatch themselves back to SQS automatically.
+- Domain jobs are now broadcast to the `${StackName}-domain-jobs` SNS topic which feeds the `${StackName}-domain-jobs` SQS queue (with its own DLQ). The Postgres queue keeps ordering by using `FOR UPDATE SKIP LOCKED`, while retries schedule themselves back onto SQS with `DelaySeconds` so exponential backoff works without a cron loop. Want another consumer? Subscribe a second queue to the topic without redeploying the API.
 - Per-account quotas enforce sanity: `DOMAIN_MAX_PER_ACCOUNT` caps total domains attached to an account, `DOMAIN_ORDER_DAILY_LIMIT` caps pending purchases per day, and `DOMAIN_REFRESH_DAILY_LIMIT` caps manual HTTPS refresh enqueues per account/day. These use the persistent `rate_limit_counters` table so limits survive restarts.
 - Domain failures are persisted (`status = 'failed'`, `routing_error` set) and logged as `domain.job.failed` events so operations has traceability when customers exceed validation windows or CloudFront updates stall.
 
 ##### Domain job processing
-- EventBridge now invokes the Lambda every 2 minutes via the `DomainJobWorkerRule` with `{ "action": "RUN_DOMAIN_JOBS" }`. `DOMAIN_JOB_BATCH_LIMIT` and `DOMAIN_JOB_MAX_RUNTIME_MS` gate how many jobs run per invocation and how long a batch can run before remaining jobs are rescheduled. A Postgres advisory lock ensures only one invocation processes jobs at a time even if AWS retries overlap.
-- Provisioning and edge-sync retries use exponential backoff capped at 30 minutes (`DOMAIN_CERT_RETRY_MS` / `DOMAIN_EDGE_RETRY_MS`) with max-attempt cutoffs; once exceeded the job is marked failed, the domain is moved to `FAILED`, and a `domain.job.failed` event is written.
-- Operational guardrails ship with the stack: CloudWatch metric filters monitor `domain.job.failed`, `domain.lifecycle.failed`, and `ThrottlingException` log entries, with alarms that page when any occur. You can also override `RunnerReservedConcurrency` (default 0) if the AWS account has enough unreserved capacity to enforce a hard Lambda concurrency ceiling.
+- The SNS → SQS fan-out means domain jobs are **100% event-driven** now—no more EventBridge loop. When a job is created we fire SNS (`DOMAIN_JOB_TOPIC_ARN`), the queue delivers it to `DomainWorkerFunction`, and retries simply use SQS delays so backoff respects the same window as before (`DOMAIN_CERT_RETRY_MS`, `DOMAIN_EDGE_RETRY_MS`, `DOMAIN_JOB_MAX_RETRY_DELAY_MS`).
+- Provisioning and edge-sync retries still use exponential backoff capped at 30 minutes; once the attempt budget is exhausted we mark the job failed, flip the domain to `FAILED`, publish `domain.job.failed`, and the poison payload lands in `${StackName}-domain-jobs-dlq` for inspection.
+- Operational guardrails ship with the stack: CloudWatch metric filters monitor `domain.job.failed`, `domain.lifecycle.failed`, and `ThrottlingException` log entries with alarms that page when any occur. You can also tune `DomainWorkerReservedConcurrency`, `RunnerJobWorkerReservedConcurrency`, and `AnalyticsWorkerReservedConcurrency` (defaults 0 = unreserved) to prevent any queue from overwhelming the account’s Lambda concurrency budget.
 
 ### Database (Amazon RDS)
 - The SAM stack provisions a managed PostgreSQL instance (`RunnerDatabase`) plus a Secrets Manager entry storing the username/password. Lambda receives `DATABASE_URL` automatically; local tooling can either rely on the stack metadata or pass `TEST_DATABASE_URL`.

@@ -1,4 +1,4 @@
-export type UserRole = 'customer' | 'admin' | 'super-admin';
+export type UserRole = 'customer' | 'admin' | 'super-admin' | 'owner' | 'member' | 'viewer';
 
 export interface ProfileRecord {
   id: string;
@@ -102,8 +102,13 @@ export interface AuthContext {
   email?: string;
   roles: UserRole[];
   profile?: ProfileRecord;
+  account?: { id: string; role: UserRole };
   permissions?: {
     allowAccountContext?: boolean;
+    admin?: boolean;
+    jobs?: {
+      run?: boolean;
+    };
   };
 }
 
@@ -119,6 +124,13 @@ export interface SubscriptionPlan {
   priceMonthly: number;
   monthlyEditLimit: number | null;
   stripePriceId?: string | null;
+}
+
+export interface AccountMembership {
+  accountId: string;
+  userId: string;
+  role: UserRole;
+  createdAt?: string | null;
 }
 
 export interface SubscriptionDetails {

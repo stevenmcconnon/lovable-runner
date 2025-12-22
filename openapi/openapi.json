@@ -16,6 +16,145 @@
     }
   ],
   "paths": {
+    "/accounts/members": {
+      "get": {
+        "summary": "List members of the current account",
+        "tags": ["accounts"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Member list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accountId": { "type": "string", "format": "uuid" },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accountId": { "type": "string", "format": "uuid" },
+                          "userId": { "type": "string", "format": "uuid" },
+                          "role": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/invitations": {
+      "post": {
+        "summary": "Invite a user to the current account",
+        "tags": ["accounts"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer", "customer", "super-admin"] }
+                },
+                "required": ["email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation token created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "token": { "type": "string", "format": "uuid" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/invitations/accept": {
+      "post": {
+        "summary": "Accept an invitation",
+        "tags": ["accounts"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "token": { "type": "string", "format": "uuid" } },
+                "required": ["token"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "membership": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": { "type": "string", "format": "uuid" },
+                        "userId": { "type": "string", "format": "uuid" },
+                        "role": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/share-site": {
+      "post": {
+        "summary": "Share a site with another account",
+        "tags": ["accounts"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slug": { "type": "string" },
+                  "accountId": { "type": "string", "format": "uuid" }
+                },
+                "required": ["slug", "accountId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shared",
+            "content": {
+              "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" } } } }
+            }
+          }
+        }
+      }
+    },
     "/sites/{slug}/thumbnail": {
       "get": {
         "summary": "Return a thumbnail URL for a site",

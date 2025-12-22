@@ -62,9 +62,14 @@ const domainEdge = new DomainEdgeService({
 });
 const notificationService = new NotificationService({ db });
 const domainManager = new DomainManager({ db, edge: domainEdge, notifications: notificationService });
-const domainJobDispatcher = config.queues.domainJobs
-  ? new DomainJobDispatcher(config.queues.domainJobs, config.awsRegion)
-  : undefined;
+const domainJobDispatcher =
+  config.queues.domainJobs || config.queues.domainJobTopicArn
+    ? new DomainJobDispatcher({
+        queueUrl: config.queues.domainJobs || undefined,
+        topicArn: config.queues.domainJobTopicArn || undefined,
+        region: config.awsRegion,
+      })
+    : undefined;
 const domainJobs = new DomainJobService(db, { dispatcher: domainJobDispatcher });
 const domainJobRunner = new DomainJobRunner({ db, manager: domainManager, jobs: domainJobs });
 const defaultRefreshLimit = Number(process.env.DOMAIN_REFRESH_LIMIT || 25);
@@ -81,6 +86,14 @@ const {
 } = resolveRootModule('src/analytics-rollup.js');
 const { ingestAnalyticsEvent } = resolveRootModule('src/analytics.js') as {
   ingestAnalyticsEvent: (params: { slug: string; type: string; metadata?: Record<string, any> }) => Promise<void>;
+};
+
+const defaultUsageLimit = () => config.limits.trialEditLimit + config.limits.signedInBonusEdits;
+
+const resolveUsageLimit = async (accountId?: string | null) => {
+  if (!accountId) return defaultUsageLimit();
+  const subscription = await db.getSubscription(accountId);
+  return subscription?.monthlyEditLimit ?? defaultUsageLimit();
 };
 
 type SiteLaunchEvent = {
@@ -142,10 +155,6 @@ type AnalyticsRollupEvent = {
   date?: string;
   start?: string;
   end?: string;
-};
-
-type DomainJobEvent = {
-  limit?: number;
 };
 
 type DomainJobMessageEvent = {
@@ -264,6 +273,16 @@ export const handleSiteLaunchJob = async (event: SiteLaunchEvent) => {
       builtFromProject: result.builtFromProject,
       gitArchive: result.gitArchive,
     });
+    const reservation = await db.consumeLaunchReservation(requestId);
+    if (reservation) {
+      const limit = reservation.limitSnapshot ?? (await resolveUsageLimit(reservation.accountId));
+      await db.incrementUsage(reservation.accountId, limit, reservation.cost).catch((error) =>
+        console.warn('[worker] Failed to consume launch reservation', {
+          requestId,
+          err: error?.message,
+        })
+      );
+    }
     return {
       requestId,
       ...result,
@@ -273,6 +292,12 @@ export const handleSiteLaunchJob = async (event: SiteLaunchEvent) => {
     await updateStatus(requestId, 'failed', {
       errorMessage: error?.message || 'Generation failed',
     });
+    await db.releaseLaunchReservation(requestId, error?.message).catch((releaseError) =>
+      console.warn('[worker] Failed to release launch reservation', {
+        requestId,
+        err: (releaseError as any)?.message,
+      })
+    );
     throw error;
   }
 };
@@ -397,15 +422,6 @@ export const handleSiteUpdateJob = async (event: SiteUpdateEvent) => {
   }
 };
 
-export const handleDomainJobBatch = async (event: DomainJobEvent = {}) => {
-  const defaultLimit = config.domains.jobs.batchLimit;
-  const limit = Math.max(1, Number(event.limit) || defaultLimit);
-  const result = await domainJobRunner.runBatch(limit, {
-    maxRuntimeMs: config.domains.jobs.maxRuntimeMs,
-  });
-  return result;
-};
-
 export const handleDomainJobMessage = async (event: DomainJobMessageEvent) => {
   if (!event?.jobId) throw new Error('jobId is required for domain job processing');
   const job = await domainJobs.claimJobById(event.jobId);
@@ -468,6 +484,16 @@ export const handleEditRequestJob = async (event: EditJobEvent) => {
       previewUrl: result.publicUrl,
       lovableProjectId: (result as any).lovableProjectId ?? null,
     });
+    const reservation = await db.consumeLaunchReservation(jobId);
+    if (reservation) {
+      const limit = reservation.limitSnapshot ?? (await resolveUsageLimit(reservation.accountId));
+      await db.incrementUsage(reservation.accountId, limit, reservation.cost).catch((error) =>
+        console.warn('[worker] Failed to consume edit reservation', {
+          jobId,
+          err: error?.message,
+        })
+      );
+    }
     return {
       jobId,
       status: 'completed',
@@ -481,6 +507,12 @@ export const handleEditRequestJob = async (event: EditJobEvent) => {
       editRequestId: event.editRequestId,
       errorMessage: error?.message || 'Generation failed',
     });
+    await db.releaseLaunchReservation(jobId, error?.message).catch((releaseError) =>
+      console.warn('[worker] Failed to release edit reservation', {
+        jobId,
+        err: (releaseError as any)?.message,
+      })
+    );
     throw error;
   }
 };

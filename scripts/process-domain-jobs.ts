@@ -25,9 +25,14 @@ const main = async () => {
     canonicalDefault: config.domains.edge.canonicalDefault,
     distributionId: config.domains.edge.distributionId,
   });
-  const dispatcher = config.queues.domainJobs
-    ? new DomainJobDispatcher(config.queues.domainJobs, config.awsRegion)
-    : undefined;
+  const dispatcher =
+    config.queues.domainJobs || config.queues.domainJobTopicArn
+      ? new DomainJobDispatcher({
+          queueUrl: config.queues.domainJobs || undefined,
+          topicArn: config.queues.domainJobTopicArn || undefined,
+          region: config.awsRegion,
+        })
+      : undefined;
   const jobs = new DomainJobService(db, { dispatcher });
   const manager = new DomainManager({ db, edge });
   const runner = new DomainJobRunner({ db, jobs, manager });

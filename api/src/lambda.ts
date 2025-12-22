@@ -9,7 +9,6 @@ import {
   handleSiteLaunchJob,
   handleSiteUpdateJob,
   handleAnalyticsRollupJob,
-  handleDomainJobBatch,
   handleDomainJobMessage,
   handleAnalyticsIngest,
   handleAccountSitesBackfill,
@@ -153,17 +152,6 @@ const handleActionEvent = async (event: any) => {
         date: event.date,
         start: event.start,
         end: event.end,
-      });
-      return {
-        statusCode: 200,
-        body: JSON.stringify(result),
-      };
-    });
-  }
-  if (event?.action === 'RUN_DOMAIN_JOBS') {
-    return runWithMetrics('RUN_DOMAIN_JOBS', async () => {
-      const result = await handleDomainJobBatch({
-        limit: event.limit,
       });
       return {
         statusCode: 200,
