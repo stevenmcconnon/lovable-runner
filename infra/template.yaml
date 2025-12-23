@@ -9,6 +9,7 @@ Globals:
     MemorySize: 2048
     Architectures:
       - x86_64
+    Tracing: Active
 
 Parameters:
   DeployBucket:
@@ -68,6 +69,18 @@ Parameters:
     Type: String
     Default: ''
     Description: Optional Postgres connection string for analytics + telemetry writes
+  RequireAnalyticsIsolation:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: When true, AnalyticsDatabaseUrl must be provided (recommended for prod)
+
+Rules:
+  RequireAnalyticsDbRule:
+    RuleCondition: !Equals [!Ref RequireAnalyticsIsolation, 'true']
+    Assertions:
+      - Assert: !Not [!Equals [!Ref AnalyticsDatabaseUrl, '']]
+        AssertDescription: AnalyticsDatabaseUrl must be set when RequireAnalyticsIsolation=true
   NatGatewaySubnetId:
     Type: AWS::EC2::Subnet::Id
     Default: subnet-04c228a7b5b68ff53
@@ -1855,6 +1868,40 @@ Resources:
       ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
       AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  DomainQueueBacklogAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-domain-queue-backlog
+      AlarmDescription: Domain job queue depth is growing faster than the worker can drain it
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DomainJobQueue.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 50
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  DomainQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-domain-queue-age
+      AlarmDescription: Domain job messages are getting stale
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DomainJobQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   AnalyticsDlqAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1887,6 +1934,25 @@ Resources:
       EvaluationPeriods: 1
       Threshold: 5
       ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
+  ApiGateway5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-httpapi-5xx
+      AlarmDescription: HTTP API is returning elevated 5xx responses
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref RunnerApi
+        - Name: Stage
+          Value: prod
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
       TreatMissingData: notBreaching
       AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
   AnalyticsQueueBacklogAlarm:
