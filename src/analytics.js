@@ -102,6 +102,8 @@ const enqueueAnalyticsEvent = async (payload) => {
   return true;
 };
 
+let warnedAboutDirectWrites = false;
+
 const ingestAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
   if (!slug || !type) return;
   const normalizedType = type.toLowerCase();
@@ -130,6 +132,12 @@ const recordAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
         err: error?.message,
       });
     }
+  }
+  if (!warnedAboutDirectWrites && !analyticsQueue) {
+    warnedAboutDirectWrites = true;
+    console.warn(
+      '[analytics] ANALYTICS_QUEUE_URL is not configured; writing events directly to the database.'
+    );
   }
   await ingestAnalyticsEvent({ slug, type, metadata });
 };
