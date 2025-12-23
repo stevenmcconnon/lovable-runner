@@ -200,13 +200,14 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
             (payload as any)['lovable:allowAccountContext'] ??
             (payload as any)['lovable:allow_account_context'] ??
             (payload as any)['lovable:allow-account-context'];
+          const adminPermission = toBooleanClaim(rawPermissions?.admin) || hasInternalScope;
           const context: AuthContext = {
             type: 'machine',
             sub: payload.sub,
-            roles: ['super-admin'],
+            roles: adminPermission ? ['admin', 'super-admin'] : [],
             permissions: {
               allowAccountContext: toBooleanClaim(allowAccountContextClaim) || hasInternalScope,
-              admin: toBooleanClaim(rawPermissions?.admin) || hasInternalScope,
+              admin: adminPermission,
               jobs: {
                 run: toBooleanClaim(rawPermissions?.jobs?.run) || hasInternalScope,
               },

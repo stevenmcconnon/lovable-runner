@@ -145,7 +145,11 @@ export const buildServer = (): FastifyInstance => {
           topicArn: config.queues.domainJobTopicArn || undefined,
           region: config.awsRegion,
         })
-      : undefined;
+      : (() => {
+          throw new Error(
+            'Domain job dispatcher is not configured. Set DOMAIN_JOB_QUEUE_URL or DOMAIN_JOB_TOPIC_ARN.'
+          );
+        })();
   const domainJobService = new DomainJobService(database, {
     dispatcher: domainJobDispatcher,
   });
