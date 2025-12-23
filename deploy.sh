@@ -15,6 +15,7 @@ Options:
   --config-env <env> samconfig environment (default: default)
   --cloudfront-id    CloudFront distribution id to invalidate after deploy (default: $CLOUDFRONT_DISTRIBUTION_ID)
   --skip-tests       Skip pre-deploy unit tests
+  --run-api-tests    Run HTTP smoke tests (npm run test:api) before deploy
   --skip-migrations  Skip running database migrations
   --migrations-cmd   Custom migration command (overrides default)
   --skip-install     Skip npm install
@@ -32,6 +33,7 @@ CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-}"
 RUN_INSTALL=1
 RUN_TS_BUILD=1
 RUN_TESTS=1
+RUN_API_TESTS=0
 RUN_MIGRATIONS=1
 MIGRATIONS_CMD="${MIGRATIONS_CMD:-}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -67,6 +69,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-tests)
       RUN_TESTS=0
+      shift
+      ;;
+    --run-api-tests)
+      RUN_API_TESTS=1
       shift
       ;;
     --skip-migrations)
@@ -108,6 +114,11 @@ run_npm_install() {
 run_tests() {
   echo "Running unit tests..."
   npm run test:unit
+}
+
+run_api_tests() {
+  echo "Running HTTP smoke tests (npm run test:api)..."
+  npm run test:api
 }
 
 run_migrations() {
@@ -152,6 +163,12 @@ if [[ $RUN_TESTS -eq 1 ]]; then
   run_tests
 else
   echo "Skipping tests as requested."
+fi
+
+if [[ $RUN_API_TESTS -eq 1 ]]; then
+  run_api_tests
+else
+  echo "Skipping API smoke tests (enable with --run-api-tests)."
 fi
 
 if [[ $RUN_MIGRATIONS -eq 1 ]]; then

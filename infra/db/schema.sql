@@ -1,3 +1,4 @@
+-- NOTE: Apply schema changes via infra/db/migrations/*.sql. This snapshot is generated/reference only.
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS profiles (
