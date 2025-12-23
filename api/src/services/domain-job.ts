@@ -20,7 +20,11 @@ export class DomainJobService {
   ) {}
 
   private async dispatch(jobId: string, options?: { delayMs?: number }) {
-    if (!this.deps.dispatcher || !jobId) return;
+    if (!this.deps.dispatcher || !jobId) {
+      throw new Error(
+        'Domain job dispatcher is not configured; set DOMAIN_JOB_QUEUE_URL or DOMAIN_JOB_TOPIC_ARN.'
+      );
+    }
     await this.deps.dispatcher.dispatch(jobId, { delayMs: options?.delayMs });
   }
 

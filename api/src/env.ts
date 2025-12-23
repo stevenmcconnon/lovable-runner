@@ -310,7 +310,8 @@ export const config = {
   analyticsQueueUrl: rawEnv.ANALYTICS_QUEUE_URL,
   analyticsRetentionDays: Math.max(1, Number(rawEnv.ANALYTICS_VISITOR_RETENTION_DAYS || '90')),
   queues: {
-    domainJobs: rawEnv.DOMAIN_JOB_QUEUE_URL || rawEnv.RUNNER_QUEUE_URL || '',
+    // Domain jobs must use their own queue/topic so custom domain retries never steal runner capacity.
+    domainJobs: rawEnv.DOMAIN_JOB_QUEUE_URL || '',
     domainJobTopicArn: rawEnv.DOMAIN_JOB_TOPIC_ARN || '',
     notifications: rawEnv.NOTIFICATION_JOB_QUEUE_URL || '',
   },

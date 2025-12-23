@@ -735,6 +735,29 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
       return;
     }
     if (!enforceSiteToken(request, reply, body.slug, body)) return;
+    const remoteAddress = getClientIp(request);
+    try {
+      await enforceRateLimit({
+        slug: body.slug || null,
+        action: 'reviews:ip',
+        identifier: remoteAddress || 'unknown',
+        limit: Number(process.env.REVIEW_RATE_LIMIT_PER_IP || 10),
+        windowMs: 10 * 60 * 1000,
+      });
+      await enforceRateLimit({
+        slug: body.slug || null,
+        action: 'reviews:slug',
+        identifier: body.slug || 'global',
+        limit: Number(process.env.REVIEW_RATE_LIMIT_PER_SLUG || 120),
+        windowMs: 60 * 60 * 1000,
+      });
+    } catch (error) {
+      if (error instanceof RateLimitError || (error as any)?.statusCode === 429) {
+        reply.code(429).send({ error: 'Too many reviews. Please try again later.' });
+        return;
+      }
+      throw error;
+    }
     const record = await submitReview({
       slug: body.slug,
       authorName: body.authorName,
@@ -806,6 +829,29 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
       return;
     }
     if (!enforceSiteToken(request, reply, body.slug, body)) return;
+    const remoteAddress = getClientIp(request);
+    try {
+      await enforceRateLimit({
+        slug: body.slug || null,
+        action: 'analytics:ip',
+        identifier: remoteAddress || 'unknown',
+        limit: Number(process.env.ANALYTICS_RATE_LIMIT_PER_IP || 120),
+        windowMs: 60 * 1000,
+      });
+      await enforceRateLimit({
+        slug: body.slug || null,
+        action: 'analytics:slug',
+        identifier: body.slug || 'global',
+        limit: Number(process.env.ANALYTICS_RATE_LIMIT_PER_SLUG || 500),
+        windowMs: 60 * 1000,
+      });
+    } catch (error) {
+      if (error instanceof RateLimitError || (error as any)?.statusCode === 429) {
+        reply.code(429).send({ error: 'Too many analytics events. Please slow down.' });
+        return;
+      }
+      throw error;
+    }
     const metadataPayload =
       body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
     await recordAnalyticsEvent({
