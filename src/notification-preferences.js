@@ -81,8 +81,17 @@ const savePreferences = async ({ slug, recipient, preferences, unsubscribeAll })
   return { slug, recipient, preferences: normalized, updatedAt: timestamp };
 };
 
+const suppressRecipient = async ({ slug, recipient }) => {
+  return savePreferences({
+    slug,
+    recipient,
+    unsubscribeAll: true,
+  });
+};
+
 module.exports = {
   getPreferences,
   savePreferences,
   defaultPreferences,
+  suppressRecipient,
 };

@@ -84,18 +84,10 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Stripe secret API key
-  StripeSecretKeySecretArn:
-    Type: String
-    Default: ''
-    Description: Optional Secrets Manager ARN containing the Stripe secret key (SecretString)
   StripeWebhookSecret:
     Type: String
     NoEcho: true
     Description: Stripe webhook signing secret
-  StripeWebhookSecretArn:
-    Type: String
-    Default: ''
-    Description: Optional Secrets Manager ARN containing the Stripe webhook secret (SecretString)
   TemplateUploadBucket:
     Type: String
     Description: S3 bucket used to store uploaded templates
@@ -117,10 +109,6 @@ Parameters:
     NoEcho: true
     Default: ''
     Description: API key for Gemini (used by the runner Lambda)
-  GeminiApiKeySecretArn:
-    Type: String
-    Default: ''
-    Description: Optional Secrets Manager ARN holding the Gemini API key (string value)
   GeminiModel:
     Type: String
     Default: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-pro:generateContent'
@@ -130,10 +118,6 @@ Parameters:
     NoEcho: true
     Default: ''
     Description: API key for the OpenAI Responses API (used when Gemini is disabled)
-  OpenAIApiKeySecretArn:
-    Type: String
-    Default: ''
-    Description: Optional Secrets Manager ARN containing the OpenAI API key
   OpenAIModel:
     Type: String
     Default: 'gpt-5.1'
@@ -382,13 +366,9 @@ Conditions:
   HasCustomDomain: !And
     - !Not [!Equals [!Ref ApiCustomDomainName, '']]
     - !Not [!Equals [!Ref ApiCertificateArn, '']]
-  HasGeminiSecret: !Not [!Equals [!Ref GeminiApiKeySecretArn, '']]
-  HasOpenAISecret: !Not [!Equals [!Ref OpenAIApiKeySecretArn, '']]
   HasPreviewDomain: !Not [!Equals [!Ref PreviewDomainName, '']]
   HasIntegrationKmsKey: !Not [!Equals [!Ref IntegrationKmsKeyArn, '']]
   HasNamecheapApiKeySecret: !Not [!Equals [!Ref NamecheapApiKeySecretArn, '']]
-  HasStripeSecretKeySecret: !Not [!Equals [!Ref StripeSecretKeySecretArn, '']]
-  HasStripeWebhookSecret: !Not [!Equals [!Ref StripeWebhookSecretArn, '']]
   HasSiteDocsTokenSecret: !Not [!Equals [!Ref SiteDocsTokenSecretArn, '']]
   HasUnsplashAccessKeySecret: !Not [!Equals [!Ref UnsplashAccessKeySecretArn, '']]
   HasReservedConcurrency: !Not [!Equals [!Ref RunnerReservedConcurrency, 0]]
@@ -398,6 +378,11 @@ Conditions:
   HasDbAllowedCidr: !Not [!Equals [!Ref DbAllowedCidr, '']]
   UseDbProxy: !Equals [!Ref UseRdsProxy, 'true']
   HasAlarmTopic: !Not [!Equals [!Ref AlarmTopicArn, '']]
+  HasGeminiApiKey: !Not [!Equals [!Ref GeminiApiKey, '']]
+  HasOpenAIApiKey: !Not [!Equals [!Ref OpenAIApiKey, '']]
+  HasCognitoM2MClientSecret: !Not [!Equals [!Ref CognitoM2MClientSecret, '']]
+  HasStripeSecretKey: !Not [!Equals [!Ref StripeSecretKey, '']]
+  HasStripeWebhookSecret: !Not [!Equals [!Ref StripeWebhookSecret, '']]
 
 Resources:
   RunnerApi:
@@ -449,6 +434,46 @@ Resources:
           "password": "${DBPassword}",
           "database": "${DBName}"
         }
+
+  StripeSecretKeySecret:
+    Condition: HasStripeSecretKey
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}-stripe-secret-key
+      Description: Stripe secret key
+      SecretString: !Ref StripeSecretKey
+
+  StripeWebhookSecretSecret:
+    Condition: HasStripeWebhookSecret
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}-stripe-webhook-secret
+      Description: Stripe webhook signing secret
+      SecretString: !Ref StripeWebhookSecret
+
+  GeminiApiKeySecret:
+    Condition: HasGeminiApiKey
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}-gemini-api-key
+      Description: Gemini API key
+      SecretString: !Ref GeminiApiKey
+
+  OpenAIApiKeySecret:
+    Condition: HasOpenAIApiKey
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}-openai-api-key
+      Description: OpenAI API key
+      SecretString: !Ref OpenAIApiKey
+
+  CognitoM2MClientSecretSecret:
+    Condition: HasCognitoM2MClientSecret
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}-cognito-m2m-client-secret
+      Description: Cognito M2M client secret
+      SecretString: !Ref CognitoM2MClientSecret
 
   RunnerDatabase:
     Type: AWS::RDS::DBInstance
@@ -677,6 +702,10 @@ Resources:
           AttributeType: S
         - AttributeName: leadId
           AttributeType: S
+        - AttributeName: accountId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
       KeySchema:
         - AttributeName: slug
           KeyType: HASH
@@ -684,6 +713,18 @@ Resources:
           KeyType: RANGE
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        Enabled: true
+        AttributeName: ttl
+      GlobalSecondaryIndexes:
+        - IndexName: account-createdAt
+          KeySchema:
+            - AttributeName: accountId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
   SiteAnalyticsTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -868,19 +909,14 @@ Resources:
             DB_NAME: !Ref DBName
             DB_USERNAME: !Ref DBUsername
             DB_PASSWORD: !Ref DBPassword
-            STRIPE_SECRET_KEY: !If
-              - HasStripeSecretKeySecret
-              - !Sub "{{resolve:secretsmanager:${StripeSecretKeySecretArn}:SecretString}}"
-              - !Ref StripeSecretKey
-            STRIPE_WEBHOOK_SECRET: !If
-              - HasStripeWebhookSecret
-              - !Sub "{{resolve:secretsmanager:${StripeWebhookSecretArn}:SecretString}}"
-              - !Ref StripeWebhookSecret
+            STRIPE_SECRET_KEY: !Sub "{{resolve:secretsmanager:${StripeSecretKeySecret}:SecretString}}"
+            STRIPE_WEBHOOK_SECRET: !Sub "{{resolve:secretsmanager:${StripeWebhookSecretSecret}:SecretString}}"
             COGNITO_USER_POOL_ID: !Ref UserPool
             COGNITO_USER_POOL_REGION: !Ref AWS::Region
             COGNITO_APP_CLIENT_ID: !Ref UserPoolClient
             COGNITO_DOMAIN: !Ref CognitoDomain
             COGNITO_M2M_CLIENT_ID: !Ref UserPoolMachineClient
+            COGNITO_M2M_CLIENT_SECRET: !Sub "{{resolve:secretsmanager:${CognitoM2MClientSecretSecret}:SecretString}}"
             FRONTEND_ORIGIN: !Ref FrontendOrigin
             AUTH_CALLBACK_URL: !Ref AuthCallbackUrl
             LOVABLE_DEPLOY_BUCKET: !Ref DeployBucket
@@ -897,19 +933,22 @@ Resources:
             DOMAIN_BASE_PRICE_CENTS: !Ref DomainBasePriceCents
             DOMAIN_PRICE_MARKUP_CENTS: !Ref DomainPriceMarkupCents
             GEMINI_API_KEY: !If
-              - HasGeminiSecret
-              - !Sub "{{resolve:secretsmanager:${GeminiApiKeySecretArn}:SecretString}}"
-              - !Ref GeminiApiKey
+              - HasGeminiApiKey
+              - !Sub "{{resolve:secretsmanager:${GeminiApiKeySecret}:SecretString}}"
+              - !Ref AWS::NoValue
             GEMINI_MODEL: !Ref GeminiModel
             OPENAI_API_KEY: !If
-              - HasOpenAISecret
-              - !Sub "{{resolve:secretsmanager:${OpenAIApiKeySecretArn}:SecretString}}"
-              - !Ref OpenAIApiKey
+              - HasOpenAIApiKey
+              - !Sub "{{resolve:secretsmanager:${OpenAIApiKeySecret}:SecretString}}"
+              - !Ref AWS::NoValue
             OPENAI_MODEL: !Ref OpenAIModel
             GOOGLE_IMAGE_MODEL: !Ref GoogleImageModel
             INTEGRATION_KMS_KEY_ARN: !Ref IntegrationKmsKeyArn
             RUNNER_API_BASE: !Ref RunnerApiBase
-            COGNITO_M2M_CLIENT_SECRET: !Ref CognitoM2MClientSecret
+            COGNITO_M2M_CLIENT_SECRET: !If
+              - HasCognitoM2MClientSecret
+              - !Sub "{{resolve:secretsmanager:${CognitoM2MClientSecretSecret}:SecretString}}"
+              - !Ref AWS::NoValue
             SITE_BUILDER_API_ENABLED: !Ref SiteBuilderApiEnabled
             SITE_DOCS_TOKEN: !If
               - HasSiteDocsTokenSecret

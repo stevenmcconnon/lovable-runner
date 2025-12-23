@@ -83,32 +83,37 @@ const saveLeadSubmission = async (params) => {
 
 const listLeadsBySlug = async ({ slug, limit = 25, lastKey, status, accountId }) => {
   const client = getClient();
-  const query = {
-    TableName: TABLE_NAME,
-    KeyConditionExpression: '#slug = :slug',
-    ExpressionAttributeNames: {
-      '#slug': 'slug',
-    },
-    ExpressionAttributeValues: {
-      ':slug': slug,
-    },
-    ScanIndexForward: false,
-    Limit: limit,
-  };
+  const usingAccountIndex = Boolean(accountId);
+  const query = usingAccountIndex
+    ? {
+        TableName: TABLE_NAME,
+        IndexName: 'account-createdAt',
+        KeyConditionExpression: '#accountId = :accountId',
+        ExpressionAttributeNames: {
+          '#accountId': 'accountId',
+        },
+        ExpressionAttributeValues: {
+          ':accountId': accountId,
+        },
+        ScanIndexForward: false,
+        Limit: limit,
+      }
+    : {
+        TableName: TABLE_NAME,
+        KeyConditionExpression: '#slug = :slug',
+        ExpressionAttributeNames: {
+          '#slug': 'slug',
+        },
+        ExpressionAttributeValues: {
+          ':slug': slug,
+        },
+        ScanIndexForward: false,
+        Limit: limit,
+      };
   if (status) {
     query.FilterExpression = '#status = :status';
     query.ExpressionAttributeNames['#status'] = 'status';
     query.ExpressionAttributeValues[':status'] = status;
-  }
-  const accountFilter = accountId
-    ? '(#accountId = :accountId OR attribute_not_exists(#accountId))'
-    : null;
-  if (accountFilter) {
-    query.FilterExpression = query.FilterExpression
-      ? `${query.FilterExpression} AND ${accountFilter}`
-      : accountFilter;
-    query.ExpressionAttributeNames['#accountId'] = 'accountId';
-    query.ExpressionAttributeValues[':accountId'] = accountId;
   }
   if (lastKey) {
     query.ExclusiveStartKey = lastKey;
