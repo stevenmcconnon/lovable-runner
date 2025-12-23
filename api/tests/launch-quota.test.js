@@ -20,6 +20,8 @@ process.env.AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 process.env.PREVIEW_DOMAIN = process.env.PREVIEW_DOMAIN || 'preview.ai-sitemaker.com';
 process.env.DATABASE_URL =
   process.env.DATABASE_URL || 'postgresql://user:pass@localhost:5432/lovable_runner_test';
+process.env.ANALYTICS_DATABASE_URL =
+  process.env.ANALYTICS_DATABASE_URL || process.env.DATABASE_URL;
 process.env.LAUNCH_RATE_LIMIT_DISABLED = 'true';
 
 // Prevent real AWS calls from the S3 client used in ensureUniqueSlug.
@@ -85,6 +87,7 @@ test('accepts signed-in launch with quota remaining and returns slug', async () 
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 1 }),
     listSiteGenerations: async () => [],
     getSiteGenerationByRequestId: async () => null,
+    slugExists: async () => false,
     createSiteGenerationRequest: async (payload) => {
       state.recorded = payload;
       return payload;
@@ -122,6 +125,7 @@ test('rejects cross-tenant launch attempts', async () => {
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 5, freeSiteLimit: 10 }),
     listSiteGenerations: async () => [],
     getSiteGenerationByRequestId: async () => null,
+    slugExists: async () => false,
     createSiteGenerationRequest: async () => {
       throw new Error('should not create when forbidden');
     },
@@ -153,6 +157,7 @@ test('requires authentication for launch', async () => {
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 10 }),
     listSiteGenerations: async () => [],
     getSiteGenerationByRequestId: async () => null,
+    slugExists: async () => false,
     createSiteGenerationRequest: async () => {
       throw new Error('unauthenticated users should not launch');
     },
@@ -180,6 +185,7 @@ test('returns 402 when signed-in user exceeds quota', async () => {
     buildUsageLimits: () => ({ planKey: 'trial', monthlyEditLimit: 1, freeSiteLimit: 10 }),
     listSiteGenerations: async () => [],
     getSiteGenerationByRequestId: async () => null,
+    slugExists: async () => false,
     createSiteGenerationRequest: async () => {
       throw new Error('should not create when over limit');
     },

@@ -1,9 +1,37 @@
+import path from 'node:path';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 import { config } from './env';
 import { DatabaseService } from './services/database';
 import { AuthContext, UserRole } from './types';
+
+const rootRequire = (relativePath: string): any => {
+  try {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    return require(path.join(process.cwd(), relativePath));
+  } catch {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    return require(path.join(__dirname, '..', relativePath));
+  }
+};
+
+const { enforceRateLimit, RateLimitError } = rootRequire('src/rate-limit.js') as {
+  enforceRateLimit: (params: {
+    slug?: string | null;
+    action: string;
+    identifier: string;
+    limit: number;
+    windowMs?: number;
+  }) => Promise<void>;
+  RateLimitError: new (message?: string) => Error & { statusCode?: number };
+};
+
+const ONE_MINUTE_MS = 60 * 1000;
+const userAccountRateLimit = Number(process.env.AUTH_RATE_LIMIT_PER_ACCOUNT_PER_MINUTE || 120);
+const userIpRateLimit = Number(process.env.AUTH_RATE_LIMIT_PER_IP_PER_MINUTE || 300);
+const machineSubRateLimit = Number(process.env.MACHINE_RATE_LIMIT_PER_MINUTE || 240);
+const machineIpRateLimit = Number(process.env.MACHINE_RATE_LIMIT_PER_IP_PER_MINUTE || 240);
 
 const unauthorized = (message = 'Unauthorized') => {
   const error = new Error(message);
@@ -23,6 +51,23 @@ const toBooleanClaim = (value: unknown): boolean => {
   if (value === true) return true;
   if (value === 'true' || value === '1') return true;
   return false;
+};
+
+const extractClientIp = (request: FastifyRequest) =>
+  (request.headers['x-forwarded-for'] as string | undefined)?.split(',')?.[0]?.trim() ||
+  (request.ip as string | undefined) ||
+  'unknown';
+
+const applyRateLimit = async (action: string, identifier: string, limit: number) => {
+  if (!enforceRateLimit) return;
+  if (!Number.isFinite(limit) || limit <= 0) return;
+  await enforceRateLimit({
+    slug: null,
+    action,
+    identifier,
+    limit,
+    windowMs: ONE_MINUTE_MS,
+  });
 };
 
 const createUserVerifier = () =>
@@ -152,6 +197,22 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
       if (membership) {
         profile.accountId = membership.accountId;
       }
+      const clientIp = extractClientIp(request);
+      try {
+        await applyRateLimit('auth:user:ip', `ip:${clientIp}`, userIpRateLimit);
+        if (membership?.accountId) {
+          await applyRateLimit(
+            'auth:user:account',
+            `acct:${membership.accountId}`,
+            userAccountRateLimit
+          );
+        }
+      } catch (error) {
+        if (error instanceof RateLimitError || (error as any)?.statusCode === 429) {
+          throw error;
+        }
+        throw error;
+      }
       const context: AuthContext = {
         type: 'user',
         sub: payload.sub,
@@ -201,6 +262,16 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
             (payload as any)['lovable:allow_account_context'] ??
             (payload as any)['lovable:allow-account-context'];
           const adminPermission = toBooleanClaim(rawPermissions?.admin) || hasInternalScope;
+          const clientIp = extractClientIp(request);
+          try {
+            await applyRateLimit('auth:machine:ip', `ip:${clientIp}`, machineIpRateLimit);
+            await applyRateLimit('auth:machine:sub', `machine:${payload.sub}`, machineSubRateLimit);
+          } catch (error) {
+            if (error instanceof RateLimitError || (error as any)?.statusCode === 429) {
+              throw error;
+            }
+            throw error;
+          }
           const context: AuthContext = {
             type: 'machine',
             sub: payload.sub,

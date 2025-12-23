@@ -38,13 +38,10 @@ const pool = new Pool({
   ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
 });
 
-const analyticsPool =
-  config.database.analyticsUrl && config.database.analyticsUrl !== config.database.url
-    ? new Pool({
-        connectionString: config.database.analyticsUrl,
-        ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
-      })
-    : pool;
+const analyticsPool = new Pool({
+  connectionString: config.database.analyticsUrl,
+  ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
+});
 
 const DEFAULT_BACKFILL_BATCH_SIZE = (() => {
   const raw =
@@ -1688,6 +1685,20 @@ export class DatabaseService {
       }
     }
     return { items, nextCursor: null };
+  }
+
+  async slugExists(slug: string): Promise<boolean> {
+    if (!slug) return false;
+    const { rows } = await this.query(
+      `
+      SELECT 1
+      FROM site_generations
+      WHERE slug = $1
+      LIMIT 1
+    `,
+      [slug]
+    );
+    return rows.length > 0;
   }
 
   async listAccountSlugs(accountId: string): Promise<string[]> {

@@ -341,46 +341,76 @@ export const registerCustomerRoutes = (
       description: body.description,
       requestId,
     });
-    const { slug, prefixPath } = await ensureUniqueSlug({
+    let { slug, prefixPath } = await ensureUniqueSlug({
       bucket: resolvedBucket,
       basePrefix,
       slugCandidate: desiredSlug,
+      db,
+      requestId,
     });
-    const publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
+    let publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
     await ensurePreviewPlaceholder({
       bucket: resolvedBucket,
       prefix: prefixPath,
       brandName: derivePlaceholderLabel({ business: body.business, url: body.url, fallback: slug }),
       requestId,
     });
-    try {
-      await db.createSiteGenerationRequest({
-        requestId,
-        accountId: profile.accountId,
-        userId: profile.id,
-        sourceUrl: body.url,
-        description: body.description,
-        businessDetails: body.business,
-        slug,
-        prefix: prefixPath,
-        bucket: resolvedBucket,
-      });
-    } catch (error: any) {
-      if ((error as any)?.code === '23505') {
-        const existingGeneration = await db.getSiteGenerationByRequestId(requestId, profile.accountId);
-        if (existingGeneration) {
-          return reply.code(existingGeneration.status === 'completed' ? 200 : 202).send({
-            status: existingGeneration.status,
-            requestId,
-            slug: existingGeneration.slug,
-            prefix: existingGeneration.prefix,
-            bucket: existingGeneration.bucket,
-            publicUrl: existingGeneration.publicUrl,
-            errorMessage: existingGeneration.errorMessage,
-          });
+    let creationError: any = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await db.createSiteGenerationRequest({
+          requestId,
+          accountId: profile.accountId,
+          userId: profile.id,
+          sourceUrl: body.url,
+          description: body.description,
+          businessDetails: body.business,
+          slug,
+          prefix: prefixPath,
+          bucket: resolvedBucket,
+        });
+        creationError = null;
+        break;
+      } catch (error: any) {
+        if ((error as any)?.code === '23505') {
+          const existingGeneration = await db.getSiteGenerationByRequestId(requestId, profile.accountId);
+          if (existingGeneration) {
+            return reply.code(existingGeneration.status === 'completed' ? 200 : 202).send({
+              status: existingGeneration.status,
+              requestId,
+              slug: existingGeneration.slug,
+              prefix: existingGeneration.prefix,
+              bucket: existingGeneration.bucket,
+              publicUrl: existingGeneration.publicUrl,
+              errorMessage: existingGeneration.errorMessage,
+            });
+          }
+          if ((error as any)?.constraint === 'site_generations_slug_key' && attempt === 0) {
+            const retrySlug = await ensureUniqueSlug({
+              bucket: resolvedBucket,
+              basePrefix,
+              slugCandidate: `${desiredSlug}-${requestId.slice(0, 8)}`,
+              db,
+              requestId: `${requestId}-retry`,
+            });
+            slug = retrySlug.slug;
+            prefixPath = retrySlug.prefixPath;
+            publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
+            await ensurePreviewPlaceholder({
+              bucket: resolvedBucket,
+              prefix: prefixPath,
+              brandName: derivePlaceholderLabel({ business: body.business, url: body.url, fallback: slug }),
+              requestId,
+            });
+            continue;
+          }
         }
+        creationError = error;
+        break;
       }
-      throw error;
+    }
+    if (creationError) {
+      throw creationError;
     }
     let reservedUsage = false;
     await db

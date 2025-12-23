@@ -172,6 +172,25 @@ CREATE INDEX IF NOT EXISTS edit_requests_status_created_idx ON edit_requests(sta
 CREATE INDEX IF NOT EXISTS edit_jobs_status_created_idx ON edit_jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS edit_jobs_request_created_idx ON edit_jobs(edit_request_id, created_at DESC);
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM site_generations GROUP BY slug HAVING COUNT(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Duplicate slugs found in site_generations. Resolve duplicates before enforcing uniqueness.';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.table_constraints
+    WHERE constraint_name = 'site_generations_slug_key'
+      AND table_name = 'site_generations'
+  ) THEN
+    ALTER TABLE site_generations
+      ADD CONSTRAINT site_generations_slug_key UNIQUE (slug);
+  END IF;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS account_sites (
   account_id UUID NOT NULL,
   slug TEXT NOT NULL,

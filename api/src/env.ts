@@ -236,11 +236,25 @@ const buildDatabaseUrl = () => {
   throw new Error('Unable to determine database connection information');
 };
 
+const nodeEnv = rawEnv.NODE_ENV ?? 'development';
+const primaryDatabaseUrl = buildDatabaseUrl();
+const analyticsDatabaseUrl = (() => {
+  const explicit = (rawEnv.ANALYTICS_DATABASE_URL || '').trim();
+  if (explicit) return explicit;
+  if (nodeEnv === 'production') {
+    throw new Error('ANALYTICS_DATABASE_URL is required in production to isolate analytics writes');
+  }
+  return primaryDatabaseUrl;
+})();
+if (nodeEnv === 'production' && analyticsDatabaseUrl === primaryDatabaseUrl) {
+  throw new Error('ANALYTICS_DATABASE_URL must point to a separate database from DATABASE_URL in production');
+}
+
 export const config = {
-  nodeEnv: rawEnv.NODE_ENV ?? 'development',
+  nodeEnv,
   database: {
-    url: buildDatabaseUrl(),
-    analyticsUrl: rawEnv.ANALYTICS_DATABASE_URL || undefined,
+    url: primaryDatabaseUrl,
+    analyticsUrl: analyticsDatabaseUrl,
   },
   stripe: {
     secretKey: rawEnv.STRIPE_SECRET_KEY,

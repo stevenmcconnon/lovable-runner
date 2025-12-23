@@ -98,10 +98,14 @@ export const ensureUniqueSlug = async ({
   bucket,
   basePrefix,
   slugCandidate,
+  db,
+  requestId,
 }: {
   bucket: string;
   basePrefix: string;
   slugCandidate: string;
+  db?: { slugExists?: (slug: string) => Promise<boolean> };
+  requestId?: string;
 }) => {
   const sanitizedBase = slugCandidate && slugCandidate.length ? slugCandidate : 'site';
   let attempt = 0;
@@ -111,9 +115,15 @@ export const ensureUniqueSlug = async ({
     return basePrefix ? `${basePrefix.replace(/\/$/, '')}/${slugValue}` : slugValue;
   };
 
-  while (attempt < 20) {
-    const candidate = attempt === 0 ? sanitizedBase : `${sanitizedBase}-${attempt}`;
-    const prefixPath = buildPrefixPath(candidate);
+  const slugTaken = async (candidate: string) => {
+    if (db?.slugExists) {
+      const exists = await db.slugExists(candidate);
+      if (exists) return true;
+    }
+    return false;
+  };
+
+  const prefixExists = async (prefixPath: string) => {
     const existing = await s3Client.send(
       new ListObjectsV2Command({
         Bucket: bucket,
@@ -121,13 +131,20 @@ export const ensureUniqueSlug = async ({
         MaxKeys: 1,
       })
     );
-    if (!existing.Contents || existing.Contents.length === 0) {
+    return Boolean(existing.Contents && existing.Contents.length);
+  };
+
+  while (attempt < 20) {
+    const candidate = attempt === 0 ? sanitizedBase : `${sanitizedBase}-${attempt}`;
+    const prefixPath = buildPrefixPath(candidate);
+    if (!(await slugTaken(candidate)) && !(await prefixExists(prefixPath))) {
       return { slug: candidate, prefixPath };
     }
     attempt += 1;
   }
 
-  const fallback = `${sanitizedBase}-${Date.now()}`;
+  const deterministicSuffix = requestId ? requestId.replace(/[^a-z0-9]/gi, '').slice(0, 12) : '';
+  const fallback = `${sanitizedBase}-${deterministicSuffix || Date.now()}`;
   return { slug: fallback, prefixPath: buildPrefixPath(fallback) };
 };
 
@@ -255,12 +272,14 @@ export const registerLaunchRoutes = (
         errorMessage: existing.errorMessage,
       });
     }
-    const { slug, prefixPath } = await ensureUniqueSlug({
+    let { slug, prefixPath } = await ensureUniqueSlug({
       bucket: resolvedBucket,
       basePrefix,
       slugCandidate: desiredSlug,
+      db,
+      requestId,
     });
-    const publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
+    let publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
     const { accountId } = resolveAccountContext(request, body.accountId);
     const userId = request.auth?.profile?.id ?? null;
     const testMode = Boolean(body.testMode);
@@ -341,34 +360,66 @@ export const registerLaunchRoutes = (
       }),
       requestId,
     });
-    try {
-      await db.createSiteGenerationRequest({
-        requestId,
-        accountId,
-        userId,
-        sourceUrl: body.url ?? null,
-        description: body.description,
-        businessDetails: body.businessDetails,
-        slug,
-        prefix: prefixPath,
-        bucket: resolvedBucket,
-      });
-    } catch (error: any) {
-      if ((error as any)?.code === '23505') {
-        const existingGeneration = await db.getSiteGenerationByRequestId(requestId);
-        if (existingGeneration) {
-          return reply.code(existingGeneration.status === 'completed' ? 200 : 202).send({
-            status: existingGeneration.status,
-            requestId,
-            slug: existingGeneration.slug,
-            prefix: existingGeneration.prefix,
-            bucket: existingGeneration.bucket,
-            publicUrl: existingGeneration.publicUrl,
-            errorMessage: existingGeneration.errorMessage,
-          });
+    let creationError: any = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await db.createSiteGenerationRequest({
+          requestId,
+          accountId,
+          userId,
+          sourceUrl: body.url ?? null,
+          description: body.description,
+          businessDetails: body.businessDetails,
+          slug,
+          prefix: prefixPath,
+          bucket: resolvedBucket,
+        });
+        creationError = null;
+        break;
+      } catch (error: any) {
+        if ((error as any)?.code === '23505') {
+          const existingGeneration = await db.getSiteGenerationByRequestId(requestId);
+          if (existingGeneration) {
+            return reply.code(existingGeneration.status === 'completed' ? 200 : 202).send({
+              status: existingGeneration.status,
+              requestId,
+              slug: existingGeneration.slug,
+              prefix: existingGeneration.prefix,
+              bucket: existingGeneration.bucket,
+              publicUrl: existingGeneration.publicUrl,
+              errorMessage: existingGeneration.errorMessage,
+            });
+          }
+          if ((error as any)?.constraint === 'site_generations_slug_key' && attempt === 0) {
+            const retrySlug = await ensureUniqueSlug({
+              bucket: resolvedBucket,
+              basePrefix,
+              slugCandidate: `${desiredSlug}-${requestId.slice(0, 8)}`,
+              db,
+              requestId: `${requestId}-retry`,
+            });
+            slug = retrySlug.slug;
+            prefixPath = retrySlug.prefixPath;
+            publicUrl = buildPublicUrl({ bucket: resolvedBucket, prefix: prefixPath });
+            await ensurePreviewPlaceholder({
+              bucket: resolvedBucket,
+              prefix: prefixPath,
+              brandName: derivePlaceholderLabel({
+                businessDetails: body.businessDetails,
+                url: body.url,
+                fallback: slug,
+              }),
+              requestId,
+            });
+            continue;
+          }
         }
+        creationError = error;
+        break;
       }
-      throw error;
+    }
+    if (creationError) {
+      throw creationError;
     }
     let reservedUsage = false;
     if (!isMachine && accountId) {
