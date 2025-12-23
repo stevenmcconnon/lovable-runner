@@ -710,6 +710,21 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
       const body = request.body as any;
       const slug = await ensureSlugAccess(request, reply, db, body.slug);
       if (!slug) return;
+      try {
+        await enforceRateLimit({
+          slug,
+          action: 'leads:reply',
+          identifier: request.auth?.profile?.accountId || request.auth?.email || request.ip || 'unknown',
+          limit: Number(process.env.LEAD_REPLY_DAILY_LIMIT || 50),
+          windowMs: 24 * 60 * 60 * 1000,
+        });
+      } catch (error) {
+        if (error instanceof RateLimitError || (error as any)?.statusCode === 429) {
+          reply.code(429).send({ error: 'Too many lead replies today. Please try again later.' });
+          return;
+        }
+        throw error;
+      }
       const result = await sendLeadReply({
         slug,
         leadId: body.leadId,

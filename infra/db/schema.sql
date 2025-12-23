@@ -26,6 +26,20 @@ CREATE TABLE IF NOT EXISTS account_memberships (
   PRIMARY KEY (account_id, user_id)
 );
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'account_memberships_role_check'
+  ) THEN
+    ALTER TABLE account_memberships
+      ADD CONSTRAINT account_memberships_role_check
+      CHECK (role IN ('customer', 'admin', 'super-admin', 'owner', 'member', 'viewer'));
+  END IF;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS account_invitations (
   token UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -87,6 +101,33 @@ CREATE TABLE IF NOT EXISTS edit_usage (
   period_end TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'edit_usage_account_id_fkey'
+  ) THEN
+    ALTER TABLE edit_usage
+      ADD CONSTRAINT edit_usage_account_id_fkey
+      FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE;
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'edit_usage_account_unique'
+  ) THEN
+    ALTER TABLE edit_usage
+      ADD CONSTRAINT edit_usage_account_unique UNIQUE (account_id);
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS edit_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

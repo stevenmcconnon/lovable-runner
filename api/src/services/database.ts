@@ -36,11 +36,17 @@ import {
 const pool = new Pool({
   connectionString: config.database.url,
   ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
+  max: config.database.pool?.max,
+  min: config.database.pool?.min,
+  idleTimeoutMillis: config.database.pool?.idleTimeoutMillis,
 });
 
 const analyticsPool = new Pool({
   connectionString: config.database.analyticsUrl,
   ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
+  max: config.database.pool?.max,
+  min: config.database.pool?.min,
+  idleTimeoutMillis: config.database.pool?.idleTimeoutMillis,
 });
 
 const DEFAULT_BACKFILL_BATCH_SIZE = (() => {

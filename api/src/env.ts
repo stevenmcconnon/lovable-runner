@@ -9,6 +9,9 @@ const envSchema = z
     DB_NAME: z.string().min(1).optional(),
     DB_USERNAME: z.string().min(1).optional(),
     DB_PASSWORD: z.string().min(1).optional(),
+    DB_POOL_MAX: z.string().optional(),
+    DB_POOL_MIN: z.string().optional(),
+    DB_POOL_IDLE_MS: z.string().optional(),
     STRIPE_SECRET_KEY: z.string().min(1, 'STRIPE_SECRET_KEY is required'),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     COGNITO_USER_POOL_ID: z.string().min(1, 'COGNITO_USER_POOL_ID is required'),
@@ -90,6 +93,9 @@ const rawEnv = envSchema.parse({
   DB_NAME: process.env.DB_NAME,
   DB_USERNAME: process.env.DB_USERNAME,
   DB_PASSWORD: process.env.DB_PASSWORD,
+  DB_POOL_MAX: process.env.DB_POOL_MAX,
+  DB_POOL_MIN: process.env.DB_POOL_MIN,
+  DB_POOL_IDLE_MS: process.env.DB_POOL_IDLE_MS,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   COGNITO_USER_POOL_ID: process.env.COGNITO_USER_POOL_ID,
@@ -250,11 +256,24 @@ if (nodeEnv === 'production' && analyticsDatabaseUrl === primaryDatabaseUrl) {
   throw new Error('ANALYTICS_DATABASE_URL must point to a separate database from DATABASE_URL in production');
 }
 
+const parsePoolNumber = (value: string | undefined, fallback: number, min = 0, max = 100) => {
+  const parsed = Number(value ?? '');
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(Math.floor(parsed), min), max);
+};
+
+const dbPool = {
+  max: parsePoolNumber(rawEnv.DB_POOL_MAX, 4, 1, 20),
+  min: parsePoolNumber(rawEnv.DB_POOL_MIN, 0, 0, 10),
+  idleTimeoutMillis: parsePoolNumber(rawEnv.DB_POOL_IDLE_MS, 10_000, 1000, 60_000),
+};
+
 export const config = {
   nodeEnv,
   database: {
     url: primaryDatabaseUrl,
     analyticsUrl: analyticsDatabaseUrl,
+    pool: dbPool,
   },
   stripe: {
     secretKey: rawEnv.STRIPE_SECRET_KEY,

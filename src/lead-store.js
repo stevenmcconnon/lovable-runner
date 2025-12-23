@@ -8,6 +8,12 @@ const TABLE_NAME =
   process.env.LEADS_TABLE_NAME ||
   process.env.LOVABLE_LEADS_TABLE;
 
+const ttlDays = (() => {
+  const parsed = Number(process.env.LEAD_TTL_DAYS || 180);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 180;
+  return Math.min(Math.floor(parsed), 730);
+})();
+
 const getClient = () => {
   if (!TABLE_NAME) {
     throw new Error('LEAD_INBOX_TABLE environment variable is not set.');
@@ -28,6 +34,7 @@ const buildLeadItem = ({
   accountId,
 }) => {
   const timestamp = new Date().toISOString();
+  const ttl = Math.floor(Date.now() / 1000) + ttlDays * 24 * 60 * 60;
   return {
     accountId: accountId || null,
     slug,
@@ -54,6 +61,7 @@ const buildLeadItem = ({
         createdAt: timestamp,
       },
     ],
+    ttl,
   };
 };
 
@@ -64,6 +72,10 @@ const saveLeadSubmission = async (params) => {
     new PutCommand({
       TableName: TABLE_NAME,
       Item: item,
+      ConditionExpression: 'attribute_not_exists(#leadId)',
+      ExpressionAttributeNames: {
+        '#leadId': 'leadId',
+      },
     })
   );
   return item;
@@ -130,28 +142,30 @@ const appendLeadMessage = async ({ slug, leadId, message, accountId }) => {
     createdAt: timestamp,
     ...message,
   };
-  await client.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: { slug, leadId },
-      UpdateExpression:
-        'SET #messages = list_append(if_not_exists(#messages, :emptyList), :message), #updatedAt = :now, #status = :status'
-        + (accountId ? ', #accountId = if_not_exists(#accountId, :accountId)' : ''),
-      ExpressionAttributeNames: {
-        '#messages': 'messages',
-        '#updatedAt': 'updatedAt',
-        '#status': 'status',
-        ...(accountId ? { '#accountId': 'accountId' } : {}),
-      },
-      ExpressionAttributeValues: {
-        ':message': [messageEntry],
-        ':emptyList': [],
-        ':now': timestamp,
-        ':status': message.status || 'open',
-        ...(accountId ? { ':accountId': accountId } : {}),
-      },
-    })
-  );
+  const updateParams = {
+    TableName: TABLE_NAME,
+    Key: { slug, leadId },
+    UpdateExpression:
+      'SET #messages = list_append(if_not_exists(#messages, :emptyList), :message), #updatedAt = :now, #status = :status'
+      + (accountId ? ', #accountId = if_not_exists(#accountId, :accountId)' : ''),
+    ExpressionAttributeNames: {
+      '#messages': 'messages',
+      '#updatedAt': 'updatedAt',
+      '#status': 'status',
+      ...(accountId ? { '#accountId': 'accountId' } : {}),
+    },
+    ExpressionAttributeValues: {
+      ':message': [messageEntry],
+      ':emptyList': [],
+      ':now': timestamp,
+      ':status': message.status || 'open',
+      ...(accountId ? { ':accountId': accountId } : {}),
+    },
+  };
+  if (accountId) {
+    updateParams.ConditionExpression = 'attribute_not_exists(#accountId) OR #accountId = :accountId';
+  }
+  await client.send(new UpdateCommand(updateParams));
   return messageEntry;
 };
 
@@ -175,15 +189,17 @@ const updateLeadStatus = async ({ slug, leadId, status, followUpAt, accountId })
     names['#accountId'] = 'accountId';
     values[':accountId'] = accountId;
   }
-  await client.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: { slug, leadId },
-      UpdateExpression: `SET ${expressions.join(', ')}`,
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values,
-    })
-  );
+  const params = {
+    TableName: TABLE_NAME,
+    Key: { slug, leadId },
+    UpdateExpression: `SET ${expressions.join(', ')}`,
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values,
+  };
+  if (accountId) {
+    params.ConditionExpression = 'attribute_not_exists(#accountId) OR #accountId = :accountId';
+  }
+  await client.send(new UpdateCommand(params));
 };
 
 module.exports = {
