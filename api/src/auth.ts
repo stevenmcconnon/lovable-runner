@@ -47,6 +47,13 @@ const forbidden = (message = 'Forbidden') => {
   return error;
 };
 
+const badRequest = (message = 'Bad Request') => {
+  const error = new Error(message);
+  // @ts-expect-error add status code
+  error.statusCode = 400;
+  return error;
+};
+
 const toBooleanClaim = (value: unknown): boolean => {
   if (value === true) return true;
   if (value === 'true' || value === '1') return true;
@@ -136,8 +143,12 @@ export const buildAuthPlugin = (database: DatabaseService): FastifyPluginAsync =
       if (headerAccountId) {
         const match = memberships.find((m) => m.accountId === headerAccountId);
         if (match) return match;
+        throw forbidden('Account not accessible');
       }
-      return memberships[0];
+      if (memberships.length === 1) {
+        return memberships[0];
+      }
+      throw badRequest('Multiple accounts found; specify X-Account-Id');
     };
 
     fastify.decorate('authenticateUser', async (request: FastifyRequest): Promise<void> => {

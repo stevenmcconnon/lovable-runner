@@ -14,6 +14,9 @@ Options:
   --template <path>  SAM template path (default: infra/template.yaml)
   --config-env <env> samconfig environment (default: default)
   --cloudfront-id    CloudFront distribution id to invalidate after deploy (default: $CLOUDFRONT_DISTRIBUTION_ID)
+  --skip-tests       Skip pre-deploy unit tests
+  --skip-migrations  Skip running database migrations
+  --migrations-cmd   Custom migration command (overrides default)
   --skip-install     Skip npm install
   --skip-build       Skip `npm run build`
   -h, --help         Show this help and exit
@@ -28,6 +31,9 @@ SAM_CONFIG_ENV="${SAM_CONFIG_ENV:-default}"
 CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-}"
 RUN_INSTALL=1
 RUN_TS_BUILD=1
+RUN_TESTS=1
+RUN_MIGRATIONS=1
+MIGRATIONS_CMD="${MIGRATIONS_CMD:-}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NPM_CACHE_DIR="${NPM_CACHE_DIR:-${PROJECT_ROOT}/.npm-cache}"
 mkdir -p "${NPM_CACHE_DIR}"
@@ -59,6 +65,18 @@ while [[ $# -gt 0 ]]; do
       CLOUDFRONT_DISTRIBUTION_ID="$2"
       shift 2
       ;;
+    --skip-tests)
+      RUN_TESTS=0
+      shift
+      ;;
+    --skip-migrations)
+      RUN_MIGRATIONS=0
+      shift
+      ;;
+    --migrations-cmd)
+      MIGRATIONS_CMD="$2"
+      shift 2
+      ;;
     --skip-install)
       RUN_INSTALL=0
       shift
@@ -87,6 +105,30 @@ run_npm_install() {
   fi
 }
 
+run_tests() {
+  echo "Running unit tests..."
+  npm run test:unit
+}
+
+run_migrations() {
+  if [[ -n "${MIGRATIONS_CMD}" ]]; then
+    echo "Running custom migration command: ${MIGRATIONS_CMD}"
+    eval "${MIGRATIONS_CMD}"
+    return
+  fi
+
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    echo "Running migrations against DATABASE_URL..."
+    npm run db:migrate
+    return
+  fi
+
+  echo "Running migrations via SSM tunnel..."
+  "${PROJECT_ROOT}/scripts/run-migrations-ssm.sh" \
+    --stack "${STACK_NAME}" \
+    --profile "${PROFILE}"
+}
+
 if ! command -v sam >/dev/null 2>&1; then
   echo "sam CLI is required. Install via https://docs.aws.amazon.com/serverless-application-model/index.html" >&2
   exit 1
@@ -104,6 +146,18 @@ if [[ $RUN_TS_BUILD -eq 1 ]]; then
   npm run build
 else
   echo "Skipping TypeScript build as requested."
+fi
+
+if [[ $RUN_TESTS -eq 1 ]]; then
+  run_tests
+else
+  echo "Skipping tests as requested."
+fi
+
+if [[ $RUN_MIGRATIONS -eq 1 ]]; then
+  run_migrations
+else
+  echo "Skipping migrations as requested."
 fi
 
 echo "Running sam build ($(basename "${SAM_TEMPLATE}"))..."

@@ -37,7 +37,16 @@ import { TelemetryService } from './services/telemetry';
 
 export const buildServer = (): FastifyInstance => {
   const app = fastify({
-    logger: true,
+    logger: {
+      level: 'info',
+      redact: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        'req.headers["x-amz-security-token"]',
+        'req.headers["x-forwarded-for"]',
+        'res.headers["set-cookie"]',
+      ],
+    },
   });
 
   const allowedMethods = 'GET,POST,PUT,DELETE,OPTIONS';
