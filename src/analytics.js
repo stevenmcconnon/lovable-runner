@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 const { SendMessageCommand } = require('@aws-sdk/client-sqs');
 const { sqsClient } = require('./aws-clients');
-const { analyticsQuery } = require('./pg-client');
+const { analyticsQuery, query } = require('./pg-client');
 
 const EVENT_COLUMNS = {
   view: 'views',
@@ -39,48 +39,48 @@ const hashVisitorId = (value) => {
   return crypto.createHash('sha1').update(String(value)).digest('hex');
 };
 
-const incrementMetric = async ({ slug, eventDate, column }) => {
+const incrementMetric = async ({ slug, eventDate, column, accountId = ZERO_UUID }) => {
   const sql = `
-    INSERT INTO site_metrics (slug, event_date, ${column})
-    VALUES ($1, $2::date, 1)
-    ON CONFLICT (slug, event_date)
+    INSERT INTO site_metrics (account_id, slug, event_date, ${column})
+    VALUES ($1, $2, $3::date, 1)
+    ON CONFLICT (account_id, slug, event_date)
     DO UPDATE SET ${column} = site_metrics.${column} + 1, updated_at = NOW()
   `;
-  await analyticsQuery(sql, [slug, eventDate]);
+  await analyticsQuery(sql, [accountId, slug, eventDate]);
 };
 
-const tryIncrementUniqueVisitor = async ({ slug, eventDate, visitorHash }) => {
+const tryIncrementUniqueVisitor = async ({ slug, eventDate, visitorHash, accountId = ZERO_UUID }) => {
   if (!visitorHash) return;
   const inserted = await analyticsQuery(
     `
-    INSERT INTO site_metric_visitors (slug, event_date, visitor_hash)
-    VALUES ($1,$2::date,$3)
+    INSERT INTO site_metric_visitors (account_id, slug, event_date, visitor_hash)
+    VALUES ($1,$2,$3::date,$4)
     ON CONFLICT DO NOTHING
   `,
-    [slug, eventDate, visitorHash]
+    [accountId, slug, eventDate, visitorHash]
   );
   if (inserted.rowCount) {
     await analyticsQuery(
       `
       UPDATE site_metrics
       SET unique_visitors = unique_visitors + 1, updated_at = NOW()
-      WHERE slug = $1 AND event_date = $2::date
+      WHERE account_id = $1 AND slug = $2 AND event_date = $3::date
     `,
-      [slug, eventDate]
+      [accountId, slug, eventDate]
     );
   }
 };
 
-const recordReferrer = async ({ slug, eventDate, referrer }) => {
+const recordReferrer = async ({ slug, eventDate, referrer, accountId = ZERO_UUID }) => {
   if (!referrer) return;
   await analyticsQuery(
     `
-    INSERT INTO site_metric_referrers (slug, event_date, referrer, count, last_seen)
-    VALUES ($1,$2::date,$3,1,NOW())
-    ON CONFLICT (slug, event_date, referrer)
+    INSERT INTO site_metric_referrers (account_id, slug, event_date, referrer, count, last_seen)
+    VALUES ($1,$2,$3::date,$4,1,NOW())
+    ON CONFLICT (account_id, slug, event_date, referrer)
     DO UPDATE SET count = site_metric_referrers.count + 1, last_seen = NOW()
   `,
-    [slug, eventDate, referrer]
+    [accountId, slug, eventDate, referrer]
   );
 };
 
@@ -104,6 +104,32 @@ const enqueueAnalyticsEvent = async (payload) => {
 
 let warnedAboutDirectWrites = false;
 
+const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+const accountCache = new Map();
+
+const resolveAccountIdForSlug = async (slug) => {
+  if (!slug) return ZERO_UUID;
+  const cached = accountCache.get(slug);
+  if (cached) return cached;
+  try {
+    const result = await query(
+      `
+      SELECT account_id
+      FROM account_sites
+      WHERE slug = $1
+      LIMIT 1
+    `,
+      [slug]
+    );
+    const accountId = result.rows?.[0]?.account_id || ZERO_UUID;
+    accountCache.set(slug, accountId);
+    return accountId;
+  } catch (error) {
+    console.warn('[analytics] failed to resolve account for slug', { slug, err: error?.message });
+    return ZERO_UUID;
+  }
+};
+
 const ingestAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
   if (!slug || !type) return;
   const normalizedType = type.toLowerCase();
@@ -111,14 +137,15 @@ const ingestAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
   const eventDate = new Date().toISOString().slice(0, 10);
   const visitorHash = hashVisitorId(metadata.visitorId);
   const referrer = normalizeReferrer(metadata.referrer);
+  const accountId = await resolveAccountIdForSlug(slug);
 
-  await incrementMetric({ slug, eventDate, column });
+  await incrementMetric({ slug, eventDate, column, accountId });
 
   if (normalizedType === 'view') {
-    await tryIncrementUniqueVisitor({ slug, eventDate, visitorHash });
+    await tryIncrementUniqueVisitor({ slug, eventDate, visitorHash, accountId });
   }
   if (referrer) {
-    await recordReferrer({ slug, eventDate, referrer });
+    await recordReferrer({ slug, eventDate, referrer, accountId });
   }
 };
 
@@ -142,7 +169,7 @@ const recordAnalyticsEvent = async ({ slug, type, metadata = {} }) => {
   await ingestAnalyticsEvent({ slug, type, metadata });
 };
 
-const fetchDailyMetrics = async ({ slug, days }) =>
+const fetchDailyMetrics = async ({ slug, days, accountId }) =>
   analyticsQuery(
     `
     SELECT
@@ -155,13 +182,14 @@ const fetchDailyMetrics = async ({ slug, days }) =>
     FROM site_metrics_daily
     WHERE slug = $1
       AND stat_date >= (CURRENT_DATE - ($2 || ' days')::interval)
+      AND account_id = $3
     ORDER BY stat_date DESC
-    LIMIT $3
+    LIMIT $2
   `,
-    [slug, days, days]
+    [slug, days, accountId]
   );
 
-const fetchFallbackMetrics = async ({ slug, days }) =>
+const fetchFallbackMetrics = async ({ slug, days, accountId }) =>
   analyticsQuery(
     `
     SELECT
@@ -174,18 +202,28 @@ const fetchFallbackMetrics = async ({ slug, days }) =>
     FROM site_metrics
     WHERE slug = $1
       AND event_date >= (CURRENT_DATE - ($2 || ' days')::interval)
+      AND account_id = $3
     ORDER BY event_date DESC
-    LIMIT $3
+    LIMIT $2
   `,
-    [slug, days, days]
+    [slug, days, accountId]
   );
 
-const listAnalytics = async ({ slug, days = 30 }) => {
+const listAnalytics = async ({ slug, days = 30, accountId }) => {
   if (!slug) throw new Error('slug is required');
   const windowDays = clampDays(days);
-  let { rows } = await fetchDailyMetrics({ slug, days: windowDays });
+  const resolvedAccountId = accountId || (await resolveAccountIdForSlug(slug));
+  let { rows } = await fetchDailyMetrics({
+    slug,
+    days: windowDays,
+    accountId: resolvedAccountId,
+  });
   if (!rows.length) {
-    const fallback = await fetchFallbackMetrics({ slug, days: windowDays });
+    const fallback = await fetchFallbackMetrics({
+      slug,
+      days: windowDays,
+      accountId: resolvedAccountId,
+    });
     rows = (fallback.rows || []).map((row) => ({
       stat_date: row.event_date,
       ...row,
@@ -197,9 +235,10 @@ const listAnalytics = async ({ slug, days = 30 }) => {
     FROM site_metric_referrers
     WHERE slug = $1
       AND event_date >= (CURRENT_DATE - ($2 || ' days')::interval)
+      AND account_id = $3
     ORDER BY event_date DESC, count DESC
   `,
-    [slug, windowDays]
+    [slug, windowDays, resolvedAccountId]
   );
 
   const referrerMap = new Map();

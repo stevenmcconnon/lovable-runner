@@ -45,8 +45,8 @@ const ensureReplyAuthorization = (lead, { targetEmail }) => {
   }
 };
 
-const sendLeadReply = async ({ slug, leadId, message, subject, sender }) => {
-  const lead = await getLeadRecord({ slug, leadId });
+const sendLeadReply = async ({ slug, leadId, message, subject, sender, accountId }) => {
+  const lead = await getLeadRecord({ slug, leadId, accountId });
   ensureReplyAuthorization(lead, sender || {});
   const now = new Date().toISOString();
   const ownerEmail = lead.targetEmail;
@@ -88,6 +88,7 @@ const sendLeadReply = async ({ slug, leadId, message, subject, sender }) => {
   await appendLeadMessage({
     slug,
     leadId,
+    accountId,
     message: {
       messageId: randomUUID(),
       direction: 'outbound',
@@ -100,6 +101,7 @@ const sendLeadReply = async ({ slug, leadId, message, subject, sender }) => {
   await updateLeadStatus({
     slug,
     leadId,
+    accountId,
     status: 'responded',
     followUpAt: null,
   });
@@ -108,20 +110,20 @@ const sendLeadReply = async ({ slug, leadId, message, subject, sender }) => {
   return { ok: true };
 };
 
-const listLeads = async ({ slug, limit, status, cursor }) => {
+const listLeads = async ({ slug, limit, status, cursor, accountId }) => {
   if (!slug) {
     throw new Error('slug is required');
   }
-  return listLeadsBySlug({ slug, limit, status, lastKey: cursor || undefined });
+  return listLeadsBySlug({ slug, limit, status, lastKey: cursor || undefined, accountId });
 };
 
-const markLeadStatus = async ({ slug, leadId, status, followUpAt }) => {
+const markLeadStatus = async ({ slug, leadId, status, followUpAt, accountId }) => {
   if (!slug || !leadId) {
     const error = new Error('slug and leadId are required');
     error.statusCode = 400;
     throw error;
   }
-  await updateLeadStatus({ slug, leadId, status, followUpAt });
+  await updateLeadStatus({ slug, leadId, status, followUpAt, accountId });
   return { slug, leadId, status, followUpAt };
 };
 

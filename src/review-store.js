@@ -14,10 +14,11 @@ const getClient = () => {
   return dynamoDocumentClient;
 };
 
-const saveReview = async ({ slug, authorName, rating, body, source, status, contact }) => {
+const saveReview = async ({ slug, authorName, rating, body, source, status, contact, accountId }) => {
   const client = getClient();
   const timestamp = new Date().toISOString();
   const item = {
+    accountId: accountId || null,
     slug,
     reviewId: `${timestamp}#${randomUUID()}`,
     createdAt: timestamp,
@@ -38,7 +39,7 @@ const saveReview = async ({ slug, authorName, rating, body, source, status, cont
   return item;
 };
 
-const listReviews = async ({ slug, status = 'approved', limit = 20 }) => {
+const listReviews = async ({ slug, status = 'approved', limit = 20, accountId }) => {
   const client = getClient();
   const result = await client.send(
     new QueryCommand({
@@ -51,23 +52,34 @@ const listReviews = async ({ slug, status = 'approved', limit = 20 }) => {
     })
   );
   const items = result.Items || [];
-  return status ? items.filter((item) => item.status === status) : items;
+  const filtered = accountId
+    ? items.filter((item) => !item.accountId || item.accountId === accountId)
+    : items;
+  return status ? filtered.filter((item) => item.status === status) : filtered;
 };
 
-const updateReviewStatus = async ({ slug, reviewId, status }) => {
+const updateReviewStatus = async ({ slug, reviewId, status, accountId }) => {
   const client = getClient();
+  const accountCondition = accountId
+    ? 'attribute_not_exists(#accountId) OR #accountId = :accountId'
+    : null;
   await client.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { slug, reviewId },
-      UpdateExpression: 'SET #status = :status, #updatedAt = :now',
+      UpdateExpression:
+        'SET #status = :status, #updatedAt = :now' +
+        (accountId ? ', #accountId = if_not_exists(#accountId, :accountId)' : ''),
+      ConditionExpression: accountCondition || undefined,
       ExpressionAttributeNames: {
         '#status': 'status',
         '#updatedAt': 'updatedAt',
+        ...(accountId ? { '#accountId': 'accountId' } : {}),
       },
       ExpressionAttributeValues: {
         ':status': status,
         ':now': new Date().toISOString(),
+        ...(accountId ? { ':accountId': accountId } : {}),
       },
     })
   );

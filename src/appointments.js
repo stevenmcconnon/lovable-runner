@@ -67,12 +67,14 @@ const createAppointment = async ({
   sectionId,
   fields,
   sourceUrl,
+  accountId,
 }) => {
   ensureTable(TABLE_NAME, 'SITE_APPOINTMENTS_TABLE environment variable is not set.');
   const docClient = getClient();
   const timestamp = new Date().toISOString();
   const appointmentId = `${timestamp}#${randomUUID()}`;
   const record = {
+    accountId: accountId || null,
     slug,
     appointmentId,
     createdAt: timestamp,
@@ -111,7 +113,7 @@ const createAppointment = async ({
   return record;
 };
 
-const listAppointments = async ({ slug, limit = 50, status, cursor }) => {
+const listAppointments = async ({ slug, limit = 50, status, cursor, accountId }) => {
   ensureTable(TABLE_NAME, 'SITE_APPOINTMENTS_TABLE environment variable is not set.');
   const docClient = getClient();
   const params = {
@@ -126,6 +128,14 @@ const listAppointments = async ({ slug, limit = 50, status, cursor }) => {
     params.FilterExpression = '#status = :status';
     params.ExpressionAttributeNames['#status'] = 'status';
     params.ExpressionAttributeValues[':status'] = status;
+  }
+  if (accountId) {
+    const accountFilter = '(#accountId = :accountId OR attribute_not_exists(#accountId))';
+    params.FilterExpression = params.FilterExpression
+      ? `${params.FilterExpression} AND ${accountFilter}`
+      : accountFilter;
+    params.ExpressionAttributeNames['#accountId'] = 'accountId';
+    params.ExpressionAttributeValues[':accountId'] = accountId;
   }
   if (cursor) {
     params.ExclusiveStartKey = cursor;
@@ -144,6 +154,7 @@ const updateAppointmentStatus = async ({
   confirmedStart,
   confirmedEnd,
   metadata,
+  accountId,
 }) => {
   ensureTable(TABLE_NAME, 'SITE_APPOINTMENTS_TABLE environment variable is not set.');
   const docClient = getClient();
@@ -169,6 +180,11 @@ const updateAppointmentStatus = async ({
     expressions.push('#metadata = :metadata');
     names['#metadata'] = 'metadata';
     values[':metadata'] = metadata;
+  }
+  if (accountId) {
+    expressions.push('#accountId = if_not_exists(#accountId, :accountId)');
+    names['#accountId'] = 'accountId';
+    values[':accountId'] = accountId;
   }
   await docClient.send(
     new UpdateCommand({
@@ -212,13 +228,16 @@ const saveAppointmentSettings = (params = {}) => {
   if (rest.oauthStateProvider !== undefined) {
     updates.oauthStateProvider = rest.oauthStateProvider;
   }
-  if (!Object.keys(updates).length) {
-    return getAppointmentSettings({ slug });
+  if (rest.accountId !== undefined) {
+    updates.accountId = rest.accountId || null;
   }
-  return patchAppointmentSettings({ slug, updates });
+  if (!Object.keys(updates).length) {
+    return getAppointmentSettings({ slug, accountId: rest.accountId });
+  }
+  return patchAppointmentSettings({ slug, updates, accountId: rest.accountId });
 };
 
-const getAppointmentSettings = async ({ slug }) => {
+const getAppointmentSettings = async ({ slug, accountId }) => {
   ensureTable(
     SETTINGS_TABLE,
     'APPOINTMENT_SETTINGS_TABLE environment variable is not set.'
@@ -230,9 +249,15 @@ const getAppointmentSettings = async ({ slug }) => {
       Key: { slug },
     })
   );
-  if (result.Item) return result.Item;
+  if (result.Item) {
+    if (accountId && result.Item.accountId && result.Item.accountId !== accountId) {
+      return null;
+    }
+    return result.Item;
+  }
   return {
     slug,
+    accountId: accountId || null,
     availability: null,
     timezone: 'UTC',
     calendarProvider: null,
@@ -267,7 +292,7 @@ const clearOAuthState = async ({ slug }) =>
     },
   });
 
-const getAppointment = async ({ slug, appointmentId }) => {
+const getAppointment = async ({ slug, appointmentId, accountId }) => {
   ensureTable(TABLE_NAME, 'SITE_APPOINTMENTS_TABLE environment variable is not set.');
   const docClient = getClient();
   const result = await docClient.send(
@@ -276,7 +301,10 @@ const getAppointment = async ({ slug, appointmentId }) => {
       Key: { slug, appointmentId },
     })
   );
-  return result.Item || null;
+  const item = result.Item || null;
+  if (!item) return null;
+  if (accountId && item.accountId && item.accountId !== accountId) return null;
+  return item;
 };
 
 const setAppointmentCalendarEvent = async ({

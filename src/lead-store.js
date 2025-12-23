@@ -25,9 +25,11 @@ const buildLeadItem = ({
   remoteAddress,
   userAgent,
   intent,
+  accountId,
 }) => {
   const timestamp = new Date().toISOString();
   return {
+    accountId: accountId || null,
     slug,
     leadId: `${timestamp}#${randomUUID()}`,
     createdAt: timestamp,
@@ -67,7 +69,7 @@ const saveLeadSubmission = async (params) => {
   return item;
 };
 
-const listLeadsBySlug = async ({ slug, limit = 25, lastKey, status }) => {
+const listLeadsBySlug = async ({ slug, limit = 25, lastKey, status, accountId }) => {
   const client = getClient();
   const query = {
     TableName: TABLE_NAME,
@@ -86,6 +88,16 @@ const listLeadsBySlug = async ({ slug, limit = 25, lastKey, status }) => {
     query.ExpressionAttributeNames['#status'] = 'status';
     query.ExpressionAttributeValues[':status'] = status;
   }
+  const accountFilter = accountId
+    ? '(#accountId = :accountId OR attribute_not_exists(#accountId))'
+    : null;
+  if (accountFilter) {
+    query.FilterExpression = query.FilterExpression
+      ? `${query.FilterExpression} AND ${accountFilter}`
+      : accountFilter;
+    query.ExpressionAttributeNames['#accountId'] = 'accountId';
+    query.ExpressionAttributeValues[':accountId'] = accountId;
+  }
   if (lastKey) {
     query.ExclusiveStartKey = lastKey;
   }
@@ -96,7 +108,7 @@ const listLeadsBySlug = async ({ slug, limit = 25, lastKey, status }) => {
   };
 };
 
-const getLeadRecord = async ({ slug, leadId }) => {
+const getLeadRecord = async ({ slug, leadId, accountId }) => {
   const client = getClient();
   const result = await client.send(
     new GetCommand({
@@ -104,10 +116,13 @@ const getLeadRecord = async ({ slug, leadId }) => {
       Key: { slug, leadId },
     })
   );
-  return result.Item || null;
+  const item = result.Item || null;
+  if (!item) return null;
+  if (accountId && item.accountId && item.accountId !== accountId) return null;
+  return item;
 };
 
-const appendLeadMessage = async ({ slug, leadId, message }) => {
+const appendLeadMessage = async ({ slug, leadId, message, accountId }) => {
   const client = getClient();
   const timestamp = new Date().toISOString();
   const messageEntry = {
@@ -120,24 +135,27 @@ const appendLeadMessage = async ({ slug, leadId, message }) => {
       TableName: TABLE_NAME,
       Key: { slug, leadId },
       UpdateExpression:
-        'SET #messages = list_append(if_not_exists(#messages, :emptyList), :message), #updatedAt = :now, #status = :status',
+        'SET #messages = list_append(if_not_exists(#messages, :emptyList), :message), #updatedAt = :now, #status = :status'
+        + (accountId ? ', #accountId = if_not_exists(#accountId, :accountId)' : ''),
       ExpressionAttributeNames: {
         '#messages': 'messages',
         '#updatedAt': 'updatedAt',
         '#status': 'status',
+        ...(accountId ? { '#accountId': 'accountId' } : {}),
       },
       ExpressionAttributeValues: {
         ':message': [messageEntry],
         ':emptyList': [],
         ':now': timestamp,
         ':status': message.status || 'open',
+        ...(accountId ? { ':accountId': accountId } : {}),
       },
     })
   );
   return messageEntry;
 };
 
-const updateLeadStatus = async ({ slug, leadId, status, followUpAt }) => {
+const updateLeadStatus = async ({ slug, leadId, status, followUpAt, accountId }) => {
   const client = getClient();
   const expressions = ['#updatedAt = :now'];
   const names = { '#updatedAt': 'updatedAt' };
@@ -151,6 +169,11 @@ const updateLeadStatus = async ({ slug, leadId, status, followUpAt }) => {
     expressions.push('#followUpAt = :followUpAt');
     names['#followUpAt'] = 'followUpAt';
     values[':followUpAt'] = followUpAt || null;
+  }
+  if (accountId) {
+    expressions.push('#accountId = if_not_exists(#accountId, :accountId)');
+    names['#accountId'] = 'accountId';
+    values[':accountId'] = accountId;
   }
   await client.send(
     new UpdateCommand({

@@ -33,7 +33,7 @@ const { submitContactMessage } = rootRequire('src/contact.js') as {
   submitContactMessage: (params: any) => Promise<any>;
 };
 const { listLeads, sendLeadReply, markLeadStatus } = rootRequire('src/leads.js') as {
-  listLeads: (params: { slug: string; limit?: number; status?: string; cursor?: any }) => Promise<any>;
+  listLeads: (params: { slug: string; limit?: number; status?: string; cursor?: any; accountId?: string | null }) => Promise<any>;
   sendLeadReply: (params: any) => Promise<any>;
   markLeadStatus: (params: any) => Promise<any>;
 };
@@ -44,7 +44,7 @@ const { listApprovedReviews, submitReview, setReviewStatus } = rootRequire('src/
 };
 const { recordAnalyticsEvent, listAnalytics, buildAlerts } = rootRequire('src/analytics.js') as {
   recordAnalyticsEvent: (params: { slug: string; type: string; metadata?: Record<string, any> }) => Promise<void>;
-  listAnalytics: (params: { slug: string; days?: number }) => Promise<any[]>;
+  listAnalytics: (params: { slug: string; days?: number; accountId?: string | null }) => Promise<any[]>;
   buildAlerts: (records: Array<Record<string, any>>) => string[];
 };
 const {
@@ -59,12 +59,12 @@ const {
   setAppointmentCalendarEvent,
   buildICS,
 } = rootRequire('src/appointments.js') as {
-  listAppointments: (params: { slug: string; limit?: number; status?: string; cursor?: any }) => Promise<any>;
-  getAppointment: (params: { slug: string; appointmentId: string }) => Promise<any>;
+  listAppointments: (params: { slug: string; limit?: number; status?: string; cursor?: any; accountId?: string | null }) => Promise<any>;
+  getAppointment: (params: { slug: string; appointmentId: string; accountId?: string | null }) => Promise<any>;
   updateAppointmentStatus: (params: any) => Promise<any>;
   saveAppointmentSettings: (params: any) => Promise<any>;
-  getAppointmentSettings: (params: { slug: string }) => Promise<any>;
-  patchAppointmentSettings: (params: { slug: string; updates: Record<string, unknown> }) => Promise<any>;
+  getAppointmentSettings: (params: { slug: string; accountId?: string | null }) => Promise<any>;
+  patchAppointmentSettings: (params: { slug: string; updates: Record<string, unknown>; accountId?: string | null }) => Promise<any>;
   setOAuthState: (params: { slug: string; provider: string; state: string; expiresAt: string }) => Promise<any>;
   clearOAuthState: (params: { slug: string }) => Promise<void>;
   setAppointmentCalendarEvent: (params: any) => Promise<void>;
@@ -505,7 +505,13 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
           return;
         }
       }
-      const result = await listAppointments({ slug, status, limit, cursor });
+      const result = await listAppointments({
+        slug,
+        status,
+        limit,
+        cursor,
+        accountId: request.auth?.profile?.accountId,
+      });
       const nextCursor = result.nextCursor
         ? Buffer.from(JSON.stringify(result.nextCursor)).toString('base64')
         : null;
@@ -527,6 +533,7 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
         confirmedStart: body.confirmedStart,
         confirmedEnd: body.confirmedEnd,
         metadata: body.metadata,
+        accountId: request.auth?.profile?.accountId,
       });
       if (body.status && typeof body.status === 'string' && body.status.toLowerCase() === 'confirmed') {
         try {
@@ -552,7 +559,10 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
       const query = request.query as Record<string, any>;
       const slug = await resolveSlugOrDefault(request, reply, db, query.slug);
       if (!slug) return;
-      const settings = await getAppointmentSettings({ slug });
+      const settings = await getAppointmentSettings({
+        slug,
+        accountId: request.auth?.profile?.accountId,
+      });
       reply.send(settings);
     }
   );
@@ -564,12 +574,16 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
       const body = request.body as any;
       const slug = await ensureSlugAccess(request, reply, db, body.slug);
       if (!slug) return;
-      const previous = await getAppointmentSettings({ slug });
+      const previous = await getAppointmentSettings({
+        slug,
+        accountId: request.auth?.profile?.accountId,
+      });
       const settings = await saveAppointmentSettings({
         slug,
         availability: body.availability,
         timezone: body.timezone,
         calendarProvider: body.calendarProvider,
+        accountId: request.auth?.profile?.accountId,
       });
       if (
         body.calendarProvider !== undefined &&
@@ -675,7 +689,13 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
           return;
         }
       }
-      const result = await listLeads({ slug, limit, status, cursor });
+      const result = await listLeads({
+        slug,
+        limit,
+        status,
+        cursor,
+        accountId: request.auth?.profile?.accountId,
+      });
       const nextCursor = result.nextToken
         ? Buffer.from(JSON.stringify(result.nextToken)).toString('base64')
         : null;
@@ -696,6 +716,7 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
         message: body.message,
         subject: body.subject,
         sender: { targetEmail: body.targetEmailHint },
+        accountId: request.auth?.profile?.accountId,
       });
       reply.send(result);
     }
@@ -713,6 +734,7 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
         leadId: body.leadId,
         status: body.status,
         followUpAt: body.followUpAt,
+        accountId: request.auth?.profile?.accountId,
       });
       reply.send(result);
     }
@@ -780,6 +802,7 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
         slug,
         reviewId: body.reviewId,
         status: body.status,
+        accountId: request.auth?.profile?.accountId,
       });
       reply.send(result);
     }
@@ -873,7 +896,11 @@ export const registerCoreRoutes = (app: FastifyInstance, deps: { db: DatabaseSer
       const { slug, days } = request.query as { slug?: string; days?: string };
       const resolvedSlug = await resolveSlugOrDefault(request, reply, db, slug);
       if (!resolvedSlug) return;
-      const records = await listAnalytics({ slug: resolvedSlug, days: days ? Number(days) : undefined });
+      const records = await listAnalytics({
+        slug: resolvedSlug,
+        days: days ? Number(days) : undefined,
+        accountId: request.auth?.profile?.accountId,
+      });
       const alerts = buildAlerts(records);
       reply.send({ slug: resolvedSlug, records, alerts });
     }

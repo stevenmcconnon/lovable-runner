@@ -5,7 +5,7 @@ const { saveReview, listReviews, updateReviewStatus } = require('./review-store'
 
 const ses = sesClient;
 
-const submitReview = async ({ slug, authorName, rating, body, contactEmail, source }) => {
+const submitReview = async ({ slug, authorName, rating, body, contactEmail, source, accountId }) => {
   if (!slug) {
     const error = new Error('slug is required');
     error.statusCode = 400;
@@ -18,6 +18,7 @@ const submitReview = async ({ slug, authorName, rating, body, contactEmail, sour
   }
   const record = await saveReview({
     slug,
+    accountId,
     authorName: authorName || 'Anonymous',
     rating: typeof rating === 'number' ? rating : null,
     body,
@@ -47,15 +48,16 @@ const submitReview = async ({ slug, authorName, rating, body, contactEmail, sour
   return record;
 };
 
-const listApprovedReviews = async ({ slug, limit }) => listReviews({ slug, status: 'approved', limit });
+const listApprovedReviews = async ({ slug, limit, accountId }) =>
+  listReviews({ slug, status: 'approved', limit, accountId });
 
-const setReviewStatus = async ({ slug, reviewId, status }) => {
+const setReviewStatus = async ({ slug, reviewId, status, accountId }) => {
   if (!slug || !reviewId || !status) {
     const error = new Error('slug, reviewId, and status are required');
     error.statusCode = 400;
     throw error;
   }
-  await updateReviewStatus({ slug, reviewId, status });
+  await updateReviewStatus({ slug, reviewId, status, accountId });
   return { slug, reviewId, status };
 };
 
