@@ -8,3 +8,7 @@ downloads
 *.log
 .aws-sam
 .npm-cache
+samconfig.toml
+samconfig.toml.local
+samconfig.toml
+samconfig.toml.local

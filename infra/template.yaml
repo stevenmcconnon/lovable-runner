@@ -74,13 +74,6 @@ Parameters:
     AllowedValues: ['true', 'false']
     Default: 'true'
     Description: When true, AnalyticsDatabaseUrl must be provided (recommended for prod)
-
-Rules:
-  RequireAnalyticsDbRule:
-    RuleCondition: !Equals [!Ref RequireAnalyticsIsolation, 'true']
-    Assertions:
-      - Assert: !Not [!Equals [!Ref AnalyticsDatabaseUrl, '']]
-        AssertDescription: AnalyticsDatabaseUrl must be set when RequireAnalyticsIsolation=true
   NatGatewaySubnetId:
     Type: AWS::EC2::Subnet::Id
     Default: subnet-04c228a7b5b68ff53
@@ -374,6 +367,13 @@ Rules:
       - 'true'
       - 'false'
     Description: Enable an Amazon RDS Proxy endpoint for the Lambda functions to connect through (recommended)
+
+Rules:
+  RequireAnalyticsDbRule:
+    RuleCondition: !Equals [!Ref RequireAnalyticsIsolation, 'true']
+    Assertions:
+      - Assert: !Not [!Equals [!Ref AnalyticsDatabaseUrl, '']]
+        AssertDescription: AnalyticsDatabaseUrl must be set when RequireAnalyticsIsolation=true
 
 Conditions:
   HasCustomDomain: !And
