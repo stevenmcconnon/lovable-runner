@@ -26,7 +26,8 @@
     "db:seed:plans": "node scripts/seed-subscription-plans.js",
     "integrations:migrate": "node scripts/migrate-integration-tokens.js",
     "analytics:rollup": "node scripts/rollup-site-metrics.js",
-    "db:migrate": "node scripts/migrate.js"
+    "db:migrate": "node scripts/migrate.js",
+    "validate:site": "node scripts/validate-site.js"
   },
   "keywords": [
     "lovable",

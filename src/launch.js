@@ -3,7 +3,9 @@ const path = require('node:path');
 const { ListObjectsV2Command, HeadObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { randomUUID } = require('node:crypto');
 const fetch = global.fetch;
-const { generateSiteWithOpenAI } = require('./openai');
+const { generateSiteWithOpenAI, generateSitePatchWithOpenAI } = require('./openai');
+const { applyJsonPatch } = require('./json-patch');
+const { validateAndRepairSite } = require('./site-repair');
 const { refineThemePalette } = require('./color-agent');
 const { saveSiteConfig } = require('./site-store');
 const { uploadToS3 } = require('./deploy');
@@ -72,7 +74,7 @@ const ensureUniqueSlug = async ({ bucket, basePrefix, slugCandidate }) => {
       : slugValue;
   };
 
-  while (attempt < 20) {
+  while (attempt < 10) {
     const candidate = attempt === 0 ? sanitizedBase : `${sanitizedBase}-${attempt}`;
     const prefixPath = buildPrefixPath(candidate);
     const existing = await s3.send(
@@ -966,29 +968,79 @@ const attachStockImages = async ({ site, slug, businessDetails, description }) =
 
   await ensureAdaptiveImageSweep();
 
-  const rawPhotos = collectedPhotos.length ? collectedPhotos : [];
+  let rawPhotos = collectedPhotos.length ? collectedPhotos : [];
+
+  // If the external image provider is empty/rate-limited, fall back to whatever
+  // stock images we already have cached in the canonical bundle.
+  if (!rawPhotos.length && s3 && bucket) {
+    try {
+      const stockPrefix = `${BASE_BUNDLE_CANONICAL_PREFIX}/assets/stock/`;
+      const listing = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: stockPrefix,
+          MaxKeys: 250,
+        })
+      );
+      const keys = (listing.Contents || [])
+        .map((item) => item.Key)
+        .filter((key) => key && /\.(jpe?g|png|webp)$/i.test(key));
+
+      rawPhotos = keys.map((key) => ({
+        id: key,
+        src: `/assets/stock/${key.slice(stockPrefix.length)}`,
+        alt: site.meta?.headline || site.meta?.brandName || 'Stock image',
+        photographer: null,
+        creditUrl: null,
+      }));
+
+      if (rawPhotos.length) {
+        console.log('[images] Using cached stock fallback pool', { count: rawPhotos.length });
+      }
+    } catch (error) {
+      console.warn('[images] Failed to list cached stock images', { err: error?.message });
+    }
+  }
+
   let photos = filterRelevantPhotos(rawPhotos, { heroKeywords, serviceKeywords });
   if (!photos.length) photos = rawPhotos;
 
   let pool = photos.length ? [...photos] : [];
   let availablePhotos = [...pool];
   let recycledPhotos = [];
+  const usedSrc = new Set();
+
   const takePhoto = (selectIndexFn, options = {}) => {
     if (!availablePhotos.length) {
       availablePhotos = recycledPhotos;
       recycledPhotos = [];
     }
     if (!availablePhotos.length) return null;
-    let index = 0;
-    if (typeof selectIndexFn === 'function') {
+
+    let index;
+
+    // Prefer images we haven't used yet on this site to avoid “canned” repeats.
+    const unusedIndex = availablePhotos.findIndex((p) => p?.src && !usedSrc.has(p.src));
+    if (unusedIndex !== -1) {
+      index = unusedIndex;
+    } else if (typeof selectIndexFn === 'function') {
       index = selectIndexFn(availablePhotos);
+    } else {
+      index = 0;
     }
+
     if (!Number.isFinite(index)) index = 0;
     index = Math.max(0, Math.min(index, availablePhotos.length - 1));
+
     const [photo] = availablePhotos.splice(index, 1);
-    if (!options.preventReuse) {
+    if (!photo) return null;
+
+    if (photo.src) usedSrc.add(photo.src);
+    // Allow reuse after the unique pool is exhausted (recycledPhotos) so we always have *something*.
+    if (options.preventReuse !== true) {
       recycledPhotos.push(photo);
     }
+
     return photo;
   };
 
@@ -1236,15 +1288,25 @@ const ensureCornerStyle = ({ site, slug }) => {
   site.theme.cornerStyle = pickDeterministicCornerStyle(seed);
 };
 
-const ensureStyleProfile = ({ site }) => {
+const ensureStyleProfile = ({ site, slug }) => {
   if (!site?.theme) return;
   const current = site.theme.styleProfile;
   const isValid = STYLE_PROFILE_IDS.includes(current);
+
   if (!isValid) {
     const vibeDefault = VIBE_STYLE_SUGGESTIONS[site.theme.vibe];
     const cornerDefault = site.theme.cornerStyle === 'sharp' ? 'sharp-minimal' : null;
-    site.theme.styleProfile = vibeDefault || cornerDefault || DEFAULT_STYLE_PROFILE;
+
+    if (!vibeDefault && slug) {
+      // Deterministically vary by slug so new sites don't all look the same.
+      let hash = 0;
+      for (let i = 0; i < slug.length; i += 1) hash = (hash + slug.charCodeAt(i)) % 1000000;
+      site.theme.styleProfile = STYLE_PROFILE_IDS[hash % STYLE_PROFILE_IDS.length] || DEFAULT_STYLE_PROFILE;
+    } else {
+      site.theme.styleProfile = vibeDefault || cornerDefault || DEFAULT_STYLE_PROFILE;
+    }
   }
+
   const profileMeta = STYLE_PROFILE_DEFAULTS[site.theme.styleProfile];
   if (profileMeta?.cornerStyle) {
     site.theme.cornerStyle = profileMeta.cornerStyle;
@@ -1493,42 +1555,46 @@ const runLaunch = async ({
     process.env.TEMPLATE_UPLOAD_BUCKET;
   if (!resolvedBucket) throw new Error('bucket is required (set LOVABLE_DEPLOY_BUCKET or DEPLOY_BUCKET).');
 
+  const PROGRESS_INTERVAL_MS = Number(process.env.SITE_LAUNCH_PROGRESS_INTERVAL_MS || 3000);
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const publishProgress = async (partialSite, stage) => {
+    try {
+      onProgress?.(stage);
+      // Keep deploy fast: JSON-only save + base bundle ensure.
+      await deploySiteFromConfig({
+        slug: finalSlugForPublish,
+        site: partialSite,
+        bucket: resolvedBucket,
+        prefix: targetPrefixForPublish,
+        requestId,
+        sourceUrl: url,
+        description,
+        testMode,
+      });
+    } catch (error) {
+      console.warn('[launch] Failed to publish progressive update (continuing)', {
+        requestId,
+        stage,
+        err: error?.message,
+      });
+    }
+  };
+
   onProgress?.('running');
   let siteConfig;
-  if (testMode) {
-    console.log('[launch] Generating test site (Gemini skipped)', { requestId, sourceUrl: url });
-    siteConfig = buildTestSiteConfig({ url, description });
-  } else {
-    const sourceSummary = await fetchSourceContext(url);
-    if (!sourceSummary) {
-      console.warn('[launch] No source summary extracted', { requestId, sourceUrl: url });
-    }
-    console.log('[launch] Generating site with OpenAI', { requestId, sourceUrl: url });
-    const result = await generateSiteWithOpenAI({
-      sourceUrl: url,
-      description,
-      businessDetails,
-      sourceSummary,
-    });
-    // Skip async palette refinement to keep launch latency low; use generated theme directly.
-    siteConfig = result.site;
-    if (!siteConfig.templateId) {
-      siteConfig.templateId = 'consulting-b2b';
-    }
-    console.log('[launch] Gemini generation complete', {
-      requestId,
-      sectionCount: siteConfig.sections?.length || 0,
-    });
-  }
+  const hasOpenAIKey = Boolean((process.env.OPENAI_API_KEY || '').trim());
 
+  // NOTE: We need slug/prefix early so we can publish incremental content.json updates.
   const basePrefix =
     process.env.LOVABLE_DEPLOY_PREFIX ||
     process.env.DEPLOY_PREFIX ||
     process.env.PREVIEW_ROOT_PREFIX ||
     '';
 
-  let finalSlug = slug;
-  let targetPrefix = prefix || '';
+  let finalSlugForPublish = slug;
+  let targetPrefixForPublish = prefix || '';
 
   const desiredSlug = slug || buildSlugCandidate({ businessDetails, url, description, requestId });
   const { slug: ensuredSlug, prefixPath: resolvedPrefix } = await ensureUniqueSlug({
@@ -1536,13 +1602,208 @@ const runLaunch = async ({
     basePrefix,
     slugCandidate: desiredSlug,
   });
-  finalSlug = ensuredSlug;
-  targetPrefix = resolvedPrefix;
+  finalSlugForPublish = ensuredSlug;
+  targetPrefixForPublish = resolvedPrefix;
 
-  console.log('[launch] Using slug', { requestId, slug: finalSlug, prefix: targetPrefix });
+  console.log('[launch] Using slug', { requestId, slug: finalSlugForPublish, prefix: targetPrefixForPublish });
+
+  if (testMode) {
+    console.log('[launch] Generating test site (LLM skipped)', { requestId, sourceUrl: url });
+    siteConfig = buildTestSiteConfig({ url, description });
+  } else if (!hasOpenAIKey) {
+    // Safety net: if runner is misconfigured (no API key), don't leave users stuck.
+    console.warn('[launch] OPENAI_API_KEY missing; falling back to deterministic site config', {
+      requestId,
+      slug: finalSlugForPublish,
+      sourceUrl: url,
+    });
+    const fallback = buildTestSiteConfig({ url, description });
+    fallback.meta = {
+      ...fallback.meta,
+      brandName:
+        businessDetails?.businessName ||
+        businessDetails?.businessType ||
+        (finalSlugForPublish ? finalSlugForPublish.replace(/-/g, ' ') : fallback.meta.brandName),
+      headline: businessDetails?.businessType || fallback.meta.headline,
+      phone: businessDetails?.phone || fallback.meta.phone,
+      location: businessDetails?.address || fallback.meta.location,
+    };
+    fallback.seo = {
+      ...fallback.seo,
+      title: fallback.meta.brandName,
+      description: description || fallback.seo.description,
+    };
+    fallback.templateId = fallback.templateId || 'fallback-static';
+    siteConfig = fallback;
+  } else {
+    // Progressive generation: publish a real baseline immediately, then evolve every ~3s.
+    const baseline = buildTestSiteConfig({ url, description });
+    baseline.meta = {
+      ...baseline.meta,
+      brandName:
+        businessDetails?.businessName ||
+        businessDetails?.businessType ||
+        (finalSlugForPublish ? finalSlugForPublish.replace(/-/g, ' ') : baseline.meta.brandName),
+      headline: businessDetails?.businessType || baseline.meta.headline,
+      phone: businessDetails?.phone || baseline.meta.phone,
+      location: businessDetails?.address || baseline.meta.location,
+      email: businessDetails?.email || baseline.meta.email,
+    };
+    baseline.seo = {
+      ...baseline.seo,
+      title: baseline.meta.brandName,
+      description: description || baseline.seo.description,
+    };
+    baseline.templateId = baseline.templateId || 'consulting-b2b';
+
+    // Guardrails: cap total drafts (incl. baseline) to <= 10 (prefer <= 6).
+    const maxDrafts = Math.min(
+      Number.parseInt(process.env.SITE_LAUNCH_MAX_DRAFTS || '6', 10) || 6,
+      10
+    );
+
+    // Normalize + repair + validate before first publish.
+    siteConfig = normalizeSiteSections(baseline);
+    ensureCornerStyle({ site: siteConfig, slug: finalSlugForPublish });
+    ensureStyleProfile({ site: siteConfig, slug: finalSlugForPublish });
+    const baselineCheck = validateAndRepairSite(siteConfig, {
+      fallbackBrandName: baseline.meta.brandName,
+    });
+    siteConfig = baselineCheck.repaired;
+
+    let lastKnownGood = siteConfig;
+    if (baselineCheck.validation.valid) {
+      lastKnownGood = baselineCheck.validation.site || siteConfig;
+      siteConfig = lastKnownGood;
+    } else {
+      console.warn('[launch] Baseline failed validation (continuing with repaired baseline)', {
+        requestId,
+        errors: baselineCheck.validation.errors,
+      });
+    }
+
+    await publishProgress(siteConfig, 'draft-1');
+
+    // Build short, focused improvement steps. Each step should be small enough to land within ~3s.
+    const steps = [
+      {
+        stage: 'draft-2',
+        instructions:
+          'Improve the hero section for conversion. Use the business name, location, and phone. Make the CTA compelling. Keep structure stable; only adjust copy and CTA props.',
+      },
+      {
+        stage: 'draft-3',
+        instructions:
+          'Improve the services/features section copy: clearer benefits, fewer buzzwords, specific to the business. Keep layout; only refine text fields and feature descriptions.',
+      },
+      {
+        stage: 'draft-4',
+        instructions:
+          'Add or refine testimonials/FAQ content if those sections exist. If missing, add one appropriate social proof section using existing componentIds already present in the site config.',
+      },
+      {
+        stage: 'draft-5',
+        instructions:
+          'Polish SEO: title/description, add relevant keywords, ensure brand consistency. No layout changes.',
+      },
+      {
+        stage: 'draft-6',
+        instructions:
+          'Final pass: check for missing CTA labels/hrefs, placeholder copy, and inconsistencies. Fix copy only; do not change layout.',
+      },
+    ].slice(0, Math.max(0, maxDrafts - 1));
+
+    for (const step of steps) {
+      const startedAt = Date.now();
+      let candidate = siteConfig;
+
+      try {
+        const { patch } = await generateSitePatchWithOpenAI({
+          site: siteConfig,
+          instructions: step.instructions,
+          assets: [],
+        });
+        if (patch) {
+          candidate = applyJsonPatch(siteConfig, patch);
+        }
+      } catch (error) {
+        console.warn('[launch] Progressive step failed (continuing)', {
+          requestId,
+          stage: step.stage,
+          err: error?.message,
+        });
+      }
+
+      // Always normalize/repair/validate before publishing.
+      candidate = normalizeSiteSections(candidate);
+      ensureCornerStyle({ site: candidate, slug: finalSlugForPublish });
+      ensureStyleProfile({ site: candidate, slug: finalSlugForPublish });
+      const check = validateAndRepairSite(candidate, {
+        fallbackBrandName: baseline.meta.brandName,
+      });
+
+      if (check.validation.valid) {
+        siteConfig = check.validation.site || check.repaired;
+        lastKnownGood = siteConfig;
+      } else {
+        console.warn('[launch] Validation failed; reverting to last-known-good for publish', {
+          requestId,
+          stage: step.stage,
+          errors: check.validation.errors,
+        });
+        siteConfig = lastKnownGood;
+      }
+
+      await publishProgress(siteConfig, step.stage);
+
+      const elapsed = Date.now() - startedAt;
+      const remaining = PROGRESS_INTERVAL_MS - elapsed;
+      if (remaining > 0) {
+        await sleep(remaining);
+      }
+    }
+
+    // Final repair stage: ensure the published site is schema-valid + self-healed.
+    const finalCheck = validateAndRepairSite(siteConfig, {
+      fallbackBrandName: baseline.meta.brandName,
+    });
+    if (finalCheck.validation.valid) {
+      siteConfig = finalCheck.validation.site || finalCheck.repaired;
+      lastKnownGood = siteConfig;
+    } else {
+      console.warn('[launch] Final repair failed; publishing last-known-good', {
+        requestId,
+        errors: finalCheck.validation.errors,
+      });
+      siteConfig = lastKnownGood;
+    }
+    await publishProgress(siteConfig, 'draft-final-repair');
+
+    // Optional final full-generation pass (disabled by default). This can be slow.
+    const doFinal = String(process.env.SITE_LAUNCH_FINAL_PASS || '').toLowerCase() === 'true';
+    if (doFinal) {
+      const sourceSummary = await fetchSourceContext(url);
+      console.log('[launch] Final pass: generating site with OpenAI', { requestId, sourceUrl: url });
+      const result = await generateSiteWithOpenAI({
+        sourceUrl: url,
+        description,
+        businessDetails,
+        sourceSummary,
+      });
+      siteConfig = result.site;
+      if (!siteConfig.templateId) {
+        siteConfig.templateId = 'consulting-b2b';
+      }
+    }
+  }
+
+  const finalSlug = finalSlugForPublish;
+  const targetPrefix = targetPrefixForPublish;
+
+  console.log('[launch] Finalizing launch', { requestId, slug: finalSlug, prefix: targetPrefix });
 
   ensureCornerStyle({ site: siteConfig, slug: finalSlug });
-  ensureStyleProfile({ site: siteConfig });
+  ensureStyleProfile({ site: siteConfig, slug: finalSlug });
   // Attach stock imagery from Pexels (if available) and normalize sections before saving
   siteConfig = await attachStockImages({
     site: siteConfig,
