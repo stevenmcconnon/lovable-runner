@@ -33,9 +33,22 @@ import {
   AccountMembership,
 } from '../types';
 
+const shouldUseDbSSL = (url?: string | null) => {
+  const value = url || '';
+  // RDS (and many managed PGs) require TLS. Some environments surface cert chain
+  // issues unless we disable strict verification.
+  return /amazonaws\.com/i.test(value) || /sslmode=require/i.test(value);
+};
+
+const sslConfig = (url?: string | null) => {
+  if (config.nodeEnv === 'production') return { rejectUnauthorized: false };
+  if (shouldUseDbSSL(url)) return { rejectUnauthorized: false };
+  return undefined;
+};
+
 const pool = new Pool({
   connectionString: config.database.url,
-  ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
+  ssl: sslConfig(config.database.url),
   max: config.database.pool?.max,
   min: config.database.pool?.min,
   idleTimeoutMillis: config.database.pool?.idleTimeoutMillis,
@@ -43,7 +56,7 @@ const pool = new Pool({
 
 const analyticsPool = new Pool({
   connectionString: config.database.analyticsUrl,
-  ssl: config.nodeEnv === 'production' ? { rejectUnauthorized: false } : undefined,
+  ssl: sslConfig(config.database.analyticsUrl),
   max: config.database.pool?.max,
   min: config.database.pool?.min,
   idleTimeoutMillis: config.database.pool?.idleTimeoutMillis,
