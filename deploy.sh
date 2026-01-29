@@ -192,8 +192,17 @@ sam build \
   --no-cached
 
 echo "Deploying stack ${STACK_NAME} to ${REGION} (profile: ${PROFILE})..."
+SAM_CONFIG_FILE_ARG=()
+# If a local samconfig exists, use it directly (it may not be merged into samconfig.toml).
+if [[ -f "${PROJECT_ROOT}/samconfig.toml.local" ]]; then
+  SAM_CONFIG_FILE_ARG=(--config-file "${PROJECT_ROOT}/samconfig.toml.local")
+  # samconfig.toml.local only defines [default] in this repo, so force config-env to default.
+  SAM_CONFIG_ENV="default"
+fi
+
 sam deploy \
   --stack-name "${STACK_NAME}" \
+  "${SAM_CONFIG_FILE_ARG[@]}" \
   --config-env "${SAM_CONFIG_ENV}" \
   --capabilities CAPABILITY_IAM \
   --profile "${PROFILE}" \
