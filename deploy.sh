@@ -199,7 +199,8 @@ sam deploy \
   --profile "${PROFILE}" \
   --region "${REGION}" \
   --no-fail-on-empty-changeset \
-  --force-upload
+  --force-upload \
+  --resolve-s3
 
 if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID}" ]]; then
   echo "Invalidating CloudFront distribution ${CLOUDFRONT_DISTRIBUTION_ID}..."
