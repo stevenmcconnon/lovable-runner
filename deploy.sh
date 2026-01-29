@@ -29,6 +29,13 @@ REGION="${AWS_REGION:-us-east-1}"
 STACK_NAME="${STACK_NAME:-lovable-runner-api}"
 SAM_TEMPLATE="${SAM_TEMPLATE:-infra/template.yaml}"
 SAM_CONFIG_ENV="${SAM_CONFIG_ENV:-default}"
+# Prefer a local, non-committed samconfig environment when present.
+# This avoids deploying with placeholder/blank parameters from samconfig.toml.
+if [[ -z "${SAM_CONFIG_ENV:-}" ]] || [[ "${SAM_CONFIG_ENV}" == "default" ]]; then
+  if [[ -f "${PROJECT_ROOT}/samconfig.toml.local" ]]; then
+    SAM_CONFIG_ENV="local"
+  fi
+fi
 CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-}"
 RUN_INSTALL=1
 RUN_TS_BUILD=1
