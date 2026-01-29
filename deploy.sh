@@ -24,6 +24,8 @@ Options:
 EOF
 }
 
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 PROFILE="${AWS_PROFILE:-lovable}"
 REGION="${AWS_REGION:-us-east-1}"
 STACK_NAME="${STACK_NAME:-lovable-runner-api}"
@@ -43,7 +45,6 @@ RUN_TESTS=1
 RUN_API_TESTS=0
 RUN_MIGRATIONS=1
 MIGRATIONS_CMD="${MIGRATIONS_CMD:-}"
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NPM_CACHE_DIR="${NPM_CACHE_DIR:-${PROJECT_ROOT}/.npm-cache}"
 mkdir -p "${NPM_CACHE_DIR}"
 export NPM_CONFIG_CACHE="${NPM_CACHE_DIR}"
