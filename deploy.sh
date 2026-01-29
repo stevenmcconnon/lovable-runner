@@ -195,7 +195,10 @@ echo "Deploying stack ${STACK_NAME} to ${REGION} (profile: ${PROFILE})..."
 SAM_CONFIG_FILE_ARG=()
 # If a local samconfig exists, use it directly (it may not be merged into samconfig.toml).
 if [[ -f "${PROJECT_ROOT}/samconfig.toml.local" ]]; then
-  SAM_CONFIG_FILE_ARG=(--config-file "${PROJECT_ROOT}/samconfig.toml.local")
+  # SAM CLI refuses non-.toml extensions, so copy to a supported temp filename.
+  TMP_SAMCONFIG="${TMPDIR:-/tmp}/samconfig.local.toml"
+  cp "${PROJECT_ROOT}/samconfig.toml.local" "${TMP_SAMCONFIG}"
+  SAM_CONFIG_FILE_ARG=(--config-file "${TMP_SAMCONFIG}")
   # samconfig.toml.local only defines [default] in this repo, so force config-env to default.
   SAM_CONFIG_ENV="default"
 fi
