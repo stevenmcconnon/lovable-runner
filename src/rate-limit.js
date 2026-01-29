@@ -25,8 +25,13 @@ const enforceRateLimit = async ({
   const windowEndMs = windowStartMs + windowSize;
   const windowStart = new Date(windowStartMs).toISOString();
   const windowEnd = new Date(windowEndMs).toISOString();
+
+  // `rate_limit_counters.slug` is NOT NULL in prod.
+  // For endpoints that aren't tied to a specific site slug, we bucket under "global".
+  const finalSlug = slug && String(slug).trim() ? String(slug).trim() : 'global';
+
   const params = [
-    slug || null,
+    finalSlug,
     action,
     identifier,
     windowStart,
@@ -45,7 +50,7 @@ const enforceRateLimit = async ({
   const count = Number(result.rows?.[0]?.count || 0);
   if (count > limit) {
     throw new RateLimitError('Too many requests. Please try again soon.', {
-      slug,
+      slug: finalSlug,
       action,
       identifier,
       limit,
