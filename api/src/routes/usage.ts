@@ -23,12 +23,33 @@ export const registerUsageRoutes = (app: FastifyInstance, deps: { db: DatabaseSe
     const usage = await db.getUsage(profile.accountId, limit);
     const limits = db.buildUsageLimits(subscription, limit);
     const sites = (await db.listSiteGenerations(profile.accountId)).filter((site) => Boolean(site.slug));
-    const metricsBySite = await Promise.all(
-      sites.map(async (site) => {
-        const metrics = await db.getSiteMetrics(site.slug as string, 30);
-        return { slug: site.slug as string, ...metrics };
-      })
-    );
+
+    let metricsBySite: { slug: string; views: number; ctaClicks: number }[] = [];
+    try {
+      metricsBySite = await Promise.all(
+        sites.map(async (site) => {
+          const metrics = await db.getSiteMetrics(site.slug as string, 30);
+          return { slug: site.slug as string, ...metrics };
+        })
+      );
+    } catch (error: any) {
+      request.log.warn(
+        {
+          err: {
+            message: error?.message,
+            code: error?.code,
+            name: error?.name,
+          },
+        },
+        '[usage] Failed to load site metrics; returning zeros'
+      );
+      metricsBySite = sites.map((site) => ({
+        slug: site.slug as string,
+        views: 0,
+        ctaClicks: 0,
+      }));
+    }
+
     const metricsSummary = metricsBySite.reduce(
       (acc, curr) => {
         acc.views += curr.views;

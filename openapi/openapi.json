@@ -19,8 +19,14 @@
     "/accounts/members": {
       "get": {
         "summary": "List members of the current account",
-        "tags": ["accounts"],
-        "security": [{ "bearerAuth": [] }],
+        "tags": [
+          "accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Member list",
@@ -29,15 +35,26 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "accountId": { "type": "string", "format": "uuid" },
+                    "accountId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
                     "items": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "accountId": { "type": "string", "format": "uuid" },
-                          "userId": { "type": "string", "format": "uuid" },
-                          "role": { "type": "string" }
+                          "accountId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "userId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "role": {
+                            "type": "string"
+                          }
                         }
                       }
                     }
@@ -52,8 +69,14 @@
     "/accounts/invitations": {
       "post": {
         "summary": "Invite a user to the current account",
-        "tags": ["accounts"],
-        "security": [{ "bearerAuth": [] }],
+        "tags": [
+          "accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -61,10 +84,25 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "email": { "type": "string", "format": "email" },
-                  "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer", "customer", "super-admin"] }
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "owner",
+                      "admin",
+                      "member",
+                      "viewer",
+                      "customer",
+                      "super-admin"
+                    ]
+                  }
                 },
-                "required": ["email"]
+                "required": [
+                  "email"
+                ]
               }
             }
           }
@@ -76,7 +114,12 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "properties": { "token": { "type": "string", "format": "uuid" } }
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
                 }
               }
             }
@@ -87,16 +130,29 @@
     "/accounts/invitations/accept": {
       "post": {
         "summary": "Accept an invitation",
-        "tags": ["accounts"],
-        "security": [{ "bearerAuth": [] }],
+        "tags": [
+          "accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": { "token": { "type": "string", "format": "uuid" } },
-                "required": ["token"]
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "token"
+                ]
               }
             }
           }
@@ -112,9 +168,17 @@
                     "membership": {
                       "type": "object",
                       "properties": {
-                        "accountId": { "type": "string", "format": "uuid" },
-                        "userId": { "type": "string", "format": "uuid" },
-                        "role": { "type": "string" }
+                        "accountId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "role": {
+                          "type": "string"
+                        }
                       }
                     }
                   }
@@ -128,8 +192,14 @@
     "/accounts/share-site": {
       "post": {
         "summary": "Share a site with another account",
-        "tags": ["accounts"],
-        "security": [{ "bearerAuth": [] }],
+        "tags": [
+          "accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -137,10 +207,18 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "slug": { "type": "string" },
-                  "accountId": { "type": "string", "format": "uuid" }
+                  "slug": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
                 },
-                "required": ["slug", "accountId"]
+                "required": [
+                  "slug",
+                  "accountId"
+                ]
               }
             }
           }
@@ -149,7 +227,16 @@
           "200": {
             "description": "Shared",
             "content": {
-              "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" } } } }
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -1484,7 +1571,6 @@
                       "type": "string",
                       "nullable": true,
                       "description": "Opaque cursor token to fetch the next page (also emitted via the x-next-cursor header)."
-                      }
                     }
                   }
                 }
@@ -1493,911 +1579,897 @@
           }
         }
       }
-    },
-    "/admin/accounts/{accountId}": {
-      "get": {
-        "summary": "Fetch account details + users",
-        "operationId": "getAccount",
-        "parameters": [
-          {
-            "name": "accountId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Account detail",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountDetail"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found"
-          }
-        }
-      }
-    },
-    "/admin/accounts/{accountId}/sites": {
-      "get": {
-        "summary": "List all site launches for an account",
-        "operationId": "listAccountSites",
-        "parameters": [
-          {
-            "name": "accountId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "queued",
-                "running",
-                "building",
-                "deploying",
-                "completed",
-                "failed"
-              ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 200
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Site launch collection",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/SiteGeneration"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admin/owner-metrics": {
-      "get": {
-        "summary": "Fetch owner dashboard metrics",
-        "operationId": "getOwnerDashboardSnapshot",
-        "description": "Returns a single payload containing revenue, plan mix, launch throughput, and queue depth metrics powering the operator dashboard (super-admin access only).",
-        "responses": {
-          "200": {
-            "description": "Current snapshot",
-            "headers": {
-              "cache-control": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Responses should not be cached; included for completeness."
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OwnerDashboardSnapshot"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/billing/create-checkout-session": {
-      "post": {
-        "summary": "Start a Stripe checkout session",
-        "description": "Creates a subscription checkout session for the requested plan and returns the hosted Stripe URL.",
-        "operationId": "createCheckoutSession",
-        "requestBody": {
+    }
+  },
+  "/admin/accounts/{accountId}": {
+    "get": {
+      "summary": "Fetch account details + users",
+      "operationId": "getAccount",
+      "parameters": [
+        {
+          "name": "accountId",
+          "in": "path",
           "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Account detail",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CheckoutSessionRequest"
+                "$ref": "#/components/schemas/AccountDetail"
               }
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Checkout URL issued",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CheckoutSessionResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid payload"
-          }
+        "404": {
+          "description": "Not found"
         }
       }
-    },
-    "/billing/plans": {
-      "get": {
-        "summary": "List available subscription plans",
-        "operationId": "listBillingPlans",
-        "responses": {
-          "200": {
-            "description": "Plan catalog",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/SubscriptionPlan"
-                      }
-                    }
-                  }
-                },
-                "examples": {
-                  "default": {
-                    "value": {
-                      "items": [
-                        {
-                          "planKey": "starter",
-                          "planName": "Starter",
-                          "priceMonthly": 29,
-                          "monthlyEditLimit": 5,
-                          "stripePriceId": "price_1SaXZTFXG8DaUq7ULBoQPaNO"
-                        },
-                        {
-                          "planKey": "growth",
-                          "planName": "Growth",
-                          "priceMonthly": 69,
-                          "monthlyEditLimit": 20,
-                          "stripePriceId": "price_1SaXYyFXG8DaUq7UVHtS7y7l"
-                        },
-                        {
-                          "planKey": "scale",
-                          "planName": "Scale",
-                          "priceMonthly": 149,
-                          "monthlyEditLimit": 75,
-                          "stripePriceId": "price_1SaXXbFXG8DaUq7UzIYWq2ra"
-                        },
-                        {
-                          "planKey": "starter-annual",
-                          "planName": "Starter Annual",
-                          "priceMonthly": 290,
-                          "monthlyEditLimit": 5,
-                          "stripePriceId": "price_1SaXa9FXG8DaUq7UenwkRVPC"
-                        },
-                        {
-                          "planKey": "growth-annual",
-                          "planName": "Growth Annual",
-                          "priceMonthly": 690,
-                          "monthlyEditLimit": 20,
-                          "stripePriceId": "price_1SaXbmFXG8DaUq7U1b5cP1Bu"
-                        },
-                        {
-                          "planKey": "scale-annual",
-                          "planName": "Scale Annual",
-                          "priceMonthly": 1490,
-                          "monthlyEditLimit": 75,
-                          "stripePriceId": "price_1SaXcoFXG8DaUq7UAPZhufT5"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/billing/subscription-status": {
-      "get": {
-        "summary": "Fetch current subscription/usage state",
-        "operationId": "getBillingStatus",
-        "responses": {
-          "200": {
-            "description": "Billing status response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BillingStatusResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/billing/manage-portal": {
-      "post": {
-        "summary": "Create a Stripe customer portal session",
-        "operationId": "createBillingPortalSession",
-        "requestBody": {
+    }
+  },
+  "/admin/accounts/{accountId}/sites": {
+    "get": {
+      "summary": "List all site launches for an account",
+      "operationId": "listAccountSites",
+      "parameters": [
+        {
+          "name": "accountId",
+          "in": "path",
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BillingPortalRequest"
-              }
-            }
+          "schema": {
+            "type": "string",
+            "format": "uuid"
           }
         },
-        "responses": {
-          "200": {
-            "description": "Portal URL created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BillingPortalResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Stripe customer"
-          }
-        }
-      }
-    },
-    "/domains/search": {
-      "post": {
-        "summary": "Search for available domains",
-        "operationId": "searchDomains",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DomainSearchRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Domain candidates",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainSearchResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/domains/purchase": {
-      "post": {
-        "summary": "Purchase and assign a managed domain",
-        "operationId": "purchaseDomain",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DomainPurchaseRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Domain purchase recorded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainAttachResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Domain already attached"
-          }
-        }
-      }
-    },
-    "/domains/cart/checkout": {
-      "post": {
-        "summary": "Create a Stripe checkout session for managed domain purchases",
-        "operationId": "createDomainCartCheckout",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DomainCartCheckoutRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Checkout session created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainCartCheckoutResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid cart or wiring request"
-          },
-          "409": {
-            "description": "At least one domain already connected"
-          }
-        }
-      }
-    },
-    "/domains/{domain}/verify": {
-      "post": {
-        "summary": "Mark a connected domain as verified",
-        "operationId": "verifyDomain",
-        "parameters": [
-          {
-            "name": "domain",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Domain verified",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Domain"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Domain not found"
-          }
-        }
-      }
-    },
-    "/sites/{slug}/domains": {
-      "post": {
-        "summary": "Attach a manual domain to a site",
-        "operationId": "attachDomain",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ManualDomainRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Domain attached",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainAttachResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sites/{slug}/domains/{domain}/wire": {
-      "post": {
-        "summary": "Automatically wire a managed domain to the site DNS records",
-        "operationId": "wireDomain",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "domain",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Domain wired successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainAttachResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Automatic wiring unavailable"
-          },
-          "404": {
-            "description": "Domain not found"
-          }
-        }
-      }
-    },
-    "/sites/{slug}/domains/status": {
-      "get": {
-        "summary": "List domains + DNS instructions for a site",
-        "operationId": "listSiteDomains",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Domains for slug",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainListResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sites/{slug}/publish": {
-      "post": {
-        "summary": "Publish the latest preview to live hosting",
-        "operationId": "publishSite",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
+        {
+          "name": "status",
+          "in": "query",
           "required": false,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "building",
+              "deploying",
+              "completed",
+              "failed"
+            ]
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Site launch collection",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PublishRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Deployment record",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Deployment"
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/SiteGeneration"
+                    }
+                  }
                 }
               }
             }
           }
         }
       }
-    },
-    "/sites/{slug}/deployments": {
-      "get": {
-        "summary": "List deployments for a site",
-        "operationId": "listDeployments",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deployment collection",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeploymentListResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sites/{slug}/deployments/{deploymentId}": {
-      "get": {
-        "summary": "Fetch a deployment by id",
-        "operationId": "getDeployment",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+    }
+  },
+  "/admin/owner-metrics": {
+    "get": {
+      "summary": "Fetch owner dashboard metrics",
+      "operationId": "getOwnerDashboardSnapshot",
+      "description": "Returns a single payload containing revenue, plan mix, launch throughput, and queue depth metrics powering the operator dashboard (super-admin access only).",
+      "responses": {
+        "200": {
+          "description": "Current snapshot",
+          "headers": {
+            "cache-control": {
+              "schema": {
+                "type": "string"
+              },
+              "description": "Responses should not be cached; included for completeness."
             }
           },
-          {
-            "name": "deploymentId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deployment record",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Deployment"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Deployment not found"
-          }
-        }
-      }
-    },
-    "/usage": {
-      "get": {
-        "summary": "Usage snapshot for the authenticated account",
-        "operationId": "getUsage",
-        "responses": {
-          "200": {
-            "description": "Usage response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UsageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/usage/limits": {
-      "get": {
-        "summary": "Plan limits for the authenticated account",
-        "operationId": "getUsageLimits",
-        "responses": {
-          "200": {
-            "description": "Limit information",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UsageLimits"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/domains": {
-      "get": {
-        "summary": "List domains for the authenticated account",
-        "operationId": "listDomains",
-        "responses": {
-          "200": {
-            "description": "Domain collection",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainListResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/domains/{domain}": {
-      "get": {
-        "summary": "Fetch a single domain for this account",
-        "operationId": "getDomain",
-        "parameters": [
-          {
-            "name": "domain",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Domain detail",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainDetailResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Domain not found"
-          }
-        }
-      }
-    },
-    "/sites": {
-      "get": {
-        "summary": "List sites for the authenticated account",
-        "operationId": "listSites",
-        "responses": {
-          "200": {
-            "description": "Site collection",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SiteListResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sites/{slug}/domains/{domain}/primary": {
-      "post": {
-        "summary": "Mark a site domain as primary",
-        "operationId": "setPrimaryDomain",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "domain",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Updated domain record",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainDetailResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Domain not found"
-          }
-        }
-      }
-    },
-    "/sites/{slug}/domains/{domain}": {
-      "delete": {
-        "summary": "Detach a domain from a site",
-        "operationId": "detachDomain",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "domain",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Domain removed"
-          },
-          "404": {
-            "description": "Domain not found"
-          }
-        }
-      }
-    },
-    "/appointments": {
-      "get": {
-        "summary": "List appointments",
-        "description": "Authenticated owners can list pending/confirmed appointments for a site.",
-        "operationId": "listAppointments",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "confirmed",
-                "cancelled"
-              ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 50
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Appointments",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AppointmentListResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        }
-      }
-    },
-    "/appointments/status": {
-      "post": {
-        "summary": "Update appointment status",
-        "operationId": "updateAppointmentStatus",
-        "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppointmentStatusRequest"
+                "$ref": "#/components/schemas/OwnerDashboardSnapshot"
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated"
-          },
-          "400": {
-            "description": "Invalid payload"
           }
         }
       }
-    },
-    "/appointments/settings": {
-      "get": {
-        "summary": "Get appointment settings",
-        "operationId": "getAppointmentSettings",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "query",
+    }
+  },
+  "/billing/create-checkout-session": {
+    "post": {
+      "summary": "Start a Stripe checkout session",
+      "description": "Creates a subscription checkout session for the requested plan and returns the hosted Stripe URL.",
+      "operationId": "createCheckoutSession",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
             "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Settings",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AppointmentSettings"
-                }
-              }
+              "$ref": "#/components/schemas/CheckoutSessionRequest"
             }
           }
         }
       },
-      "post": {
-        "summary": "Save appointment settings",
-        "operationId": "saveAppointmentSettings",
-        "requestBody": {
+      "responses": {
+        "200": {
+          "description": "Checkout URL issued",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutSessionResponse"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid payload"
+        }
+      }
+    }
+  },
+  "/billing/plans": {
+    "get": {
+      "summary": "List available subscription plans",
+      "operationId": "listBillingPlans",
+      "responses": {
+        "200": {
+          "description": "Plan catalog",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/SubscriptionPlan"
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "items": [
+                      {
+                        "planKey": "starter",
+                        "planName": "Starter",
+                        "priceMonthly": 29,
+                        "monthlyEditLimit": 5,
+                        "stripePriceId": "price_1SaXZTFXG8DaUq7ULBoQPaNO"
+                      },
+                      {
+                        "planKey": "growth",
+                        "planName": "Growth",
+                        "priceMonthly": 69,
+                        "monthlyEditLimit": 20,
+                        "stripePriceId": "price_1SaXYyFXG8DaUq7UVHtS7y7l"
+                      },
+                      {
+                        "planKey": "scale",
+                        "planName": "Scale",
+                        "priceMonthly": 149,
+                        "monthlyEditLimit": 75,
+                        "stripePriceId": "price_1SaXXbFXG8DaUq7UzIYWq2ra"
+                      },
+                      {
+                        "planKey": "starter-annual",
+                        "planName": "Starter Annual",
+                        "priceMonthly": 290,
+                        "monthlyEditLimit": 5,
+                        "stripePriceId": "price_1SaXa9FXG8DaUq7UenwkRVPC"
+                      },
+                      {
+                        "planKey": "growth-annual",
+                        "planName": "Growth Annual",
+                        "priceMonthly": 690,
+                        "monthlyEditLimit": 20,
+                        "stripePriceId": "price_1SaXbmFXG8DaUq7U1b5cP1Bu"
+                      },
+                      {
+                        "planKey": "scale-annual",
+                        "planName": "Scale Annual",
+                        "priceMonthly": 1490,
+                        "monthlyEditLimit": 75,
+                        "stripePriceId": "price_1SaXcoFXG8DaUq7UAPZhufT5"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/billing/subscription-status": {
+    "get": {
+      "summary": "Fetch current subscription/usage state",
+      "operationId": "getBillingStatus",
+      "responses": {
+        "200": {
+          "description": "Billing status response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingStatusResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/billing/manage-portal": {
+    "post": {
+      "summary": "Create a Stripe customer portal session",
+      "operationId": "createBillingPortalSession",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BillingPortalRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Portal URL created",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingPortalResponse"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Missing Stripe customer"
+        }
+      }
+    }
+  },
+  "/domains/search": {
+    "post": {
+      "summary": "Search for available domains",
+      "operationId": "searchDomains",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DomainSearchRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Domain candidates",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainSearchResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/domains/purchase": {
+    "post": {
+      "summary": "Purchase and assign a managed domain",
+      "operationId": "purchaseDomain",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DomainPurchaseRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Domain purchase recorded",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainAttachResponse"
+              }
+            }
+          }
+        },
+        "409": {
+          "description": "Domain already attached"
+        }
+      }
+    }
+  },
+  "/domains/cart/checkout": {
+    "post": {
+      "summary": "Create a Stripe checkout session for managed domain purchases",
+      "operationId": "createDomainCartCheckout",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DomainCartCheckoutRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Checkout session created",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCartCheckoutResponse"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid cart or wiring request"
+        },
+        "409": {
+          "description": "At least one domain already connected"
+        }
+      }
+    }
+  },
+  "/domains/{domain}/verify": {
+    "post": {
+      "summary": "Mark a connected domain as verified",
+      "operationId": "verifyDomain",
+      "parameters": [
+        {
+          "name": "domain",
+          "in": "path",
           "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Domain verified",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Domain"
+              }
+            }
+          }
+        },
+        "404": {
+          "description": "Domain not found"
+        }
+      }
+    }
+  },
+  "/sites/{slug}/domains": {
+    "post": {
+      "summary": "Attach a manual domain to a site",
+      "operationId": "attachDomain",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ManualDomainRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Domain attached",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainAttachResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/sites/{slug}/domains/{domain}/wire": {
+    "post": {
+      "summary": "Automatically wire a managed domain to the site DNS records",
+      "operationId": "wireDomain",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "domain",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Domain wired successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainAttachResponse"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Automatic wiring unavailable"
+        },
+        "404": {
+          "description": "Domain not found"
+        }
+      }
+    }
+  },
+  "/sites/{slug}/domains/status": {
+    "get": {
+      "summary": "List domains + DNS instructions for a site",
+      "operationId": "listSiteDomains",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Domains for slug",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainListResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/sites/{slug}/publish": {
+    "post": {
+      "summary": "Publish the latest preview to live hosting",
+      "operationId": "publishSite",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": false,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PublishRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Deployment record",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Deployment"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/sites/{slug}/deployments": {
+    "get": {
+      "summary": "List deployments for a site",
+      "operationId": "listDeployments",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Deployment collection",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentListResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/sites/{slug}/deployments/{deploymentId}": {
+    "get": {
+      "summary": "Fetch a deployment by id",
+      "operationId": "getDeployment",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "deploymentId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Deployment record",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Deployment"
+              }
+            }
+          }
+        },
+        "404": {
+          "description": "Deployment not found"
+        }
+      }
+    }
+  },
+  "/usage": {
+    "get": {
+      "summary": "Usage snapshot for the authenticated account",
+      "operationId": "getUsage",
+      "responses": {
+        "200": {
+          "description": "Usage response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/usage/limits": {
+    "get": {
+      "summary": "Plan limits for the authenticated account",
+      "operationId": "getUsageLimits",
+      "responses": {
+        "200": {
+          "description": "Limit information",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageLimits"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/domains": {
+    "get": {
+      "summary": "List domains for the authenticated account",
+      "operationId": "listDomains",
+      "responses": {
+        "200": {
+          "description": "Domain collection",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainListResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/domains/{domain}": {
+    "get": {
+      "summary": "Fetch a single domain for this account",
+      "operationId": "getDomain",
+      "parameters": [
+        {
+          "name": "domain",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Domain detail",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainDetailResponse"
+              }
+            }
+          }
+        },
+        "404": {
+          "description": "Domain not found"
+        }
+      }
+    }
+  },
+  "/sites": {
+    "get": {
+      "summary": "List sites for the authenticated account",
+      "operationId": "listSites",
+      "responses": {
+        "200": {
+          "description": "Site collection",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteListResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/sites/{slug}/domains/{domain}/primary": {
+    "post": {
+      "summary": "Mark a site domain as primary",
+      "operationId": "setPrimaryDomain",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "domain",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Updated domain record",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainDetailResponse"
+              }
+            }
+          }
+        },
+        "404": {
+          "description": "Domain not found"
+        }
+      }
+    }
+  },
+  "/sites/{slug}/domains/{domain}": {
+    "delete": {
+      "summary": "Detach a domain from a site",
+      "operationId": "detachDomain",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "domain",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Domain removed"
+        },
+        "404": {
+          "description": "Domain not found"
+        }
+      }
+    }
+  },
+  "/appointments": {
+    "get": {
+      "summary": "List appointments",
+      "description": "Authenticated owners can list pending/confirmed appointments for a site.",
+      "operationId": "listAppointments",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "status",
+          "in": "query",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "cancelled"
+            ]
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "default": 50
+          }
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Appointments",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentListResponse"
+              }
+            }
+          }
+        },
+        "403": {
+          "description": "Forbidden"
+        }
+      }
+    }
+  },
+  "/appointments/status": {
+    "post": {
+      "summary": "Update appointment status",
+      "operationId": "updateAppointmentStatus",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AppointmentStatusRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Updated"
+        },
+        "400": {
+          "description": "Invalid payload"
+        }
+      }
+    }
+  },
+  "/appointments/settings": {
+    "get": {
+      "summary": "Get appointment settings",
+      "operationId": "getAppointmentSettings",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Settings",
           "content": {
             "application/json": {
               "schema": {
@@ -2405,238 +2477,252 @@
               }
             }
           }
-        },
-        "responses": {
-          "200": {
-            "description": "Saved"
-          }
         }
       }
     },
-    "/appointments/ics": {
-      "get": {
-        "summary": "Download ICS feed",
-        "operationId": "getAppointmentsICS",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "query",
-            "required": true,
+    "post": {
+      "summary": "Save appointment settings",
+      "operationId": "saveAppointmentSettings",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ICS feed",
-            "content": {
-              "text/calendar": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Invalid token"
-          }
-        }
-      }
-    },
-    "/domains/check": {
-      "post": {
-        "summary": "Check domain availability",
-        "operationId": "checkDomain",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DomainCheckRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainCheckResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/domains/register": {
-      "post": {
-        "summary": "Register a domain",
-        "operationId": "registerDomain",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DomainRegisterRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Registration result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DomainRegisterResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/notifications/preferences": {
-      "get": {
-        "summary": "Get notification preferences",
-        "operationId": "getNotificationPreferences",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "recipient",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "email"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Preferences",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationPreferences"
-                }
-              }
+              "$ref": "#/components/schemas/AppointmentSettings"
             }
           }
         }
       },
-      "post": {
-        "summary": "Save notification preferences or unsubscribe",
-        "operationId": "saveNotificationPreferences",
-        "requestBody": {
+      "responses": {
+        "200": {
+          "description": "Saved"
+        }
+      }
+    }
+  },
+  "/appointments/ics": {
+    "get": {
+      "summary": "Download ICS feed",
+      "operationId": "getAppointmentsICS",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "query",
           "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "token",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "ICS feed",
           "content": {
-            "application/json": {
+            "text/calendar": {
               "schema": {
-                "$ref": "#/components/schemas/NotificationPreferencesRequest"
+                "type": "string"
               }
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Updated prefs"
+        "403": {
+          "description": "Invalid token"
+        }
+      }
+    }
+  },
+  "/domains/check": {
+    "post": {
+      "summary": "Check domain availability",
+      "operationId": "checkDomain",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DomainCheckRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCheckResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/domains/register": {
+    "post": {
+      "summary": "Register a domain",
+      "operationId": "registerDomain",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DomainRegisterRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Registration result",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainRegisterResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/notifications/preferences": {
+    "get": {
+      "summary": "Get notification preferences",
+      "operationId": "getNotificationPreferences",
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "query",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "recipient",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Preferences",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferences"
+              }
+            }
           }
         }
       }
     },
-    "/appointments/calendar/connect": {
-      "post": {
-        "summary": "Create a calendar connection",
-        "description": "Returns an OAuth URL (Google/Outlook) or ICS subscription link (Apple) so the owner can sync appointments to their calendar.",
-        "operationId": "connectCalendar",
-        "requestBody": {
-          "required": true,
+    "post": {
+      "summary": "Save notification preferences or unsubscribe",
+      "operationId": "saveNotificationPreferences",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NotificationPreferencesRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Updated prefs"
+        }
+      }
+    }
+  },
+  "/appointments/calendar/connect": {
+    "post": {
+      "summary": "Create a calendar connection",
+      "description": "Returns an OAuth URL (Google/Outlook) or ICS subscription link (Apple) so the owner can sync appointments to their calendar.",
+      "operationId": "connectCalendar",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CalendarConnectRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Connection instructions",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CalendarConnectRequest"
+                "$ref": "#/components/schemas/CalendarConnectResponse"
               }
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Connection instructions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CalendarConnectResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Unsupported provider"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
+        "400": {
+          "description": "Unsupported provider"
+        },
+        "403": {
+          "description": "Forbidden"
         }
       }
-    },
-    "/oauth/calendar/google/callback": {
-      "get": {
-        "summary": "Google Calendar OAuth callback",
-        "operationId": "googleCalendarCallback",
-        "responses": {
-          "200": {
-            "description": "HTML success page",
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
-                }
+    }
+  },
+  "/oauth/calendar/google/callback": {
+    "get": {
+      "summary": "Google Calendar OAuth callback",
+      "operationId": "googleCalendarCallback",
+      "responses": {
+        "200": {
+          "description": "HTML success page",
+          "content": {
+            "text/html": {
+              "schema": {
+                "type": "string"
               }
             }
-          },
-          "400": {
-            "description": "Invalid state or parameters"
           }
+        },
+        "400": {
+          "description": "Invalid state or parameters"
         }
       }
-    },
-    "/oauth/calendar/outlook/callback": {
-      "get": {
-        "summary": "Outlook Calendar OAuth callback",
-        "operationId": "outlookCalendarCallback",
-        "responses": {
-          "200": {
-            "description": "HTML success page",
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
-                }
+    }
+  },
+  "/oauth/calendar/outlook/callback": {
+    "get": {
+      "summary": "Outlook Calendar OAuth callback",
+      "operationId": "outlookCalendarCallback",
+      "responses": {
+        "200": {
+          "description": "HTML success page",
+          "content": {
+            "text/html": {
+              "schema": {
+                "type": "string"
               }
             }
-          },
-          "400": {
-            "description": "Invalid state or parameters"
           }
+        },
+        "400": {
+          "description": "Invalid state or parameters"
         }
       }
     }

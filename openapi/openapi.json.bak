@@ -1,0 +1,5533 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI SiteMaker Runner API",
+    "version": "1.0.0",
+    "description": "Endpoints for launching, editing, and managing AI-generated marketing sites. All responses are JSON."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development"
+    },
+    {
+      "url": "https://api.ai-sitemaker.com",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/accounts/members": {
+      "get": {
+        "summary": "List members of the current account",
+        "tags": ["accounts"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Member list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accountId": { "type": "string", "format": "uuid" },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accountId": { "type": "string", "format": "uuid" },
+                          "userId": { "type": "string", "format": "uuid" },
+                          "role": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/invitations": {
+      "post": {
+        "summary": "Invite a user to the current account",
+        "tags": ["accounts"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer", "customer", "super-admin"] }
+                },
+                "required": ["email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation token created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "token": { "type": "string", "format": "uuid" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/invitations/accept": {
+      "post": {
+        "summary": "Accept an invitation",
+        "tags": ["accounts"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "token": { "type": "string", "format": "uuid" } },
+                "required": ["token"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "membership": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": { "type": "string", "format": "uuid" },
+                        "userId": { "type": "string", "format": "uuid" },
+                        "role": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accounts/share-site": {
+      "post": {
+        "summary": "Share a site with another account",
+        "tags": ["accounts"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slug": { "type": "string" },
+                  "accountId": { "type": "string", "format": "uuid" }
+                },
+                "required": ["slug", "accountId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shared",
+            "content": {
+              "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" } } } }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/thumbnail": {
+      "get": {
+        "summary": "Return a thumbnail URL for a site",
+        "description": "Builds a thumbnail URL (via configured screenshot service) for the latest preview/public URL. Pass `refresh=true` to bust caches.",
+        "operationId": "getSiteThumbnail",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "When true, appends a cache-busting timestamp to the thumbnail URL."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thumbnail URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "publicUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "thumbnailUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "slug",
+                    "thumbnailUrl"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found"
+          },
+          "503": {
+            "description": "Thumbnail service not configured"
+          }
+        }
+      }
+    },
+    "/track/pixel": {
+      "get": {
+        "summary": "Tracking pixel endpoint",
+        "description": "Records a lightweight metric for a site slug (view or cta) and returns a 1x1 response.",
+        "operationId": "trackPixel",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "view",
+                "cta"
+              ]
+            },
+            "description": "Defaults to view when omitted."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Recorded"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/contact": {
+      "post": {
+        "summary": "Submit a site contact form",
+        "description": "Public endpoint invoked by generated sites when visitors submit the on-page contact form. The payload is validated against the stored site config, then relayed via SES from an ai-sitemaker.com address.",
+        "operationId": "submitContactForm",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactSubmissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Submission accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactSubmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing slug, fields, or contact email"
+          },
+          "404": {
+            "description": "Site not found"
+          }
+        }
+      }
+    },
+    "/leads": {
+      "get": {
+        "summary": "List captured leads",
+        "description": "Returns the latest lead submissions (contact + booking) stored for a site. Requires authentication and access to the site slug.",
+        "operationId": "listLeads",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Site slug to fetch leads for"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "responded",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque pagination cursor returned by the previous call"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lead list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadListResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller does not have access to the slug"
+          }
+        }
+      }
+    },
+    "/leads/reply": {
+      "post": {
+        "summary": "Send a reply to a stored lead",
+        "description": "Sends an email reply to the visitor's email, CCing the site owner, and appends the outbound message to the lead timeline.",
+        "operationId": "replyToLead",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadReplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reply sent"
+          },
+          "400": {
+            "description": "Missing slug, leadId, or message"
+          },
+          "403": {
+            "description": "Caller cannot access this lead"
+          }
+        }
+      }
+    },
+    "/leads/status": {
+      "post": {
+        "summary": "Update lead status or follow-up time",
+        "description": "Marks a lead as open/responded/closed and optionally schedules the next follow-up reminder.",
+        "operationId": "updateLeadStatus",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lead status updated"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/reviews": {
+      "get": {
+        "summary": "List approved reviews",
+        "description": "Public endpoint returning reviews that the owner has approved for on-site display.",
+        "operationId": "listReviews",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "default": 12
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit a review",
+        "description": "Allows visitors (or the site owner) to submit a review/testimonial. Public submissions are stored as pending until approved.",
+        "operationId": "submitReview",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewSubmissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Review captured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSubmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/reviews/status": {
+      "post": {
+        "summary": "Approve or reject a review",
+        "description": "Authenticated owners can change the status of a stored review (pending, approved, rejected).",
+        "operationId": "updateReviewStatus",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Review status updated"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/analytics": {
+      "get": {
+        "summary": "Fetch analytics summary",
+        "description": "Returns recent daily metrics (page views, leads, bookings) plus simple alerts for the requested site.",
+        "operationId": "getAnalytics",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 60,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller does not have access to this site"
+          }
+        }
+      }
+    },
+    "/analytics/events": {
+      "post": {
+        "summary": "Record a lightweight analytics event",
+        "description": "Used by generated sites to record anonymous page_view, lead, or booking events. Accepts public requests.",
+        "operationId": "recordAnalyticsEvent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyticsEventRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event recorded"
+          },
+          "400": {
+            "description": "Missing slug or type"
+          }
+        }
+      }
+    },
+    "/launch": {
+      "post": {
+        "summary": "Launch a new AI-generated site",
+        "description": "Generates copy/layout with GPT-5.1, builds the base Vite template, and uploads the compiled /dist bundle to the preview bucket. Anonymous callers may launch once; authenticated users have an extra trial edit before a paid plan is required.",
+        "operationId": "launchSite",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Launch request accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          },
+          "402": {
+            "description": "Usage limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LimitError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}": {
+      "get": {
+        "summary": "Fetch stored site config",
+        "description": "Returns the persisted site.json plus metadata describing the last deployment.",
+        "operationId": "getSite",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Site slug assigned during launch."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Site record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Apply edits to an existing site",
+        "description": "Loads the stored site.json, applies a structured patch or full replacement, rebuilds the Vite project, and redeploys to the existing preview prefix.",
+        "operationId": "patchSite",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated site deployed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failure"
+          },
+          "402": {
+            "description": "Usage limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LimitError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found"
+          }
+        }
+      }
+    },
+    "/sites/history": {
+      "get": {
+        "summary": "List site history entries",
+        "description": "Returns the recent snapshot timestamps for a site (created automatically before each edit).",
+        "operationId": "listSiteHistory",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "History listings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteHistoryList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing slug"
+          }
+        }
+      }
+    },
+    "/sites/restore": {
+      "post": {
+        "summary": "Restore site from history entry",
+        "description": "Replaces the current content/template JSON with a previously snapshotted version.",
+        "operationId": "restoreSiteHistory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteRestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Restore complete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteRestoreResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing slug/historyId"
+          },
+          "404": {
+            "description": "History entry not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/instructions": {
+      "post": {
+        "summary": "Apply natural-language instructions",
+        "description": "LLM-assisted editing flow. Sends the stored site + human instructions to GPT-5.1 to produce a SitePatch, applies it, and redeploys the preview slug.",
+        "operationId": "applyInstructions",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstructionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Instruction accepted and site redeploy queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/LaunchResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "patchSummary": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing instructions"
+          },
+          "402": {
+            "description": "Usage limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LimitError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/assets": {
+      "get": {
+        "summary": "List uploaded assets",
+        "description": "Returns objects stored under the site's asset prefix.",
+        "operationId": "listAssets",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Asset list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found"
+          }
+        }
+      },
+      "post": {
+        "summary": "Request a signed upload URL",
+        "description": "Generates a pre-signed S3 PUT URL so clients can upload binary assets directly.",
+        "operationId": "createAssetUpload",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload URL issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetUploadResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Site not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/assets/{key}": {
+      "delete": {
+        "summary": "Delete an uploaded asset",
+        "operationId": "deleteAsset",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "File name returned by the list API. Do not include the full S3 prefix."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Asset deleted"
+          },
+          "404": {
+            "description": "Asset not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/assets/transform": {
+      "get": {
+        "summary": "Generate a transformed asset URL",
+        "description": "Returns a CDN URL with width/height/format parameters applied so the caller can fetch an optimized rendition.",
+        "operationId": "transformAsset",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "File name from the list API."
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 4000
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 4000
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "jpg",
+                "jpeg",
+                "png",
+                "webp",
+                "avif"
+              ]
+            }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "fit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cover",
+                "contain",
+                "fill",
+                "inside",
+                "outside"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Optimized asset URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetTransformResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Asset not found"
+          }
+        }
+      }
+    },
+    "/update": {
+      "post": {
+        "summary": "Trigger a Lovable-style draft update",
+        "operationId": "queueUpdate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Update queued"
+          }
+        }
+      }
+    },
+    "/approve-update": {
+      "post": {
+        "summary": "Publish a draft update to the live prefix",
+        "operationId": "approveUpdate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Draft published"
+          }
+        }
+      }
+    },
+    "/updates": {
+      "get": {
+        "summary": "List draft updates",
+        "operationId": "listUpdates",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/signup": {
+      "post": {
+        "summary": "Self-service signup",
+        "operationId": "signup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signup initiated. User must confirm via email."
+          },
+          "400": {
+            "description": "Invalid payload"
+          },
+          "409": {
+            "description": "Email already registered"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Password-based login",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "summary": "Begin password reset flow",
+        "operationId": "forgotPassword",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset started"
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "summary": "Fetch the authenticated user's profile",
+        "operationId": "getMe",
+        "responses": {
+          "200": {
+            "description": "Current profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update profile/business info",
+        "operationId": "updateMe",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "List users (super admin)",
+        "operationId": "listAdminUsers",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "accountId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AdminUser"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a user in Cognito + AI SiteMaker",
+        "operationId": "createAdminUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/admin/users/{userId}": {
+      "get": {
+        "summary": "Fetch a single user",
+        "operationId": "getAdminUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update user metadata or roles",
+        "operationId": "updateAdminUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a user",
+        "operationId": "deleteAdminUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "User deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/admin/accounts": {
+      "get": {
+        "summary": "List customer accounts",
+        "operationId": "listAccounts",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Optional page size (defaults to 50)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque cursor token returned from a previous page."
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter accounts by partial email or account id match."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AccountSummary"
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Opaque cursor token to fetch the next page (also emitted via the x-next-cursor header)."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/accounts/{accountId}": {
+      "get": {
+        "summary": "Fetch account details + users",
+        "operationId": "getAccount",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/admin/accounts/{accountId}/sites": {
+      "get": {
+        "summary": "List all site launches for an account",
+        "operationId": "listAccountSites",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "building",
+                "deploying",
+                "completed",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Site launch collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SiteGeneration"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/owner-metrics": {
+      "get": {
+        "summary": "Fetch owner dashboard metrics",
+        "operationId": "getOwnerDashboardSnapshot",
+        "description": "Returns a single payload containing revenue, plan mix, launch throughput, and queue depth metrics powering the operator dashboard (super-admin access only).",
+        "responses": {
+          "200": {
+            "description": "Current snapshot",
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Responses should not be cached; included for completeness."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerDashboardSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/create-checkout-session": {
+      "post": {
+        "summary": "Start a Stripe checkout session",
+        "description": "Creates a subscription checkout session for the requested plan and returns the hosted Stripe URL.",
+        "operationId": "createCheckoutSession",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout URL issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/billing/plans": {
+      "get": {
+        "summary": "List available subscription plans",
+        "operationId": "listBillingPlans",
+        "responses": {
+          "200": {
+            "description": "Plan catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SubscriptionPlan"
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "items": [
+                        {
+                          "planKey": "starter",
+                          "planName": "Starter",
+                          "priceMonthly": 29,
+                          "monthlyEditLimit": 5,
+                          "stripePriceId": "price_1SaXZTFXG8DaUq7ULBoQPaNO"
+                        },
+                        {
+                          "planKey": "growth",
+                          "planName": "Growth",
+                          "priceMonthly": 69,
+                          "monthlyEditLimit": 20,
+                          "stripePriceId": "price_1SaXYyFXG8DaUq7UVHtS7y7l"
+                        },
+                        {
+                          "planKey": "scale",
+                          "planName": "Scale",
+                          "priceMonthly": 149,
+                          "monthlyEditLimit": 75,
+                          "stripePriceId": "price_1SaXXbFXG8DaUq7UzIYWq2ra"
+                        },
+                        {
+                          "planKey": "starter-annual",
+                          "planName": "Starter Annual",
+                          "priceMonthly": 290,
+                          "monthlyEditLimit": 5,
+                          "stripePriceId": "price_1SaXa9FXG8DaUq7UenwkRVPC"
+                        },
+                        {
+                          "planKey": "growth-annual",
+                          "planName": "Growth Annual",
+                          "priceMonthly": 690,
+                          "monthlyEditLimit": 20,
+                          "stripePriceId": "price_1SaXbmFXG8DaUq7U1b5cP1Bu"
+                        },
+                        {
+                          "planKey": "scale-annual",
+                          "planName": "Scale Annual",
+                          "priceMonthly": 1490,
+                          "monthlyEditLimit": 75,
+                          "stripePriceId": "price_1SaXcoFXG8DaUq7UAPZhufT5"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/subscription-status": {
+      "get": {
+        "summary": "Fetch current subscription/usage state",
+        "operationId": "getBillingStatus",
+        "responses": {
+          "200": {
+            "description": "Billing status response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/manage-portal": {
+      "post": {
+        "summary": "Create a Stripe customer portal session",
+        "operationId": "createBillingPortalSession",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingPortalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portal URL created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingPortalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Stripe customer"
+          }
+        }
+      }
+    },
+    "/domains/search": {
+      "post": {
+        "summary": "Search for available domains",
+        "operationId": "searchDomains",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain candidates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/domains/purchase": {
+      "post": {
+        "summary": "Purchase and assign a managed domain",
+        "operationId": "purchaseDomain",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainPurchaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain purchase recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainAttachResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Domain already attached"
+          }
+        }
+      }
+    },
+    "/domains/cart/checkout": {
+      "post": {
+        "summary": "Create a Stripe checkout session for managed domain purchases",
+        "operationId": "createDomainCartCheckout",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCartCheckoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainCartCheckoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cart or wiring request"
+          },
+          "409": {
+            "description": "At least one domain already connected"
+          }
+        }
+      }
+    },
+    "/domains/{domain}/verify": {
+      "post": {
+        "summary": "Mark a connected domain as verified",
+        "operationId": "verifyDomain",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Domain"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains": {
+      "post": {
+        "summary": "Attach a manual domain to a site",
+        "operationId": "attachDomain",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualDomainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain attached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainAttachResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains/{domain}/wire": {
+      "post": {
+        "summary": "Automatically wire a managed domain to the site DNS records",
+        "operationId": "wireDomain",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain wired successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainAttachResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Automatic wiring unavailable"
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains/status": {
+      "get": {
+        "summary": "List domains + DNS instructions for a site",
+        "operationId": "listSiteDomains",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domains for slug",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/publish": {
+      "post": {
+        "summary": "Publish the latest preview to live hosting",
+        "operationId": "publishSite",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deployment record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/deployments": {
+      "get": {
+        "summary": "List deployments for a site",
+        "operationId": "listDeployments",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/deployments/{deploymentId}": {
+      "get": {
+        "summary": "Fetch a deployment by id",
+        "operationId": "getDeployment",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deploymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deployment record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found"
+          }
+        }
+      }
+    },
+    "/usage": {
+      "get": {
+        "summary": "Usage snapshot for the authenticated account",
+        "operationId": "getUsage",
+        "responses": {
+          "200": {
+            "description": "Usage response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usage/limits": {
+      "get": {
+        "summary": "Plan limits for the authenticated account",
+        "operationId": "getUsageLimits",
+        "responses": {
+          "200": {
+            "description": "Limit information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageLimits"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/domains": {
+      "get": {
+        "summary": "List domains for the authenticated account",
+        "operationId": "listDomains",
+        "responses": {
+          "200": {
+            "description": "Domain collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/domains/{domain}": {
+      "get": {
+        "summary": "Fetch a single domain for this account",
+        "operationId": "getDomain",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
+    "/sites": {
+      "get": {
+        "summary": "List sites for the authenticated account",
+        "operationId": "listSites",
+        "responses": {
+          "200": {
+            "description": "Site collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains/{domain}/primary": {
+      "post": {
+        "summary": "Mark a site domain as primary",
+        "operationId": "setPrimaryDomain",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated domain record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
+    "/sites/{slug}/domains/{domain}": {
+      "delete": {
+        "summary": "Detach a domain from a site",
+        "operationId": "detachDomain",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Domain removed"
+          },
+          "404": {
+            "description": "Domain not found"
+          }
+        }
+      }
+    },
+    "/appointments": {
+      "get": {
+        "summary": "List appointments",
+        "description": "Authenticated owners can list pending/confirmed appointments for a site.",
+        "operationId": "listAppointments",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "confirmed",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentListResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/appointments/status": {
+      "post": {
+        "summary": "Update appointment status",
+        "operationId": "updateAppointmentStatus",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/appointments/settings": {
+      "get": {
+        "summary": "Get appointment settings",
+        "operationId": "getAppointmentSettings",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Save appointment settings",
+        "operationId": "saveAppointmentSettings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved"
+          }
+        }
+      }
+    },
+    "/appointments/ics": {
+      "get": {
+        "summary": "Download ICS feed",
+        "operationId": "getAppointmentsICS",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ICS feed",
+            "content": {
+              "text/calendar": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid token"
+          }
+        }
+      }
+    },
+    "/domains/check": {
+      "post": {
+        "summary": "Check domain availability",
+        "operationId": "checkDomain",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainCheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/domains/register": {
+      "post": {
+        "summary": "Register a domain",
+        "operationId": "registerDomain",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainRegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainRegisterResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/preferences": {
+      "get": {
+        "summary": "Get notification preferences",
+        "operationId": "getNotificationPreferences",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipient",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "email"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Save notification preferences or unsubscribe",
+        "operationId": "saveNotificationPreferences",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferencesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated prefs"
+          }
+        }
+      }
+    },
+    "/appointments/calendar/connect": {
+      "post": {
+        "summary": "Create a calendar connection",
+        "description": "Returns an OAuth URL (Google/Outlook) or ICS subscription link (Apple) so the owner can sync appointments to their calendar.",
+        "operationId": "connectCalendar",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarConnectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connection instructions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarConnectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported provider"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/oauth/calendar/google/callback": {
+      "get": {
+        "summary": "Google Calendar OAuth callback",
+        "operationId": "googleCalendarCallback",
+        "responses": {
+          "200": {
+            "description": "HTML success page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid state or parameters"
+          }
+        }
+      }
+    },
+    "/oauth/calendar/outlook/callback": {
+      "get": {
+        "summary": "Outlook Calendar OAuth callback",
+        "operationId": "outlookCalendarCallback",
+        "responses": {
+          "200": {
+            "description": "HTML success page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid state or parameters"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BusinessDetails": {
+        "type": "object",
+        "properties": {
+          "businessName": {
+            "type": "string"
+          },
+          "businessType": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "additionalDetails": {
+            "type": "string"
+          }
+        }
+      },
+      "CTA": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "SectionProps": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Arbitrary props consumed by the section component."
+      },
+      "Section": {
+        "type": "object",
+        "required": [
+          "id",
+          "componentId",
+          "props"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "componentId": {
+            "type": "string",
+            "description": "One of the entries from SECTION_REGISTRY (e.g., hero-with-image, features-grid, testimonials-cards)."
+          },
+          "props": {
+            "$ref": "#/components/schemas/SectionProps"
+          }
+        }
+      },
+      "SectionPatch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "componentId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "update",
+              "insert",
+              "remove"
+            ],
+            "default": "update"
+          },
+          "props": {
+            "$ref": "#/components/schemas/SectionProps"
+          },
+          "position": {
+            "type": "object",
+            "properties": {
+              "beforeId": {
+                "type": "string"
+              },
+              "afterId": {
+                "type": "string"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "Site": {
+        "type": "object",
+        "required": [
+          "meta",
+          "seo",
+          "theme"
+        ],
+        "properties": {
+          "meta": {
+            "type": "object",
+            "required": [
+              "brandName",
+              "headline",
+              "subheadline"
+            ],
+            "properties": {
+              "brandName": {
+                "type": "string"
+              },
+              "headline": {
+                "type": "string"
+              },
+              "subheadline": {
+                "type": "string"
+              },
+              "location": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              }
+            }
+          },
+          "seo": {
+            "type": "object",
+            "required": [
+              "title",
+              "description",
+              "keywords"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 5
+              }
+            }
+          },
+          "theme": {
+            "type": "object",
+            "required": [
+              "primaryColor",
+              "accentColor",
+              "backgroundStyle",
+              "vibe"
+            ],
+            "properties": {
+              "primaryColor": {
+                "type": "string"
+              },
+              "accentColor": {
+                "type": "string"
+              },
+              "textColor": {
+                "type": "string"
+              },
+              "backgroundStyle": {
+                "type": "string",
+                "enum": [
+                  "gradient",
+                  "mesh",
+                  "texture"
+                ]
+              },
+              "vibe": {
+                "type": "string",
+                "enum": [
+                  "luxury",
+                  "tech",
+                  "playful",
+                  "earthy"
+                ]
+              }
+            }
+          },
+          "canonical": {
+            "type": "string",
+            "format": "uri"
+          },
+          "redirects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "integer",
+                  "enum": [
+                    301,
+                    302
+                  ]
+                }
+              }
+            }
+          },
+          "openGraph": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "imagePrompt": {
+                "type": "string"
+              }
+            }
+          },
+          "schemaMarkup": {
+            "type": "string",
+            "description": "Optional JSON-LD string for schema.org markup."
+          },
+          "integrations": {
+            "type": "object",
+            "properties": {
+              "analytics": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ga",
+                        "meta",
+                        "gtm",
+                        "other"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "chat": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  }
+                }
+              },
+              "newsletter": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "listId": {
+                    "type": "string"
+                  },
+                  "formAction": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Section"
+            },
+            "minItems": 6,
+            "description": "Single-page mode: ordered sections for the landing page. Provide either sections or pages."
+          },
+          "pages": {
+            "type": "array",
+            "description": "Multi-page mode: up to 5 pages, each with its own sections.",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "title",
+                "sections"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "URL path for the page (e.g., /, /about, /pricing)"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "sections": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Section"
+                  },
+                  "minItems": 4
+                }
+              }
+            }
+          }
+        }
+      },
+      "SitePatch": {
+        "type": "object",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/Site/properties/meta"
+          },
+          "seo": {
+            "$ref": "#/components/schemas/Site/properties/seo"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Site/properties/theme"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SectionPatch"
+            }
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Site/properties/pages/items"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "update",
+                        "insert",
+                        "remove"
+                      ],
+                      "default": "update"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "SiteMetadata": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "publicUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lastBuildAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SiteRecord": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "site": {
+            "$ref": "#/components/schemas/Site"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SiteMetadata"
+          }
+        }
+      },
+      "LaunchRequest": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Reference site to outperform."
+          },
+          "description": {
+            "type": "string",
+            "description": "Additional prompt instructions."
+          },
+          "businessDetails": {
+            "$ref": "#/components/schemas/BusinessDetails"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Optional preferred slug. The system will append a counter if already taken."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "Optional preview prefix override (advanced)."
+          }
+        }
+      },
+      "GitArchive": {
+        "type": "object",
+        "properties": {
+          "repoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "committed": {
+            "type": "boolean"
+          },
+          "commitMessage": {
+            "type": "string"
+          }
+        }
+      },
+      "LaunchResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "publicUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "gitArchive": {
+            "$ref": "#/components/schemas/GitArchive"
+          },
+          "site": {
+            "$ref": "#/components/schemas/Site"
+          }
+        },
+        "required": [
+          "slug"
+        ]
+      },
+      "SiteUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "patch": {
+            "$ref": "#/components/schemas/SitePatch"
+          },
+          "site": {
+            "$ref": "#/components/schemas/Site"
+          },
+          "regenerateImages": {
+            "type": "boolean",
+            "default": false,
+            "description": "Set true to regenerate AI images; default is false to reuse existing assets."
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "patch"
+            ]
+          },
+          {
+            "required": [
+              "site"
+            ]
+          }
+        ]
+      },
+      "UpdateRequest": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "base": {
+            "type": "string"
+          },
+          "createPath": {
+            "type": "string"
+          },
+          "workspace": {
+            "type": "string"
+          },
+          "wait": {
+            "type": "integer"
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "skipInstall": {
+            "type": "boolean"
+          },
+          "placeholderLimit": {
+            "type": "integer"
+          },
+          "requestedBy": {
+            "type": "string"
+          }
+        }
+      },
+      "ApproveUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "livePrefix": {
+            "type": "string"
+          },
+          "approvedBy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectId",
+          "draftId"
+        ]
+      },
+      "InstructionRequest": {
+        "type": "object",
+        "properties": {
+          "instructions": {
+            "type": "string",
+            "description": "Human-typed description of the desired changes. Example: \"Move the gallery above testimonials and add a CTA button linking to /book.\""
+          },
+          "assets": {
+            "type": "array",
+            "description": "Optional manual asset context to include in the LLM prompt. Each entry should contain at least a url.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url"
+              ]
+            }
+          },
+          "regenerateImages": {
+            "type": "boolean",
+            "default": false,
+            "description": "Set true to regenerate AI images; default is false to reuse existing assets."
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional audit log note."
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Optional new reference site for context."
+          },
+          "patch": {
+            "$ref": "#/components/schemas/SitePatch"
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "instructions"
+            ]
+          },
+          {
+            "required": [
+              "patch"
+            ]
+          }
+        ]
+      },
+      "AssetUploadRequest": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Original filename for reference."
+          },
+          "contentType": {
+            "type": "string",
+            "description": "Preferred MIME type (e.g., image/png)."
+          },
+          "expiresIn": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 3600,
+            "description": "Signed URL lifetime in seconds."
+          }
+        }
+      },
+      "AssetUploadResponse": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "assetUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          }
+        }
+      },
+      "AssetListResponse": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "integer"
+                },
+                "lastModified": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "etag": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          }
+        }
+      },
+      "AssetTransformResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "key": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          }
+        }
+      },
+      "SignupRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          },
+          "fullName": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "idToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer"
+          },
+          "tokenType": {
+            "type": "string"
+          }
+        }
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "ProfileDetails": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ProfileUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "MeResponse": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/AdminUser"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            }
+          },
+          "details": {
+            "$ref": "#/components/schemas/ProfileDetails"
+          }
+        }
+      },
+      "UserRoleEnum": {
+        "type": "string",
+        "enum": [
+          "customer",
+          "admin",
+          "super-admin"
+        ]
+      },
+      "AdminUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "cognitoSub": {
+            "type": "string"
+          },
+          "hasUsedTrial": {
+            "type": "boolean"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminUserCreateRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            },
+            "description": "Defaults to ['customer'] when omitted."
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sendInvite": {
+            "type": "boolean",
+            "description": "If false, suppresses the Cognito invite email."
+          },
+          "temporaryPassword": {
+            "type": "string",
+            "description": "Optional initial password. When provided with sendInvite=false it is set as a permanent password."
+          }
+        }
+      },
+      "AdminUserUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRoleEnum"
+            }
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "temporaryPassword": {
+            "type": "string",
+            "description": "When supplied, sets a new permanent password in Cognito."
+          }
+        }
+      },
+      "AccountSummary": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "primaryEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "userCount": {
+            "type": "integer"
+          },
+          "siteCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSiteAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AccountDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AccountSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "users": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "OwnerDashboardSnapshot": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accounts": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "paying": {
+                "type": "integer"
+              },
+              "new7d": {
+                "type": "integer"
+              },
+              "new30d": {
+                "type": "integer"
+              }
+            }
+          },
+          "revenue": {
+            "type": "object",
+            "properties": {
+              "mrr": {
+                "type": "number"
+              },
+              "arr": {
+                "type": "number"
+              },
+              "domainTotal": {
+                "type": "number",
+                "description": "Cumulative domain revenue in USD."
+              },
+              "domain30d": {
+                "type": "number",
+                "description": "Domain revenue collected in the trailing 30 days."
+              },
+              "byPlan": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "planKey": {
+                      "type": "string"
+                    },
+                    "planName": {
+                      "type": "string"
+                    },
+                    "active": {
+                      "type": "integer"
+                    },
+                    "trialing": {
+                      "type": "integer"
+                    },
+                    "mrr": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "launches": {
+            "type": "object",
+            "properties": {
+              "totalSites": {
+                "type": "integer"
+              },
+              "launches7d": {
+                "type": "integer"
+              },
+              "launches30d": {
+                "type": "integer"
+              },
+              "avgSitesPerPayingAccount": {
+                "type": "number"
+              },
+              "recent": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "launches": {
+                      "type": "integer"
+                    },
+                    "accounts": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "jobs": {
+            "type": "object",
+            "properties": {
+              "runner": {
+                "type": "object",
+                "properties": {
+                  "queued": {
+                    "type": "integer"
+                  },
+                  "running": {
+                    "type": "integer"
+                  },
+                  "failed24h": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "domain": {
+                "type": "object",
+                "properties": {
+                  "pending": {
+                    "type": "integer"
+                  },
+                  "retry": {
+                    "type": "integer"
+                  },
+                  "failed24h": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "notifications": {
+                "type": "object",
+                "properties": {
+                  "pending": {
+                    "type": "integer"
+                  },
+                  "retry": {
+                    "type": "integer"
+                  },
+                  "failed24h": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "jobEvents": {
+                "type": "object",
+                "properties": {
+                  "total24h": {
+                    "type": "integer"
+                  },
+                  "errors24h": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "SiteGeneration": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "building",
+              "deploying",
+              "completed",
+              "failed"
+            ]
+          },
+          "publicUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CheckoutSessionRequest": {
+        "type": "object",
+        "required": [
+          "planKey",
+          "successUrl",
+          "cancelUrl"
+        ],
+        "properties": {
+          "planKey": {
+            "type": "string"
+          },
+          "successUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cancelUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "CheckoutSessionResponse": {
+        "type": "object",
+        "properties": {
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "BillingPortalRequest": {
+        "type": "object",
+        "required": [
+          "returnUrl"
+        ],
+        "properties": {
+          "returnUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "BillingPortalResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "SubscriptionDetails": {
+        "type": "object",
+        "properties": {
+          "planKey": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "priceMonthly": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "currentPeriodStart": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "currentPeriodEnd": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "stripeCustomerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stripeSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "monthlyEditLimit": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "UsageDetails": {
+        "type": "object",
+        "properties": {
+          "monthlyEditLimit": {
+            "type": "integer"
+          },
+          "editsUsedThisPeriod": {
+            "type": "integer"
+          },
+          "remainingEdits": {
+            "type": "integer"
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "UsageLimits": {
+        "type": "object",
+        "properties": {
+          "planKey": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "monthlyEditLimit": {
+            "type": "integer"
+          },
+          "freeSiteLimit": {
+            "type": "integer"
+          },
+          "dailyRebuildLimit": {
+            "type": "integer"
+          },
+          "allowCustomDomains": {
+            "type": "boolean"
+          },
+          "allowLivePublishing": {
+            "type": "boolean"
+          },
+          "allowAiImages": {
+            "type": "boolean"
+          },
+          "allowSeoTools": {
+            "type": "boolean"
+          },
+          "allowOverage": {
+            "type": "boolean"
+          },
+          "coupons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BillingStatusResponse": {
+        "type": "object",
+        "properties": {
+          "subscription": {
+            "$ref": "#/components/schemas/SubscriptionDetails"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageDetails"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/UsageLimits"
+          }
+        }
+      },
+      "DomainDnsRecord": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "ttl": {
+            "type": "integer"
+          }
+        }
+      },
+      "DomainDnsConfig": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "verificationToken": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainDnsRecord"
+            }
+          }
+        }
+      },
+      "Domain": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "slug": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "managed"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "verificationToken": {
+            "type": "string",
+            "nullable": true
+          },
+          "dnsSettings": {
+            "$ref": "#/components/schemas/DomainDnsConfig",
+            "nullable": true
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastCheckedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DomainOrder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true
+          },
+          "domain": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "providerOrderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceCents": {
+            "type": "integer",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "DomainSearchRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "tlds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      },
+      "DomainSearchResult": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "tld": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "priceCents": {
+            "type": "integer"
+          },
+          "termYears": {
+            "type": "integer"
+          }
+        }
+      },
+      "DomainSearchResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainSearchResult"
+            }
+          }
+        }
+      },
+      "DomainPurchaseRequest": {
+        "type": "object",
+        "required": [
+          "domain",
+          "slug"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "termYears": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "contact": {
+            "type": "object",
+            "properties": {
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "phoneCountryCode": {
+                "type": "string"
+              },
+              "phoneExt": {
+                "type": "string"
+              },
+              "address1": {
+                "type": "string"
+              },
+              "address2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "organization": {
+                "type": "string"
+              },
+              "jobTitle": {
+                "type": "string"
+              },
+              "promotionCode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "email",
+              "phone",
+              "address1",
+              "city",
+              "state",
+              "postalCode",
+              "country"
+            ]
+          },
+          "wire": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ManualDomainRequest": {
+        "type": "object",
+        "required": [
+          "domain"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          }
+        }
+      },
+      "DomainAttachResponse": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/DomainOrder"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "dns": {
+            "$ref": "#/components/schemas/DomainDnsConfig"
+          },
+          "wired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DomainCartCheckoutRequest": {
+        "type": "object",
+        "required": [
+          "successUrl",
+          "cancelUrl",
+          "items"
+        ],
+        "properties": {
+          "successUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cancelUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/DomainPurchaseRequest"
+                }
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 10
+          }
+        }
+      },
+      "DomainCartCheckoutResponse": {
+        "type": "object",
+        "properties": {
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "domain": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DomainListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Domain"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "dns": {
+                      "$ref": "#/components/schemas/DomainDnsConfig"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "PublishRequest": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "enum": [
+              "live",
+              "preview"
+            ]
+          }
+        }
+      },
+      "Deployment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "target": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string",
+            "nullable": true
+          },
+          "prefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "publicUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "requestedBy": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "DeploymentListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Deployment"
+            }
+          }
+        }
+      },
+      "UsageResponse": {
+        "type": "object",
+        "properties": {
+          "usage": {
+            "$ref": "#/components/schemas/UsageDetails"
+          },
+          "subscription": {
+            "$ref": "#/components/schemas/SubscriptionDetails"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/UsageLimits"
+          },
+          "billing": {
+            "type": "object",
+            "properties": {
+              "planKey": {
+                "type": "string"
+              },
+              "planName": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "isTrial": {
+                "type": "boolean"
+              },
+              "allowOverage": {
+                "type": "boolean"
+              },
+              "coupons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "windowDays": {
+                "type": "integer"
+              },
+              "views": {
+                "type": "integer"
+              },
+              "ctaClicks": {
+                "type": "integer"
+              },
+              "sites": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "views": {
+                      "type": "integer"
+                    },
+                    "ctaClicks": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "LimitError": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "example": "LIMIT_EXCEEDED"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/UsageLimits"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageDetails"
+          }
+        }
+      },
+      "DomainDetailResponse": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "dns": {
+            "$ref": "#/components/schemas/DomainDnsConfig"
+          }
+        }
+      },
+      "SiteListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteGeneration"
+            }
+          }
+        }
+      },
+      "Appointment": {
+        "type": "object",
+        "properties": {
+          "appointmentId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "customerEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "preferredDate": {
+            "type": "string"
+          },
+          "preferredTime": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "calendarEventId": {
+            "type": "string",
+            "nullable": true
+          },
+          "calendarEventProvider": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AppointmentListResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Appointment"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AppointmentStatusRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "appointmentId",
+          "status"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "appointmentId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "confirmedStart": {
+            "type": "string"
+          },
+          "confirmedEnd": {
+            "type": "string"
+          }
+        }
+      },
+      "AppointmentSettings": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "availability": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": {
+                  "type": "string"
+                },
+                "slots": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "start": {
+                        "type": "string"
+                      },
+                      "end": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "calendarProvider": {
+            "type": "string"
+          },
+          "calendarToken": {
+            "type": "string"
+          },
+          "calendarRefreshToken": {
+            "type": "string",
+            "nullable": true
+          },
+          "calendarExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "calendarAccountEmail": {
+            "type": "string",
+            "format": "email",
+            "nullable": true
+          },
+          "calendarIcsToken": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DomainCheckRequest": {
+        "type": "object",
+        "required": [
+          "domain"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          }
+        }
+      },
+      "DomainCheckResponse": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DomainRegisterRequest": {
+        "type": "object",
+        "required": [
+          "domain",
+          "contact"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "years": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "contact": {
+            "type": "object",
+            "properties": {
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "phoneCountryCode": {
+                "type": "string"
+              },
+              "phoneExt": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "organization": {
+                "type": "string"
+              },
+              "jobTitle": {
+                "type": "string"
+              },
+              "address1": {
+                "type": "string"
+              },
+              "address2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "promotionCode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "email",
+              "firstName",
+              "lastName",
+              "address1",
+              "city",
+              "state",
+              "postalCode",
+              "country",
+              "phone"
+            ]
+          }
+        }
+      },
+      "DomainRegisterResponse": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "nameservers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "verification": {
+            "type": "object"
+          }
+        }
+      },
+      "NotificationPreferences": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string",
+            "format": "email"
+          },
+          "preferences": {
+            "type": "object",
+            "properties": {
+              "contact": {
+                "type": "boolean"
+              },
+              "booking": {
+                "type": "boolean"
+              },
+              "newsletter": {
+                "type": "boolean"
+              },
+              "productUpdates": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "NotificationPreferencesRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "recipient"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string",
+            "format": "email"
+          },
+          "preferences": {
+            "type": "object"
+          },
+          "unsubscribeAll": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarConnectRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "provider"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "google",
+              "outlook",
+              "apple"
+            ]
+          }
+        }
+      },
+      "CalendarConnectResponse": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "icsUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "instructions": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SiteHistoryList": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "entries"
+        ]
+      },
+      "SiteRestoreRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "historyId"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "historyId": {
+            "type": "string"
+          }
+        }
+      },
+      "SiteRestoreResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "historyId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "historyId"
+        ]
+      },
+      "ContactSubmissionRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "fields"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Site slug taken from /content.json"
+          },
+          "sectionId": {
+            "type": "string",
+            "description": "Optional section id for the contact-form that triggered the submission"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "intent": {
+            "type": "string",
+            "description": "Categorizes the submission (contact, booking, quote, etc.)"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "value"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "value": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "ContactSubmissionResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "LeadMessage": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "inbound",
+              "outbound"
+            ]
+          },
+          "channel": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Lead": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "leadId": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactField"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeadMessage"
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "leadId",
+          "status",
+          "createdAt"
+        ]
+      },
+      "ContactField": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "LeadListResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Lead"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "LeadReplyRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "leadId",
+          "message"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "leadId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        }
+      },
+      "LeadStatusRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "leadId",
+          "status"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "leadId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "responded",
+              "closed"
+            ]
+          },
+          "followUpAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "reviewId": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReviewListResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            }
+          }
+        }
+      },
+      "ReviewSubmissionRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "body"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "body": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      },
+      "ReviewSubmissionResponse": {
+        "type": "object",
+        "properties": {
+          "review": {
+            "$ref": "#/components/schemas/Review"
+          }
+        }
+      },
+      "ReviewStatusRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "reviewId",
+          "status"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "reviewId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          }
+        }
+      },
+      "AnalyticsRecord": {
+        "type": "object",
+        "properties": {
+          "statDate": {
+            "type": "string"
+          },
+          "pageViewCount": {
+            "type": "integer"
+          },
+          "leadCount": {
+            "type": "integer"
+          },
+          "bookingCount": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AnalyticsResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsRecord"
+            }
+          },
+          "alerts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AnalyticsEventRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "type"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "page_view",
+              "lead",
+              "booking"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "referrer": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

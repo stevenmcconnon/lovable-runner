@@ -2911,7 +2911,9 @@ export class DatabaseService {
     const planName = subscription?.planName ?? 'Trial';
     const monthlyEditLimit = subscription?.monthlyEditLimit ?? fallbackLimit;
     const isPaid = Boolean(subscription && subscription.status === 'active');
-    if (planKey === 'infinite') {
+
+    // Treat any "infinite" plan variant (e.g. "infinite", "qa-infinite", "ci-infinite") as effectively unlimited.
+    if (planKey === 'infinite' || planKey.endsWith('-infinite') || planKey.includes('infinite')) {
       return {
         planKey,
         planName,
